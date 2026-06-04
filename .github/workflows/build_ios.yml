@@ -26,11 +26,7 @@ jobs:
 
       # 3. Install dependencies
       - name: Install dependencies
-        run: |
-          flutter pub get
-          cd ios
-          pod install
-          cd ..
+        run: flutter pub get
 
       # 4. Build iOS App (without code signing)
       - name: Build Flutter iOS App
