@@ -1,5 +1,5 @@
 flutter_launcher_icons:
   android: "launcher_icon"
   ios: true
-  image_path_ios: "assets/icon/app_icon_circle.jpg"
-  image_path_android: "assets/icon/app_icon_circle.png"
+  image_path_ios: "assets/icon/app_icon_ios.jpg"
+  image_path_android: "assets/icon/app_icon_android.png"
