@@ -35,13 +35,15 @@ jobs:
       # 5. Pack into .ipa format for sideloading
       - name: Package App into IPA
         run: |
+          VERSION=$(grep '^version: ' pubspec.yaml | sed 's/version: //g' | tr -d '"' | tr -d "'")
+          echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
           mkdir -p Payload
           cp -r build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app Payload/
-          zip -r OpenDragy_unsigned.ipa Payload
+          zip -r "OpenDragy_v${VERSION}.ipa" Payload
 
       # 6. Upload the finished IPA as a GitHub Actions Artifact
       - name: Upload IPA Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: OpenDragy-iOS-Unsigned
-          path: OpenDragy_unsigned.ipa
+          name: OpenDragy-iOS-v${{ env.APP_VERSION }}
+          path: OpenDragy_v${{ env.APP_VERSION }}.ipa
