@@ -41,6 +41,8 @@ dependencies:
   sensors_plus: ^7.0.0
   wakelock_plus: ^1.1.4
   path_provider: ^2.1.5
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
 
 dev_dependencies:
   flutter_test:

@@ -1,24 +1,55 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:hive/hive.dart';
 import 'package:path_provider/path_provider.dart';
 import '../models/saved_run.dart';
 
 class HistoryService {
-  Future<File> get _localFile async {
-    final directory = await getApplicationDocumentsDirectory();
-    return File('${directory.path}/runs_history.json');
+  static const String _boxName = 'runs_box';
+  bool _migrated = false;
+
+  Future<Box> get _box async {
+    if (!Hive.isBoxOpen(_boxName)) {
+      return await Hive.openBox(_boxName);
+    }
+    return Hive.box(_boxName);
+  }
+
+  Future<void> _migrateOldJsonIfNeeded() async {
+    if (_migrated) return;
+    try {
+      final directory = await getApplicationDocumentsDirectory();
+      final oldFile = File('${directory.path}/runs_history.json');
+      if (await oldFile.exists()) {
+        final contents = await oldFile.readAsString();
+        final List<dynamic> jsonList = jsonDecode(contents) as List<dynamic>;
+        final runs = jsonList
+            .map((json) => SavedRun.fromJson(json as Map<String, dynamic>))
+            .toList();
+
+        final box = await _box;
+        for (final run in runs) {
+          if (!box.containsKey(run.id)) {
+            await box.put(run.id, run.toJson());
+          }
+        }
+        await oldFile.delete();
+        // ignore: avoid_print
+        print('[HistoryService] Migrated ${runs.length} runs from JSON to Hive.');
+      }
+      _migrated = true;
+    } catch (e) {
+      // ignore: avoid_print
+      print('[HistoryService] Error during JSON migration: $e');
+    }
   }
 
   Future<List<SavedRun>> loadRuns() async {
     try {
-      final file = await _localFile;
-      if (!await file.exists()) {
-        return [];
-      }
-      final contents = await file.readAsString();
-      final List<dynamic> jsonList = jsonDecode(contents) as List<dynamic>;
-      final runs = jsonList
-          .map((json) => SavedRun.fromJson(json as Map<String, dynamic>))
+      await _migrateOldJsonIfNeeded();
+      final box = await _box;
+      final runs = box.values
+          .map((json) => SavedRun.fromJson(Map<String, dynamic>.from(json as Map)))
           .toList();
       // Sort descending by date (newest first)
       runs.sort((a, b) => b.dateTime.compareTo(a.dateTime));
@@ -32,11 +63,8 @@ class HistoryService {
 
   Future<void> saveRun(SavedRun run) async {
     try {
-      final runs = await loadRuns();
-      runs.insert(0, run); // Insert at the beginning (newest first)
-      final file = await _localFile;
-      final contents = jsonEncode(runs.map((r) => r.toJson()).toList());
-      await file.writeAsString(contents);
+      final box = await _box;
+      await box.put(run.id, run.toJson());
     } catch (e) {
       // ignore: avoid_print
       print('[HistoryService] Error saving run: $e');
@@ -45,14 +73,8 @@ class HistoryService {
 
   Future<void> updateRun(SavedRun updatedRun) async {
     try {
-      final runs = await loadRuns();
-      final index = runs.indexWhere((r) => r.id == updatedRun.id);
-      if (index != -1) {
-        runs[index] = updatedRun;
-        final file = await _localFile;
-        final contents = jsonEncode(runs.map((r) => r.toJson()).toList());
-        await file.writeAsString(contents);
-      }
+      final box = await _box;
+      await box.put(updatedRun.id, updatedRun.toJson());
     } catch (e) {
       // ignore: avoid_print
       print('[HistoryService] Error updating run: $e');
@@ -61,11 +83,8 @@ class HistoryService {
 
   Future<void> deleteRun(String id) async {
     try {
-      final runs = await loadRuns();
-      runs.removeWhere((r) => r.id == id);
-      final file = await _localFile;
-      final contents = jsonEncode(runs.map((r) => r.toJson()).toList());
-      await file.writeAsString(contents);
+      final box = await _box;
+      await box.delete(id);
     } catch (e) {
       // ignore: avoid_print
       print('[HistoryService] Error deleting run: $e');
