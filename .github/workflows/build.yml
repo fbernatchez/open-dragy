@@ -1,0 +1,77 @@
+name: Build Mobile Apps
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+jobs:
+  build-ios:
+    name: Build iOS App
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build Flutter iOS App
+        run: flutter build ipa --no-codesign
+
+      - name: Package App into IPA
+        run: |
+          VERSION=$(grep '^version: ' pubspec.yaml | sed 's/version: //g' | tr -d '"' | tr -d "'")
+          echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
+          mkdir -p Payload
+          cp -r build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app Payload/
+          zip -r "OpenDragy_v${VERSION}.ipa" Payload
+
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenDragy-iOS-v${{ env.APP_VERSION }}
+          path: OpenDragy_v${{ env.APP_VERSION }}.ipa
+
+  build-android:
+    name: Build Android App
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build Flutter Android APK
+        run: flutter build apk --release
+
+      - name: Rename and Package APK
+        run: |
+          VERSION=$(grep '^version: ' pubspec.yaml | sed 's/version: //g' | tr -d '"' | tr -d "'")
+          echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
+          cp build/app/outputs/flutter-apk/app-release.apk "OpenDragy_v${VERSION}.apk"
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenDragy-Android-v${{ env.APP_VERSION }}
+          path: OpenDragy_v${{ env.APP_VERSION }}.apk
