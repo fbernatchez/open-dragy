@@ -1,4 +1,4 @@
-package com.example.open_dragy
+package com.fbengineering.open_dragy
 
 import io.flutter.embedding.android.FlutterActivity
 
