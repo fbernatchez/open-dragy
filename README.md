@@ -76,6 +76,9 @@ The ESP32 firmware is located in [OpenDragy.ino](file:///d:/Projets/open_dragy/O
 
 The companion application is written in Flutter and is located in the root directory.
 
+> [!TIP]
+> If you want to install pre-compiled releases on your phone or share them with friends, follow the step-by-step **[Mobile App Installation Guide](file:///d:/Projets/open_dragy/README_INSTALL.md)** for Android APK and iOS IPA sideloading.
+
 ### Prerequisites
 * Flutter SDK (v3.11.5 or newer recommended)
 * Android Studio (for Android build) / Xcode (for iOS build, macOS required)
