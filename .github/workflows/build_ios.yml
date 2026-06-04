@@ -1,0 +1,51 @@
+name: Build iOS IPA
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch: # Allows manual trigger from the GitHub Actions UI
+
+jobs:
+  build:
+    name: Build iOS App
+    runs-on: macos-latest
+
+    steps:
+      # 1. Checkout repository
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Setup Flutter
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          # Automatically detects flutter version from pubspec/lockfile or uses latest stable
+
+      # 3. Install dependencies
+      - name: Install dependencies
+        run: |
+          flutter pub get
+          cd ios
+          pod install
+          cd ..
+
+      # 4. Build iOS App (without code signing)
+      - name: Build Flutter iOS App
+        run: flutter build ipa --no-codesign
+
+      # 5. Pack into .ipa format for sideloading
+      - name: Package App into IPA
+        run: |
+          mkdir -p Payload
+          cp -r build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app Payload/
+          zip -r OpenDragy_unsigned.ipa Payload
+
+      # 6. Upload the finished IPA as a GitHub Actions Artifact
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenDragy-iOS-Unsigned
+          path: OpenDragy_unsigned.ipa
