@@ -234,7 +234,7 @@ class RaceMetrics {
       targetLabel: json['targetLabel'] as String?,
       isRunning: false,
       history: (json['history'] as List? ?? [])
-          .map((e) => DataPoint.fromJson(e as Map<String, dynamic>))
+          .map((e) => DataPoint.fromJson(Map<String, dynamic>.from(e as Map)))
           .toList(),
     );
   }

@@ -678,4 +678,45 @@ void main() {
 
     expect(find.text('No telemetry data recorded for this run.'), findsOneWidget);
   });
+
+  test('SavedRun and RaceMetrics JSON deserialization handles dynamic maps from Hive', () {
+    final Map<dynamic, dynamic> hiveRawData = {
+      'id': 'run_123',
+      'dateTime': '2026-06-04T18:00:00.000',
+      'metrics': {
+        'speedKmh': 100.0,
+        'distanceMeters': 400.0,
+        'gForce': 0.5,
+        'elapsedTime': 10.0,
+        'time14Mile': 10.0,
+        'history': [
+          {
+            'elapsedTime': 0.0,
+            'speedKmh': 0.0,
+            'gForce': 0.0,
+            'altitude': 100.0,
+          },
+          {
+            'elapsedTime': 5.0,
+            'speedKmh': 50.0,
+            'gForce': 0.5,
+            'altitude': 101.0,
+          }
+        ],
+      },
+      'notes': 'Test run',
+      'temperature': 20.0,
+      'humidity': 50.0,
+      'vehicleId': 'v1',
+      'vehicleName': 'My Car',
+    };
+
+    final savedRunMap = Map<String, dynamic>.from(hiveRawData);
+    final savedRun = SavedRun.fromJson(savedRunMap);
+
+    expect(savedRun.id, 'run_123');
+    expect(savedRun.metrics.speedKmh, 100.0);
+    expect(savedRun.metrics.history.length, 2);
+    expect(savedRun.metrics.history[1].speedKmh, 50.0);
+  });
 }

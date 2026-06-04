@@ -716,7 +716,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               ),
                             ),
                           ),
-                          if (isConnected) ...[
+                          if (isConnected && !(metrics.history.isNotEmpty && !metrics.isRunning)) ...[
                             const SizedBox(height: 16),
                             ElevatedButton(
                               onPressed: dragy.toggleArm,
