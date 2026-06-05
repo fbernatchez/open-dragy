@@ -67,6 +67,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           case RaceRollingTarget.zeroToOneHundredKmh:
             completedTime = metrics.time0to100kmh;
             break;
+          case RaceRollingTarget.fiftyToSeventyFiveMph:
+          case RaceRollingTarget.eightyToOneTwentyKmh:
           case RaceRollingTarget.custom:
             completedTime = metrics.elapsedTime > 0 ? metrics.elapsedTime : null;
             break;
@@ -245,6 +247,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ));
           }
           break;
+        case RaceRollingTarget.fiftyToSeventyFiveMph:
+        case RaceRollingTarget.eightyToOneTwentyKmh:
         case RaceRollingTarget.custom:
           if (!metrics.isRunning && metrics.history.isNotEmpty && metrics.elapsedTime > 0) {
             reachedMilestones.add(_ReachedMilestone(
@@ -673,11 +677,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                         items: dragy.isMetric
                                             ? const [
                                                 DropdownMenuItem(value: RaceRollingTarget.zeroToOneHundredKmh, child: Text('0-100 km/h')),
+                                                DropdownMenuItem(value: RaceRollingTarget.eightyToOneTwentyKmh, child: Text('80-120 km/h')),
                                                 DropdownMenuItem(value: RaceRollingTarget.oneHundredToTwoHundredKmh, child: Text('100-200 km/h')),
                                                 DropdownMenuItem(value: RaceRollingTarget.custom, child: Text('Custom Range...')),
                                               ]
                                             : const [
                                                 DropdownMenuItem(value: RaceRollingTarget.zeroToSixtyMph, child: Text('0-60 mph')),
+                                                DropdownMenuItem(value: RaceRollingTarget.fiftyToSeventyFiveMph, child: Text('50-75 mph')),
                                                 DropdownMenuItem(value: RaceRollingTarget.sixtyToOneThirtyMph, child: Text('60-130 mph')),
                                                 DropdownMenuItem(value: RaceRollingTarget.custom, child: Text('Custom Range...')),
                                               ],

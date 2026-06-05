@@ -573,10 +573,12 @@ void main() {
 
     // Verify options present
     expect(find.text('0-60 mph').last, findsOneWidget);
+    expect(find.text('50-75 mph').last, findsOneWidget);
     expect(find.text('60-130 mph').last, findsOneWidget);
     expect(find.text('Custom Range...').last, findsOneWidget);
     // Verify metric options are NOT present
     expect(find.text('0-100 km/h'), findsNothing);
+    expect(find.text('80-120 km/h'), findsNothing);
     expect(find.text('100-200 km/h'), findsNothing);
 
     // Close the dropdown menu by selecting '0-60 mph'
@@ -599,10 +601,12 @@ void main() {
 
     // Verify options present
     expect(find.text('0-100 km/h').last, findsOneWidget);
+    expect(find.text('80-120 km/h').last, findsOneWidget);
     expect(find.text('100-200 km/h').last, findsOneWidget);
     expect(find.text('Custom Range...').last, findsOneWidget);
     // Verify imperial options are NOT present
     expect(find.text('0-60 mph'), findsNothing);
+    expect(find.text('50-75 mph'), findsNothing);
     expect(find.text('60-130 mph'), findsNothing);
   });
 

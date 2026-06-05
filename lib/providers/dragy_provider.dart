@@ -28,8 +28,10 @@ enum RaceDragTarget {
 
 enum RaceRollingTarget {
   zeroToSixtyMph('0-60 mph'),
+  fiftyToSeventyFiveMph('50-75 mph'),
   sixtyToOneThirtyMph('60-130 mph'),
   zeroToOneHundredKmh('0-100 km/h'),
+  eightyToOneTwentyKmh('80-120 km/h'),
   oneHundredToTwoHundredKmh('100-200 km/h'),
   custom('Custom Range...');
 
@@ -99,14 +101,18 @@ class DragyProvider extends ChangeNotifier {
 
   double get rollingStartSpeed {
     switch (_activeRollingTarget) {
-      case RaceRollingTarget.sixtyToOneThirtyMph:
-        return 96.5606;
-      case RaceRollingTarget.oneHundredToTwoHundredKmh:
-        return 100.0;
       case RaceRollingTarget.zeroToSixtyMph:
         return 0.0;
+      case RaceRollingTarget.fiftyToSeventyFiveMph:
+        return 80.4672; // 50 * 1.609344
+      case RaceRollingTarget.sixtyToOneThirtyMph:
+        return 96.5606;
       case RaceRollingTarget.zeroToOneHundredKmh:
         return 0.0;
+      case RaceRollingTarget.eightyToOneTwentyKmh:
+        return 80.0;
+      case RaceRollingTarget.oneHundredToTwoHundredKmh:
+        return 100.0;
       case RaceRollingTarget.custom:
         return _isMetric ? _customRollingStartSpeed : _customRollingStartSpeed / 0.621371;
     }
@@ -114,14 +120,18 @@ class DragyProvider extends ChangeNotifier {
 
   double get rollingEndSpeed {
     switch (_activeRollingTarget) {
-      case RaceRollingTarget.sixtyToOneThirtyMph:
-        return 209.2147;
-      case RaceRollingTarget.oneHundredToTwoHundredKmh:
-        return 200.0;
       case RaceRollingTarget.zeroToSixtyMph:
         return 96.5606;
+      case RaceRollingTarget.fiftyToSeventyFiveMph:
+        return 120.7008; // 75 * 1.609344
+      case RaceRollingTarget.sixtyToOneThirtyMph:
+        return 209.2147;
       case RaceRollingTarget.zeroToOneHundredKmh:
         return 100.0;
+      case RaceRollingTarget.eightyToOneTwentyKmh:
+        return 120.0;
+      case RaceRollingTarget.oneHundredToTwoHundredKmh:
+        return 200.0;
       case RaceRollingTarget.custom:
         return _isMetric ? _customRollingEndSpeed : _customRollingEndSpeed / 0.621371;
     }
@@ -492,12 +502,16 @@ class DragyProvider extends ChangeNotifier {
         _activeRollingTarget = RaceRollingTarget.oneHundredToTwoHundredKmh;
       } else if (_activeRollingTarget == RaceRollingTarget.zeroToSixtyMph) {
         _activeRollingTarget = RaceRollingTarget.zeroToOneHundredKmh;
+      } else if (_activeRollingTarget == RaceRollingTarget.fiftyToSeventyFiveMph) {
+        _activeRollingTarget = RaceRollingTarget.eightyToOneTwentyKmh;
       }
     } else {
       if (_activeRollingTarget == RaceRollingTarget.oneHundredToTwoHundredKmh) {
         _activeRollingTarget = RaceRollingTarget.sixtyToOneThirtyMph;
       } else if (_activeRollingTarget == RaceRollingTarget.zeroToOneHundredKmh) {
         _activeRollingTarget = RaceRollingTarget.zeroToSixtyMph;
+      } else if (_activeRollingTarget == RaceRollingTarget.eightyToOneTwentyKmh) {
+        _activeRollingTarget = RaceRollingTarget.fiftyToSeventyFiveMph;
       }
     }
   }
