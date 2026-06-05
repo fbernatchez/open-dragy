@@ -14,6 +14,28 @@ import '../services/settings_service.dart';
 import '../services/weather_service.dart';
 import '../utils/nmea_parser.dart';
 
+enum RaceDragTarget {
+  sixtyFeet('60ft'),
+  eighthMile('1/8 Mile'),
+  thousandFeet('1000 ft'),
+  quarterMile('1/4 Mile'),
+  halfMile('1/2 Mile');
+
+  final String label;
+  const RaceDragTarget(this.label);
+}
+
+enum RaceRollingTarget {
+  zeroToSixtyMph('0-60 mph'),
+  sixtyToOneThirtyMph('60-130 mph'),
+  zeroToOneHundredKmh('0-100 km/h'),
+  oneHundredToTwoHundredKmh('100-200 km/h'),
+  custom('Custom Range...');
+
+  final String label;
+  const RaceRollingTarget(this.label);
+}
+
 class DragyProvider extends ChangeNotifier {
   final BleService _bleService = BleService();
   final PhysicsEngine _physicsEngine = PhysicsEngine();
@@ -49,10 +71,10 @@ class DragyProvider extends ChangeNotifier {
   bool _isMetric = false;
   bool get isMetric => _isMetric;
 
-  String _activeDragTarget = '1/4mile';
-  String get activeDragTarget => _activeDragTarget;
+  RaceDragTarget _activeDragTarget = RaceDragTarget.quarterMile;
+  RaceDragTarget get activeDragTarget => _activeDragTarget;
 
-  bool get stopAtQuarterMile => _activeDragTarget == '1/4mile';
+  bool get stopAtQuarterMile => _activeDragTarget == RaceDragTarget.quarterMile;
 
   // --- Settings ---
   bool _tempInCelsius = true;
@@ -65,10 +87,8 @@ class DragyProvider extends ChangeNotifier {
   String _runMode = 'drag';
   String get runMode => _runMode;
 
-
-
-  String _activeRollingTarget = '60-130mph';
-  String get activeRollingTarget => _activeRollingTarget;
+  RaceRollingTarget _activeRollingTarget = RaceRollingTarget.sixtyToOneThirtyMph;
+  RaceRollingTarget get activeRollingTarget => _activeRollingTarget;
 
   double _customRollingStartSpeed = 100.0;
   double get customRollingStartSpeed => _customRollingStartSpeed;
@@ -77,64 +97,55 @@ class DragyProvider extends ChangeNotifier {
   double get customRollingEndSpeed => _customRollingEndSpeed;
 
   double get rollingStartSpeed {
-    if (_activeRollingTarget == '60-130mph') {
-      return 96.5606;
-    } else if (_activeRollingTarget == '100-200kmh') {
-      return 100.0;
-    } else if (_activeRollingTarget == '0-60mph') {
-      return 0.0;
-    } else if (_activeRollingTarget == '0-100kmh') {
-      return 0.0;
-    } else {
-      return _customRollingStartSpeed;
+    switch (_activeRollingTarget) {
+      case RaceRollingTarget.sixtyToOneThirtyMph:
+        return 96.5606;
+      case RaceRollingTarget.oneHundredToTwoHundredKmh:
+        return 100.0;
+      case RaceRollingTarget.zeroToSixtyMph:
+        return 0.0;
+      case RaceRollingTarget.zeroToOneHundredKmh:
+        return 0.0;
+      case RaceRollingTarget.custom:
+        return _isMetric ? _customRollingStartSpeed : _customRollingStartSpeed / 0.621371;
     }
   }
 
   double get rollingEndSpeed {
-    if (_activeRollingTarget == '60-130mph') {
-      return 209.2147;
-    } else if (_activeRollingTarget == '100-200kmh') {
-      return 200.0;
-    } else if (_activeRollingTarget == '0-60mph') {
-      return 96.5606;
-    } else if (_activeRollingTarget == '0-100kmh') {
-      return 100.0;
-    } else {
-      return _customRollingEndSpeed;
+    switch (_activeRollingTarget) {
+      case RaceRollingTarget.sixtyToOneThirtyMph:
+        return 209.2147;
+      case RaceRollingTarget.oneHundredToTwoHundredKmh:
+        return 200.0;
+      case RaceRollingTarget.zeroToSixtyMph:
+        return 96.5606;
+      case RaceRollingTarget.zeroToOneHundredKmh:
+        return 100.0;
+      case RaceRollingTarget.custom:
+        return _isMetric ? _customRollingEndSpeed : _customRollingEndSpeed / 0.621371;
     }
   }
 
   double get customRollingStartSpeedUserUnit {
-    return _isMetric ? _customRollingStartSpeed : _customRollingStartSpeed * 0.621371;
+    return _customRollingStartSpeed;
   }
 
   double get customRollingEndSpeedUserUnit {
-    return _isMetric ? _customRollingEndSpeed : _customRollingEndSpeed * 0.621371;
+    return _customRollingEndSpeed;
   }
 
   String get activeDragTargetLabel {
-    if (_activeDragTarget == '60ft') return '60ft';
-    if (_activeDragTarget == '1/8mile') return '1/8 Mile';
-    if (_activeDragTarget == '1000ft') return '1000 ft';
-    if (_activeDragTarget == '1/4mile') return '1/4 Mile';
-    if (_activeDragTarget == '1/2mile') return '1/2 Mile';
-    return '1/4 Mile';
+    return _activeDragTarget.label;
   }
 
   String get activeRollingTargetLabel {
-    if (_activeRollingTarget == '60-130mph') {
-      return '60-130 mph';
-    } else if (_activeRollingTarget == '100-200kmh') {
-      return '100-200 km/h';
-    } else if (_activeRollingTarget == '0-60mph') {
-      return '0-60 mph';
-    } else if (_activeRollingTarget == '0-100kmh') {
-      return '0-100 km/h';
-    } else {
-      final start = _isMetric ? _customRollingStartSpeed : (_customRollingStartSpeed * 0.621371).round();
-      final end = _isMetric ? _customRollingEndSpeed : (_customRollingEndSpeed * 0.621371).round();
+    if (_activeRollingTarget == RaceRollingTarget.custom) {
+      final start = _customRollingStartSpeed.round();
+      final end = _customRollingEndSpeed.round();
       final unit = _isMetric ? 'km/h' : 'mph';
       return '$start-$end $unit';
+    } else {
+      return _activeRollingTarget.label;
     }
   }
 
@@ -428,15 +439,22 @@ class DragyProvider extends ChangeNotifier {
   void toggleSpeedUnit() {
     _isMetric = !_isMetric;
     _syncActiveTargetToUnit();
+    if (_isMetric) {
+      _customRollingStartSpeed = (_customRollingStartSpeed / 0.621371).roundToDouble();
+      _customRollingEndSpeed = (_customRollingEndSpeed / 0.621371).roundToDouble();
+    } else {
+      _customRollingStartSpeed = (_customRollingStartSpeed * 0.621371).roundToDouble();
+      _customRollingEndSpeed = (_customRollingEndSpeed * 0.621371).roundToDouble();
+    }
     _saveSettings();
     notifyListeners();
   }
 
   void setStopAtQuarterMile(bool value) {
-    setActiveDragTarget(value ? '1/4mile' : '1/2mile');
+    setActiveDragTarget(value ? RaceDragTarget.quarterMile : RaceDragTarget.halfMile);
   }
 
-  void setActiveDragTarget(String target) {
+  void setActiveDragTarget(RaceDragTarget target) {
     if (_activeDragTarget != target) {
       _activeDragTarget = target;
       _isArmed = false; // Disarm on target change
@@ -450,24 +468,33 @@ class DragyProvider extends ChangeNotifier {
   // --- Settings Methods ---
 
   void setMetric(bool isMetric) {
-    _isMetric = isMetric;
-    _syncActiveTargetToUnit();
-    _saveSettings();
-    notifyListeners();
+    if (_isMetric != isMetric) {
+      _isMetric = isMetric;
+      _syncActiveTargetToUnit();
+      if (_isMetric) {
+        _customRollingStartSpeed = (_customRollingStartSpeed / 0.621371).roundToDouble();
+        _customRollingEndSpeed = (_customRollingEndSpeed / 0.621371).roundToDouble();
+      } else {
+        _customRollingStartSpeed = (_customRollingStartSpeed * 0.621371).roundToDouble();
+        _customRollingEndSpeed = (_customRollingEndSpeed * 0.621371).roundToDouble();
+      }
+      _saveSettings();
+      notifyListeners();
+    }
   }
 
   void _syncActiveTargetToUnit() {
     if (_isMetric) {
-      if (_activeRollingTarget == '60-130mph') {
-        _activeRollingTarget = '100-200kmh';
-      } else if (_activeRollingTarget == '0-60mph') {
-        _activeRollingTarget = '0-100kmh';
+      if (_activeRollingTarget == RaceRollingTarget.sixtyToOneThirtyMph) {
+        _activeRollingTarget = RaceRollingTarget.oneHundredToTwoHundredKmh;
+      } else if (_activeRollingTarget == RaceRollingTarget.zeroToSixtyMph) {
+        _activeRollingTarget = RaceRollingTarget.zeroToOneHundredKmh;
       }
     } else {
-      if (_activeRollingTarget == '100-200kmh') {
-        _activeRollingTarget = '60-130mph';
-      } else if (_activeRollingTarget == '0-100kmh') {
-        _activeRollingTarget = '0-60mph';
+      if (_activeRollingTarget == RaceRollingTarget.oneHundredToTwoHundredKmh) {
+        _activeRollingTarget = RaceRollingTarget.sixtyToOneThirtyMph;
+      } else if (_activeRollingTarget == RaceRollingTarget.zeroToOneHundredKmh) {
+        _activeRollingTarget = RaceRollingTarget.zeroToSixtyMph;
       }
     }
   }
@@ -506,7 +533,7 @@ class DragyProvider extends ChangeNotifier {
 
 
 
-  void setActiveRollingTarget(String target) {
+  void setActiveRollingTarget(RaceRollingTarget target) {
     if (_activeRollingTarget != target) {
       _activeRollingTarget = target;
       _isArmed = false; // Disarm on target change
@@ -518,14 +545,8 @@ class DragyProvider extends ChangeNotifier {
   }
 
   void setCustomRollingRange(double start, double end) {
-    if (_isMetric) {
-      _customRollingStartSpeed = start;
-      _customRollingEndSpeed = end;
-    } else {
-      // Convert mph input to km/h internally
-      _customRollingStartSpeed = start / 0.621371;
-      _customRollingEndSpeed = end / 0.621371;
-    }
+    _customRollingStartSpeed = start.roundToDouble();
+    _customRollingEndSpeed = end.roundToDouble();
     _isArmed = false; // Disarm on range change
     _metrics = _physicsEngine.reset();
     _lastGpsUpdateTime = null;
@@ -538,9 +559,19 @@ class DragyProvider extends ChangeNotifier {
     _isMetric = data['isMetric'] as bool? ?? false;
     _tempInCelsius = data['tempInCelsius'] as bool? ?? true;
     _runMode = data['runMode'] as String? ?? 'drag';
-    _activeDragTarget = data['activeDragTarget'] as String? ??
-        ((data['stopAtQuarterMile'] as bool? ?? true) ? '1/4mile' : '1/2mile');
-    _activeRollingTarget = data['activeRollingTarget'] as String? ?? '60-130mph';
+    
+    final dragTargetName = data['activeDragTarget'] as String?;
+    _activeDragTarget = RaceDragTarget.values.firstWhere(
+      (e) => e.name == dragTargetName,
+      orElse: () => RaceDragTarget.quarterMile,
+    );
+
+    final rollingTargetName = data['activeRollingTarget'] as String?;
+    _activeRollingTarget = RaceRollingTarget.values.firstWhere(
+      (e) => e.name == rollingTargetName,
+      orElse: () => RaceRollingTarget.sixtyToOneThirtyMph,
+    );
+
     _customRollingStartSpeed = (data['customRollingStartSpeed'] as num?)?.toDouble() ?? 100.0;
     _customRollingEndSpeed = (data['customRollingEndSpeed'] as num?)?.toDouble() ?? 200.0;
     _syncActiveTargetToUnit();
@@ -552,11 +583,11 @@ class DragyProvider extends ChangeNotifier {
       'isMetric': _isMetric,
       'tempInCelsius': _tempInCelsius,
       'runMode': _runMode,
-      'activeDragTarget': _activeDragTarget,
+      'activeDragTarget': _activeDragTarget.name,
       'stopAtQuarterMile': stopAtQuarterMile,
-      'activeRollingTarget': _activeRollingTarget,
-      'customRollingStartSpeed': _customRollingStartSpeed,
-      'customRollingEndSpeed': _customRollingEndSpeed,
+      'activeRollingTarget': _activeRollingTarget.name,
+      'customRollingStartSpeed': _customRollingStartSpeed.round(),
+      'customRollingEndSpeed': _customRollingEndSpeed.round(),
     });
   }
 

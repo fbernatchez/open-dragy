@@ -79,7 +79,7 @@ class MockDragyProvider extends ChangeNotifier implements DragyProvider {
   String runMode = 'drag';
 
   @override
-  String activeRollingTarget = '60-130mph';
+  RaceRollingTarget activeRollingTarget = RaceRollingTarget.sixtyToOneThirtyMph;
 
   @override
   double customRollingStartSpeed = 100.0;
@@ -100,10 +100,10 @@ class MockDragyProvider extends ChangeNotifier implements DragyProvider {
   double get customRollingEndSpeedUserUnit => 200.0;
 
   @override
-  String get activeDragTargetLabel => stopAtQuarterMile ? '1/4 Mile' : '1/2 Mile';
+  String get activeDragTargetLabel => activeDragTarget.label;
 
   @override
-  String get activeRollingTargetLabel => activeRollingTarget;
+  String get activeRollingTargetLabel => activeRollingTarget.label;
 
   @override
   bool get isSpeedConstant => true;
@@ -121,7 +121,7 @@ class MockDragyProvider extends ChangeNotifier implements DragyProvider {
   }
 
   @override
-  void setActiveRollingTarget(String target) {
+  void setActiveRollingTarget(RaceRollingTarget target) {
     activeRollingTarget = target;
     notifyListeners();
   }
@@ -143,12 +143,12 @@ class MockDragyProvider extends ChangeNotifier implements DragyProvider {
   }
 
   @override
-  String activeDragTarget = '1/4mile';
+  RaceDragTarget activeDragTarget = RaceDragTarget.quarterMile;
 
   @override
-  void setActiveDragTarget(String target) {
+  void setActiveDragTarget(RaceDragTarget target) {
     activeDragTarget = target;
-    stopAtQuarterMile = target == '1/4mile';
+    stopAtQuarterMile = target == RaceDragTarget.quarterMile;
     notifyListeners();
   }
 
@@ -158,7 +158,7 @@ class MockDragyProvider extends ChangeNotifier implements DragyProvider {
   @override
   void setStopAtQuarterMile(bool value) {
     stopAtQuarterMile = value;
-    activeDragTarget = value ? '1/4mile' : '1/2mile';
+    activeDragTarget = value ? RaceDragTarget.quarterMile : RaceDragTarget.halfMile;
     notifyListeners();
   }
 
@@ -294,7 +294,7 @@ void main() {
       hdop: 1.2,
     );
     await tester.pumpAndSettle();
-    expect(find.text('Ready'), findsOneWidget);
+    expect(find.text('Disarmed'), findsOneWidget);
 
     // 3. Connected & Moving (Disarmed) State
     mockProvider.updateState(
@@ -548,7 +548,7 @@ void main() {
 
     // 1. Imperial units (isMetric = false)
     mockProvider.isMetric = false;
-    mockProvider.activeRollingTarget = '60-130mph';
+    mockProvider.activeRollingTarget = RaceRollingTarget.sixtyToOneThirtyMph;
 
     await tester.pumpWidget(
       ChangeNotifierProvider<DragyProvider>.value(
@@ -582,7 +582,7 @@ void main() {
 
     // 2. Metric units (isMetric = true)
     mockProvider.isMetric = true;
-    mockProvider.activeRollingTarget = '100-200kmh';
+    mockProvider.activeRollingTarget = RaceRollingTarget.oneHundredToTwoHundredKmh;
     mockProvider.notifyListeners();
     await tester.pumpAndSettle();
 
@@ -718,5 +718,21 @@ void main() {
     expect(savedRun.metrics.speedKmh, 100.0);
     expect(savedRun.metrics.history.length, 2);
     expect(savedRun.metrics.history[1].speedKmh, 50.0);
+  });
+
+  test('DragyProvider settings serialization test', () {
+    double customRollingStartSpeed = 100.0;
+    double customRollingEndSpeed = 200.0;
+    
+    final savedMap = {
+      'isMetric': false,
+      'customRollingStartSpeed': customRollingStartSpeed.round(),
+      'customRollingEndSpeed': customRollingEndSpeed.round(),
+    };
+    
+    expect(savedMap['customRollingStartSpeed'], 100);
+    expect(savedMap['customRollingEndSpeed'], 200);
+    expect(savedMap['customRollingStartSpeed'] is int, true);
+    expect(savedMap['customRollingEndSpeed'] is int, true);
   });
 }
