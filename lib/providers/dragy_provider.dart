@@ -220,7 +220,7 @@ class DragyProvider extends ChangeNotifier {
   Future<void> _loadAppVersion() async {
     try {
       final packageInfo = await PackageInfo.fromPlatform();
-      _appVersion = '${packageInfo.version}+${packageInfo.buildNumber}';
+      _appVersion = packageInfo.version;
       _needsUiUpdate = true;
     } catch (_) {}
   }
