@@ -177,7 +177,6 @@ class DragyProvider extends ChangeNotifier {
     }
   }
 
-  double _rawGForce = 0.0;
   double _gForceCalibrationOffset = 0.0;
   DateTime? _lastGpsUpdateTime;
 
@@ -197,10 +196,6 @@ class DragyProvider extends ChangeNotifier {
   StreamSubscription? _connectionSubscription;
 
   final List<double> _recentSpeeds = [];
-
-  // Rolling debug log of raw NMEA sentences (last 200)
-  final List<String> _nmeaLog = [];
-  List<String> get nmeaLog => List.unmodifiable(_nmeaLog);
 
   List<SavedRun> _savedRuns = [];
   List<SavedRun> get savedRuns => _savedRuns;
@@ -238,10 +233,6 @@ class DragyProvider extends ChangeNotifier {
     });
 
     _nmeaSubscription = _bleService.nmeaStream.listen((sentence) {
-      // Append to rolling debug log
-      _nmeaLog.add(sentence);
-      if (_nmeaLog.length > 200) _nmeaLog.removeAt(0);
-
       final data = NmeaParser.parse(sentence);
       if (data != null) {
         bool updated = false;
@@ -325,7 +316,6 @@ class DragyProvider extends ChangeNotifier {
 
           // 16384 LSB/g is standard for +/- 2G range on BMI160
           double gForce = y / 16384.0;
-          _rawGForce = gForce;
 
           // Automatic progressive calibration when speed is constant (cruising or stationary) and not in an active run
           if (!_metrics.isRunning && isSpeedConstant) {

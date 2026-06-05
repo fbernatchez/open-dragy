@@ -39,9 +39,6 @@ class MockDragyProvider extends ChangeNotifier implements DragyProvider {
   double? longitude;
 
   @override
-  List<String> nmeaLog = [];
-
-  @override
   BluetoothDevice? connectedDevice;
 
   @override
