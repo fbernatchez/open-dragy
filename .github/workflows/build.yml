@@ -28,7 +28,7 @@ jobs:
 
       - name: Package App into IPA
         run: |
-          VERSION=$(grep '^version: ' pubspec.yaml | sed 's/version: //g' | tr -d '"' | tr -d "'")
+          VERSION=$(grep '^version: ' pubspec.yaml | sed 's/version: //g' | tr -d '"' | tr -d "'" | cut -d'+' -f1)
           echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
           mkdir -p Payload
           cp -r build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app Payload/
@@ -66,7 +66,7 @@ jobs:
 
       - name: Rename and Package APK
         run: |
-          VERSION=$(grep '^version: ' pubspec.yaml | sed 's/version: //g' | tr -d '"' | tr -d "'")
+          VERSION=$(grep '^version: ' pubspec.yaml | sed 's/version: //g' | tr -d '"' | tr -d "'" | cut -d'+' -f1)
           echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
           cp build/app/outputs/flutter-apk/app-release.apk "OpenDragy_v${VERSION}.apk"
 
