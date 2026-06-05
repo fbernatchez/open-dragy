@@ -104,7 +104,7 @@ class DragyProvider extends ChangeNotifier {
       case RaceRollingTarget.zeroToSixtyMph:
         return 0.0;
       case RaceRollingTarget.fiftyToSeventyFiveMph:
-        return 80.4672; // 50 * 1.609344
+        return 80.4672;
       case RaceRollingTarget.sixtyToOneThirtyMph:
         return 96.5606;
       case RaceRollingTarget.zeroToOneHundredKmh:
@@ -123,7 +123,7 @@ class DragyProvider extends ChangeNotifier {
       case RaceRollingTarget.zeroToSixtyMph:
         return 96.5606;
       case RaceRollingTarget.fiftyToSeventyFiveMph:
-        return 120.7008; // 75 * 1.609344
+        return 120.7008;
       case RaceRollingTarget.sixtyToOneThirtyMph:
         return 209.2147;
       case RaceRollingTarget.zeroToOneHundredKmh:
