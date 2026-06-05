@@ -13,8 +13,9 @@ import 'package:open_dragy/screens/run_detail_screen.dart';
 import 'package:open_dragy/screens/settings_screen.dart';
 import 'package:open_dragy/screens/garage_screen.dart';
 import 'package:open_dragy/services/ble_service.dart';
-
 import 'package:open_dragy/models/vehicle.dart';
+import 'dart:io';
+import 'package:hive/hive.dart';
 
 class MockDragyProvider extends ChangeNotifier implements DragyProvider {
   @override
@@ -249,6 +250,10 @@ void main() {
   testWidgets('Dashboard basic smoke test', (WidgetTester tester) async {
     tester.view.physicalSize = const Size(1080, 1920);
     tester.view.devicePixelRatio = 1.0;
+    
+    // Initialize Hive in a temporary directory for the test context
+    final tempDir = Directory.systemTemp.createTempSync();
+    Hive.init(tempDir.path);
     
     await tester.pumpWidget(const OpenDragyApp());
 
