@@ -39,6 +39,9 @@ class MockDragyProvider extends ChangeNotifier implements DragyProvider {
   double? longitude;
 
   @override
+  String appVersion = '1.0.0-beta.7+7';
+
+  @override
   BluetoothDevice? connectedDevice;
 
   @override
@@ -502,6 +505,9 @@ void main() {
     await tester.tap(tempSwitch);
     await tester.pumpAndSettle();
     expect(mockProvider.tempInCelsius, false);
+
+    // Verify version info is displayed
+    expect(find.text('1.0.0-beta.7+7'), findsOneWidget);
   });
 
   testWidgets('GarageScreen displays empty state and lists vehicles', (WidgetTester tester) async {

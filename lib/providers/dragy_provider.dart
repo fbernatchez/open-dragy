@@ -13,6 +13,7 @@ import '../services/garage_service.dart';
 import '../services/settings_service.dart';
 import '../services/weather_service.dart';
 import '../utils/nmea_parser.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 enum RaceDragTarget {
   sixtyFeet('60ft'),
@@ -203,10 +204,22 @@ class DragyProvider extends ChangeNotifier {
   Timer? _uiTimer;
   bool _needsUiUpdate = false;
 
+  String _appVersion = '';
+  String get appVersion => _appVersion;
+
+  Future<void> _loadAppVersion() async {
+    try {
+      final packageInfo = await PackageInfo.fromPlatform();
+      _appVersion = '${packageInfo.version}+${packageInfo.buildNumber}';
+      _needsUiUpdate = true;
+    } catch (_) {}
+  }
+
   DragyProvider() {
     loadSavedRuns();
     _loadGarage();
     _loadSettings();
+    _loadAppVersion();
 
     _uiTimer = Timer.periodic(const Duration(milliseconds: 16), (_) {
       if (_needsUiUpdate || _metrics.isRunning) {
