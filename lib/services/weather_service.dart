@@ -14,8 +14,8 @@ class WeatherService {
       final uri = Uri.parse(
         'https://api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lon&current=temperature_2m,relative_humidity_2m'
       );
-      final request = await _client.getUrl(uri).timeout(const Duration(seconds: 3));
-      final response = await request.close().timeout(const Duration(seconds: 3));
+      final request = await _client.getUrl(uri).timeout(const Duration(seconds: 10));
+      final response = await request.close().timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
         final body = await response.transform(utf8.decoder).join();
         final data = json.decode(body);
@@ -27,9 +27,13 @@ class WeatherService {
             return {'temp': temp, 'humid': humid};
           }
         }
+      } else {
+        // ignore: avoid_print
+        print('[WeatherService] Non-200 response from Open-Meteo: ${response.statusCode}');
       }
-    } catch (_) {
-      // Fallback gracefully on socket exception, network timeout, DNS lookup failure, etc.
+    } catch (e) {
+      // ignore: avoid_print
+      print('[WeatherService] Error fetching weather: $e');
     }
     return null;
   }

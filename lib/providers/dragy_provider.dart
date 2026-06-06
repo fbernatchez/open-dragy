@@ -404,32 +404,52 @@ class DragyProvider extends ChangeNotifier {
 
     // Filter out creeping / GPS wander blips
     if (duration >= 1.0 && maxSpeed >= 10.0) {
-      double temp = 15.0 + Random().nextDouble() * 10.0; // fallback 15-25°C
-      double humid = 40.0 + Random().nextDouble() * 30.0; // fallback 40-70%
-
-      final lat = _latitude;
-      final lon = _longitude;
-      if (lat != null && lon != null) {
-        final weather = await _weatherService.fetchWeather(lat, lon);
-        if (weather != null) {
-          temp = weather['temp']!;
-          humid = weather['humid']!;
-        }
-      }
-
       final vehicle = activeVehicle;
+      final runId = DateTime.now().millisecondsSinceEpoch.toString();
+      
       final savedRun = SavedRun(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        id: runId,
         dateTime: DateTime.now(),
         metrics: runMetrics,
-        temperature: temp,
-        humidity: humid,
+        temperature: null,
+        humidity: null,
         vehicleId: vehicle?.id,
         vehicleName: vehicle?.displayName,
       );
+
+      // Save run locally and show in UI immediately
       await _historyService.saveRun(savedRun);
       _savedRuns.insert(0, savedRun);
       _needsUiUpdate = true;
+      notifyListeners();
+
+      // Fetch weather asynchronously in the background if coordinates are available
+      final lat = _latitude;
+      final lon = _longitude;
+      if (lat != null && lon != null && (lat != 0.0 || lon != 0.0)) {
+        _fetchAndApplyWeather(runId, lat, lon);
+      }
+    }
+  }
+
+  Future<void> _fetchAndApplyWeather(String runId, double lat, double lon) async {
+    final weather = await _weatherService.fetchWeather(lat, lon);
+    if (weather != null) {
+      final temp = weather['temp']!;
+      final humid = weather['humid']!;
+
+      final index = _savedRuns.indexWhere((r) => r.id == runId);
+      if (index != -1) {
+        // Copy-with the fetched weather data while preserving other fields (like notes user might have typed in the meantime)
+        final updatedRun = _savedRuns[index].copyWith(
+          temperature: temp,
+          humidity: humid,
+        );
+        _savedRuns[index] = updatedRun;
+        await _historyService.updateRun(updatedRun);
+        _needsUiUpdate = true;
+        notifyListeners();
+      }
     }
   }
 
