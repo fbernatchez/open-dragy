@@ -498,9 +498,9 @@ class _DetailSlipRow extends StatelessWidget {
     if (trapSpeed != null) {
       if (!isMetric) {
         final speedMph = trapSpeed! * 0.621371;
-        speedDisplay = '${time!.toStringAsFixed(2)}s @ ${speedMph.toStringAsFixed(1)} mph';
+        speedDisplay = '${time!.toStringAsFixed(2)}s@${speedMph.toStringAsFixed(1)} mph';
       } else {
-        speedDisplay = '${time!.toStringAsFixed(2)}s @ ${trapSpeed!.toStringAsFixed(1)} km/h';
+        speedDisplay = '${time!.toStringAsFixed(2)}s@${trapSpeed!.toStringAsFixed(1)} km/h';
       }
     } else {
       speedDisplay = '${time!.toStringAsFixed(2)}s';
