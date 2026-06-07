@@ -548,9 +548,9 @@ class PhysicsEngine {
     double? t60_130 = current.time60to130mph;
     double? t100_200 = current.time100to200kmh;
     
-    if (targetLabel.contains('60-130')) {
+    if (targetLabel == '60-130 mph') {
       t60_130 = newElapsedTimeCalculated;
-    } else if (targetLabel.contains('100-200')) {
+    } else if (targetLabel == '100-200 km/h') {
       t100_200 = newElapsedTimeCalculated;
     }
 

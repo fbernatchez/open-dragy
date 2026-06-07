@@ -166,7 +166,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (tSpeedUnit != null) {
         reachedMilestones.add(
           _ReachedMilestone(
-            label: isMetric ? '0-100km/h' : '0-60mph',
+            label: isMetric ? '0-100 km/h' : '0-60 mph',
             time: tSpeedUnit,
             sortTime: tSpeedUnit,
           ),
@@ -176,7 +176,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (metrics.time18Mile != null) {
         reachedMilestones.add(
           _ReachedMilestone(
-            label: '1/8mile',
+            label: '1/8 mile',
             time: metrics.time18Mile!,
             sortTime: metrics.time18Mile!,
             trapSpeed: metrics.trap18Mile,
@@ -186,7 +186,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (metrics.time1000ft != null) {
         reachedMilestones.add(
           _ReachedMilestone(
-            label: '1000ft',
+            label: '1000 ft',
             time: metrics.time1000ft!,
             sortTime: metrics.time1000ft!,
             trapSpeed: metrics.trap1000ft,
@@ -196,7 +196,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (metrics.time14Mile != null) {
         reachedMilestones.add(
           _ReachedMilestone(
-            label: '1/4mile',
+            label: '1/4 mile',
             time: metrics.time14Mile!,
             sortTime: metrics.time14Mile!,
             trapSpeed: metrics.trap14Mile,
@@ -206,7 +206,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (metrics.time12Mile != null) {
         reachedMilestones.add(
           _ReachedMilestone(
-            label: '1/2mile',
+            label: '1/2 mile',
             time: metrics.time12Mile!,
             sortTime: metrics.time12Mile!,
             trapSpeed: metrics.trap12Mile,
@@ -220,7 +220,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (tInterval != null) {
         reachedMilestones.add(
           _ReachedMilestone(
-            label: isMetric ? '100-200km/h' : '60-130mph',
+            label: isMetric ? '100-200 km/h' : '60-130 mph',
             time: tInterval,
             sortTime: isMetric
                 ? (metrics.time0to100kmh ?? 0.0) + tInterval
@@ -235,7 +235,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (t0to130_200 != null) {
         reachedMilestones.add(
           _ReachedMilestone(
-            label: isMetric ? '0-200km/h' : '0-130mph',
+            label: isMetric ? '0-200 km/h' : '0-130 mph',
             time: t0to130_200,
             sortTime: t0to130_200,
           ),
