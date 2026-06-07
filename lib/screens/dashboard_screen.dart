@@ -181,11 +181,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final completed = getCompletedTests(metrics);
       if (completed.isNotEmpty) {
         final test = completed.first;
+        final time = getCompletedTimeForCategory(metrics, test.id) ?? metrics.elapsedTime;
         reachedMilestones.add(
           _ReachedMilestone(
             label: test.displayName,
-            time: metrics.elapsedTime,
-            sortTime: metrics.elapsedTime,
+            time: time,
+            sortTime: time,
           ),
         );
       } else if (!metrics.isRunning &&

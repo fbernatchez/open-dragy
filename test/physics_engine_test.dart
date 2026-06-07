@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:open_dragy/services/physics_engine.dart';
 import 'package:open_dragy/models/race_metrics.dart';
+import 'package:open_dragy/models/race_target.dart';
 
 RaceMetrics _update(
   PhysicsEngine engine,
@@ -466,6 +467,41 @@ void main() {
       expect(metrics.distanceMeters, completedDistance);
       expect(metrics.elapsedTime, completedElapsedTime);
       expect(metrics.startAltitude, completedStartAltitude);
+    });
+
+    test('does not calculate drag milestones for interval runs but calculates target interval milestone', () {
+      RaceMetrics metrics = RaceMetrics();
+      // Arm in interval mode and run a 50-75 mph target
+      // startSpeed: 50 mph = 80.4672 km/h
+      // endSpeed: 75 mph = 120.7008 km/h
+      
+      double speed = 75.0;
+      while (speed <= 125.0) {
+        metrics = engine.updateMetrics(
+          metrics,
+          speed,
+          100.0,
+          isArmed: true,
+          runMode: 'interval',
+          targetDistance: null,
+          targetDistanceUnit: null,
+          targetStartSpeed: 80.4672,
+          targetEndSpeed: 120.7008,
+          targetSpeedUnit: 'mph',
+          intervalStartSpeed: 80.4672,
+          intervalEndSpeed: 120.7008,
+        );
+        speed += 3.0;
+      }
+      expect(metrics.isRunning, false);
+      expect(metrics.elapsedTime, greaterThan(0.0));
+      
+      // Verify that getCompletedTimeForCategory for drag milestones returns null
+      expect(getCompletedTimeForCategory(metrics, '60ft'), isNull);
+      expect(getCompletedTimeForCategory(metrics, '0-60mph'), isNull);
+      
+      // Verify interval milestone returns the correct time
+      expect(getCompletedTimeForCategory(metrics, '50-75mph'), equals(metrics.elapsedTime));
     });
   });
 }

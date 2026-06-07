@@ -40,7 +40,7 @@ class MockDragyProvider extends ChangeNotifier implements DragyProvider {
   double? longitude;
 
   @override
-  String appVersion = '1.0.1-beta.2';
+  String appVersion = '1.0.1-beta.3';
 
   @override
   BluetoothDevice? connectedDevice;
@@ -319,7 +319,7 @@ void main() {
     // 2a. Connected & Stationary, GPS not ready (0 satellites, 0.0 hdop)
     mockProvider.updateState(
       isConnected: true,
-      metrics: RaceMetrics(speedKmh: 0.0, isRunning: false),
+      metrics: RaceMetrics(speedKmh: 0.0, isRunning: false, runMode: 'drag'),
       satellites: 0,
       hdop: 0.0,
     );
@@ -329,7 +329,7 @@ void main() {
     // 2b. Connected & Stationary, GPS ready (8 satellites, 1.2 hdop)
     mockProvider.updateState(
       isConnected: true,
-      metrics: RaceMetrics(speedKmh: 0.0, isRunning: false),
+      metrics: RaceMetrics(speedKmh: 0.0, isRunning: false, runMode: 'drag'),
       satellites: 8,
       hdop: 1.2,
     );
@@ -339,7 +339,7 @@ void main() {
     // 3. Connected & Moving (Disarmed) State
     mockProvider.updateState(
       isConnected: true,
-      metrics: RaceMetrics(speedKmh: 10.0, isRunning: false),
+      metrics: RaceMetrics(speedKmh: 10.0, isRunning: false, runMode: 'drag'),
       satellites: 8,
       hdop: 1.2,
     );
@@ -353,7 +353,7 @@ void main() {
     mockProvider.runMode = 'drag';
     mockProvider.updateState(
       isConnected: true,
-      metrics: RaceMetrics(speedKmh: 15.0, isRunning: false),
+      metrics: RaceMetrics(speedKmh: 15.0, isRunning: false, runMode: 'drag'),
       satellites: 8,
       hdop: 1.2,
     );
@@ -363,7 +363,7 @@ void main() {
     // 3c. Connected, Armed, and Stationary (Awaiting Launch) State in drag mode
     mockProvider.updateState(
       isConnected: true,
-      metrics: RaceMetrics(speedKmh: 0.0, isRunning: false),
+      metrics: RaceMetrics(speedKmh: 0.0, isRunning: false, runMode: 'drag'),
       satellites: 8,
       hdop: 1.2,
     );
@@ -375,7 +375,7 @@ void main() {
     // 4. Running State (Live Elapsed Time)
     mockProvider.updateState(
       isConnected: true,
-      metrics: RaceMetrics(speedKmh: 50.0, isRunning: true),
+      metrics: RaceMetrics(speedKmh: 50.0, isRunning: true, runMode: 'drag'),
       liveElapsedTime: 3.45,
       satellites: 8,
       hdop: 1.2,
@@ -392,6 +392,7 @@ void main() {
         speedKmh: 0.0,
         isRunning: false,
         time14Mile: 12.34,
+        runMode: 'drag',
       ),
       satellites: 8,
       hdop: 1.2,
@@ -554,7 +555,7 @@ void main() {
     expect(mockProvider.tempInCelsius, false);
 
     // Verify version info is displayed
-    expect(find.text('1.0.1-beta.2'), findsOneWidget);
+    expect(find.text('1.0.1-beta.3'), findsOneWidget);
   });
 
   testWidgets('GarageScreen displays empty state and lists vehicles', (WidgetTester tester) async {
@@ -716,6 +717,7 @@ void main() {
         speedKmh: 0.0,
         distanceMeters: 0.0,
         elapsedTime: 0.0,
+        runMode: 'drag',
         history: const [],
       ),
     );
@@ -743,6 +745,7 @@ void main() {
         'gForce': 0.5,
         'elapsedTime': 10.0,
         'time14Mile': 10.0,
+        'runMode': 'drag',
         'history': [
           {
             'elapsedTime': 0.0,

@@ -280,6 +280,11 @@ double? getCompletedTimeForCategory(RaceMetrics metrics, String categoryId) {
   // 1. Check if it matches an official test definition
   for (final test in officialTests) {
     if (test.id == categoryId) {
+      // Drag tests require a standing start, so they must be run in drag mode.
+      if (test.type == 'drag' && metrics.runMode != 'drag') {
+        return null;
+      }
+
       // Fast path A: If the test criteria match the run's active target, return its live elapsed time directly.
       if (metrics.runMode == test.type) {
         if (test.type == 'drag') {
