@@ -280,8 +280,38 @@ double? getCompletedTimeForCategory(RaceMetrics metrics, String categoryId) {
   // 1. Check if it matches an official test definition
   for (final test in officialTests) {
     if (test.id == categoryId) {
+      // Fast path A: If the test criteria match the run's active target, return its live elapsed time directly.
+      if (metrics.runMode == test.type) {
+        if (test.type == 'drag') {
+          if (test.distance != null &&
+              metrics.targetDistance != null &&
+              (test.distance! - metrics.targetDistance!).abs() < 0.001 &&
+              test.distanceUnit?.name == metrics.targetDistanceUnit) {
+            return metrics.elapsedTime > 0 ? metrics.elapsedTime : null;
+          } else if (test.endSpeed != null &&
+              metrics.targetEndSpeed != null &&
+              (test.endSpeed! - metrics.targetEndSpeed!).abs() < 0.1 &&
+              test.speedUnit?.name == metrics.targetSpeedUnit) {
+            return metrics.elapsedTime > 0 ? metrics.elapsedTime : null;
+          }
+        } else if (test.type == 'interval') {
+          if (test.startSpeed != null &&
+              metrics.targetStartSpeed != null &&
+              (test.startSpeed! - metrics.targetStartSpeed!).abs() < 0.1 &&
+              test.endSpeed != null &&
+              metrics.targetEndSpeed != null &&
+              (test.endSpeed! - metrics.targetEndSpeed!).abs() < 0.1 &&
+              test.speedUnit?.name == metrics.targetSpeedUnit) {
+            return metrics.elapsedTime > 0 ? metrics.elapsedTime : null;
+          }
+        }
+      }
+
+      // Fast path B: Check standard precalculated fields
       final precalculated = _getPrecalculatedTime(metrics, test.id);
       if (precalculated != null) return precalculated;
+
+      // Fallback: Calculate dynamically from history coordinates
       return _calculateTimeFromHistory(metrics, test);
     }
   }
