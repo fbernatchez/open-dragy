@@ -82,7 +82,14 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
         }
 
         if (!matchesAny) {
-          final customId = 'custom_${run.metrics.targetStartSpeed}_${run.metrics.targetEndSpeed}_${run.metrics.targetSpeedUnit}';
+          final unit = run.metrics.targetSpeedUnit ?? (isMetric ? 'kmh' : 'mph');
+          final start = unit == 'mph'
+              ? (run.metrics.targetStartSpeed! * 0.621371).roundToDouble()
+              : run.metrics.targetStartSpeed!.roundToDouble();
+          final end = unit == 'mph'
+              ? (run.metrics.targetEndSpeed! * 0.621371).roundToDouble()
+              : run.metrics.targetEndSpeed!.roundToDouble();
+          final customId = 'custom_${start}_${end}_$unit';
           if (!seenIds.contains(customId)) {
             seenIds.add(customId);
             final label = getDisplayLabelForTarget(
@@ -181,15 +188,11 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
     if (categoryId.startsWith('custom_')) {
       final parts = categoryId.split('_');
       if (parts.length >= 4) {
-        final start = double.tryParse(parts[1]);
-        final end = double.tryParse(parts[2]);
+        final start = double.tryParse(parts[1])?.round() ?? 0;
+        final end = double.tryParse(parts[2])?.round() ?? 0;
         final unit = parts[3];
-        return getDisplayLabelForTarget(
-          startSpeed: start,
-          endSpeed: end,
-          speedUnit: unit,
-          runMode: 'interval',
-        );
+        final displayUnit = unit == 'mph' ? 'mph' : 'km/h';
+        return '$start-$end $displayUnit';
       }
     }
     return categoryId;
@@ -515,7 +518,13 @@ class RunHistoryCard extends StatelessWidget {
         }
         if (!isOfficial) {
           final unit = metrics.targetSpeedUnit ?? (isMetric ? 'kmh' : 'mph');
-          final customId = 'custom_${metrics.targetStartSpeed}_${metrics.targetEndSpeed}_$unit';
+          final start = unit == 'mph'
+              ? (metrics.targetStartSpeed! * 0.621371).roundToDouble()
+              : metrics.targetStartSpeed!.roundToDouble();
+          final end = unit == 'mph'
+              ? (metrics.targetEndSpeed! * 0.621371).roundToDouble()
+              : metrics.targetEndSpeed!.roundToDouble();
+          final customId = 'custom_${start}_${end}_$unit';
           compTime = getCompletedTimeForCategory(metrics, customId);
         }
         primaryTime = compTime != null ? "${compTime.toStringAsFixed(2)}s" : "-.--s";

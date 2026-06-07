@@ -108,80 +108,19 @@ class PhysicsEngine {
         }
 
         // 2. Launch Detection & Validation
-        if (newSpeedKmh > launchCommitThreshold && _speedBuffer.length >= 2) {
-          int k = _speedBuffer.length - 1;
-          int crossingIndex = -1;
-
-          // Scan backwards to find the most recent zero-crossing transition
-          for (int j = k - 1; j >= 0; j--) {
-            if (_speedBuffer[j] <= zeroCrossingThreshold &&
-                _speedBuffer[j + 1] > zeroCrossingThreshold) {
-              crossingIndex = j;
-              break;
-            }
-          }
-
-          if (crossingIndex != -1) {
-            double vStart = _speedBuffer[crossingIndex];
-            double vEnd = _speedBuffer[crossingIndex + 1];
-            double startFraction =
-                (zeroCrossingThreshold - vStart) / (vEnd - vStart);
-
-            // Time offset from the crossing point to the current tick
-            double elapsedOffset = (k - crossingIndex - startFraction) * dt;
-
-            // Integrate distance for the first fractional step
-            double firstStepTime = dt * (1.0 - startFraction);
-            double avgSpeedMs =
-                ((zeroCrossingThreshold / 3.6) + (vEnd / 3.6)) / 2;
-            double initialDistance = avgSpeedMs * firstStepTime;
-
-            // Integrate distance for all subsequent steps
-            for (int j = crossingIndex + 1; j < k; j++) {
-              double stepAvgSpeedMs =
-                  ((_speedBuffer[j] / 3.6) + (_speedBuffer[j + 1] / 3.6)) / 2;
-              initialDistance += stepAvgSpeedMs * dt;
-            }
-
-            List<DataPoint> initialHistory = [];
-            // Zero crossing point
-            initialHistory.add(DataPoint(
-              elapsedTime: 0.0,
-              speedKmh: zeroCrossingThreshold,
-              gForce: current.gForce,
-              altitude: currentAltitude,
-            ));
-
-            // Points from crossingIndex + 1 to k
-            for (int j = crossingIndex + 1; j <= k; j++) {
-              double tJ = firstStepTime + (j - (crossingIndex + 1)) * dt;
-              initialHistory.add(DataPoint(
-                elapsedTime: tJ,
-                speedKmh: _speedBuffer[j],
-                gForce: current.gForce,
-                altitude: currentAltitude,
-              ));
-            }
-
-            RaceMetrics simulated = current.copyWith(
-              isRunning: true,
-              elapsedTime: elapsedOffset,
-              distanceMeters: initialDistance,
-              speedKmh: newSpeedKmh,
-              gForce: current.gForce, // Retain IMU G-force
-              startAltitude: currentAltitude,
-              runMode: 'drag',
-              targetDistance: targetDistance,
-              targetDistanceUnit: targetDistanceUnit,
-              targetStartSpeed: targetStartSpeed,
-              targetEndSpeed: targetEndSpeed,
-              targetSpeedUnit: targetSpeedUnit,
-              history: initialHistory,
-            );
-
-            _speedBuffer.clear();
-            return simulated;
-          }
+        final triggered = _tryTriggerStandingStart(
+          current,
+          newSpeedKmh,
+          currentAltitude,
+          runMode: 'drag',
+          targetDistance: targetDistance,
+          targetDistanceUnit: targetDistanceUnit,
+          targetStartSpeed: targetStartSpeed,
+          targetEndSpeed: targetEndSpeed,
+          targetSpeedUnit: targetSpeedUnit,
+        );
+        if (triggered != null) {
+          return triggered;
         }
 
         // We are stopped or moving slowly (creeping/GPS wandering).
@@ -201,51 +140,68 @@ class PhysicsEngine {
         );
       } else {
         // Interval Mode
-        if (_speedBuffer.length >= 2) {
-          double prevSpeed = _speedBuffer[_speedBuffer.length - 2];
-          if (prevSpeed <= intervalStartSpeed && newSpeedKmh > intervalStartSpeed) {
-            // Trigger! Calculate the exact start crossing point.
-            double speedDiff = newSpeedKmh - prevSpeed;
-            double fraction = (intervalStartSpeed - prevSpeed) / speedDiff;
-            
-            // Time offset from the crossing point to the current tick
-            double elapsedOffset = (1.0 - fraction) * dt;
+        if (intervalStartSpeed == 0.0) {
+          final triggered = _tryTriggerStandingStart(
+            current,
+            newSpeedKmh,
+            currentAltitude,
+            runMode: 'interval',
+            targetDistance: targetDistance,
+            targetDistanceUnit: targetDistanceUnit,
+            targetStartSpeed: targetStartSpeed,
+            targetEndSpeed: targetEndSpeed,
+            targetSpeedUnit: targetSpeedUnit,
+          );
+          if (triggered != null) {
+            return triggered;
+          }
+        } else {
+          if (_speedBuffer.length >= 2) {
+            double prevSpeed = _speedBuffer[_speedBuffer.length - 2];
+            if (prevSpeed <= intervalStartSpeed && newSpeedKmh > intervalStartSpeed) {
+              // Trigger! Calculate the exact start crossing point.
+              double speedDiff = newSpeedKmh - prevSpeed;
+              double fraction = (intervalStartSpeed - prevSpeed) / speedDiff;
+              
+              // Time offset from the crossing point to the current tick
+              double elapsedOffset = (1.0 - fraction) * dt;
 
-            // Average speed during this fractional step (m/s)
-            double avgSpeedMs = ((intervalStartSpeed / 3.6) + (newSpeedKmh / 3.6)) / 2;
-            double initialDistance = avgSpeedMs * elapsedOffset;
+              // Average speed during this fractional step (m/s)
+              double avgSpeedMs = ((intervalStartSpeed / 3.6) + (newSpeedKmh / 3.6)) / 2;
+              double initialDistance = avgSpeedMs * elapsedOffset;
 
-            RaceMetrics simulated = current.copyWith(
-              isRunning: true,
-              elapsedTime: elapsedOffset,
-              distanceMeters: initialDistance,
-              speedKmh: newSpeedKmh,
-              gForce: current.gForce,
-              startAltitude: currentAltitude,
-              runMode: 'interval',
-              targetDistance: targetDistance,
-              targetDistanceUnit: targetDistanceUnit,
-              targetStartSpeed: targetStartSpeed,
-              targetEndSpeed: targetEndSpeed,
-              targetSpeedUnit: targetSpeedUnit,
-              history: [
-                DataPoint(
-                  elapsedTime: 0.0,
-                  speedKmh: intervalStartSpeed,
-                  gForce: current.gForce,
-                  altitude: currentAltitude,
-                ),
-                DataPoint(
-                  elapsedTime: elapsedOffset,
-                  speedKmh: newSpeedKmh,
-                  gForce: current.gForce,
-                  altitude: currentAltitude,
-                ),
-              ],
-            );
+              RaceMetrics simulated = current.copyWith(
+                isRunning: true,
+                elapsedTime: elapsedOffset,
+                distanceMeters: initialDistance,
+                speedKmh: newSpeedKmh,
+                gForce: current.gForce,
+                startAltitude: currentAltitude,
+                runMode: 'interval',
+                targetDistance: targetDistance,
+                targetDistanceUnit: targetDistanceUnit,
+                targetStartSpeed: targetStartSpeed,
+                targetEndSpeed: targetEndSpeed,
+                targetSpeedUnit: targetSpeedUnit,
+                history: [
+                  DataPoint(
+                    elapsedTime: 0.0,
+                    speedKmh: intervalStartSpeed,
+                    gForce: current.gForce,
+                    altitude: currentAltitude,
+                  ),
+                  DataPoint(
+                    elapsedTime: elapsedOffset,
+                    speedKmh: newSpeedKmh,
+                    gForce: current.gForce,
+                    altitude: currentAltitude,
+                  ),
+                ],
+              );
 
-            _speedBuffer.clear();
-            return simulated;
+              _speedBuffer.clear();
+              return simulated;
+            }
           }
         }
 
@@ -286,7 +242,9 @@ class PhysicsEngine {
       } else {
         // Interval Mode
         // Auto-cancel logic: if speed drops below starting speed - 10 km/h for 2 seconds, cancel the run
-        final double cancelThreshold = (intervalStartSpeed - 10.0).clamp(0.0, 300.0);
+        final double cancelThreshold = intervalStartSpeed == 0.0
+            ? 3.0
+            : (intervalStartSpeed - 10.0).clamp(0.0, 300.0);
         if (newSpeedKmh < cancelThreshold) {
           _stoppedTicks++;
           if (_stoppedTicks >= 20) {
@@ -599,6 +557,95 @@ class PhysicsEngine {
       isRunning: !targetAchieved,
       history: newHistory,
     );
+  }
+
+  RaceMetrics? _tryTriggerStandingStart(
+    RaceMetrics current,
+    double newSpeedKmh,
+    double currentAltitude, {
+    required String runMode,
+    required double? targetDistance,
+    required String? targetDistanceUnit,
+    required double? targetStartSpeed,
+    required double? targetEndSpeed,
+    required String? targetSpeedUnit,
+  }) {
+    if (newSpeedKmh > launchCommitThreshold && _speedBuffer.length >= 2) {
+      int k = _speedBuffer.length - 1;
+      int crossingIndex = -1;
+
+      // Scan backwards to find the most recent zero-crossing transition
+      for (int j = k - 1; j >= 0; j--) {
+        if (_speedBuffer[j] <= zeroCrossingThreshold &&
+            _speedBuffer[j + 1] > zeroCrossingThreshold) {
+          crossingIndex = j;
+          break;
+        }
+      }
+
+      if (crossingIndex != -1) {
+        double vStart = _speedBuffer[crossingIndex];
+        double vEnd = _speedBuffer[crossingIndex + 1];
+        double startFraction =
+            (zeroCrossingThreshold - vStart) / (vEnd - vStart);
+
+        // Time offset from the crossing point to the current tick
+        double elapsedOffset = (k - crossingIndex - startFraction) * dt;
+
+        // Integrate distance for the first fractional step
+        double firstStepTime = dt * (1.0 - startFraction);
+        double avgSpeedMs =
+            ((zeroCrossingThreshold / 3.6) + (vEnd / 3.6)) / 2;
+        double initialDistance = avgSpeedMs * firstStepTime;
+
+        // Integrate distance for all subsequent steps
+        for (int j = crossingIndex + 1; j < k; j++) {
+          double stepAvgSpeedMs =
+              ((_speedBuffer[j] / 3.6) + (_speedBuffer[j + 1] / 3.6)) / 2;
+          initialDistance += stepAvgSpeedMs * dt;
+        }
+
+        List<DataPoint> initialHistory = [];
+        // Zero crossing point
+        initialHistory.add(DataPoint(
+          elapsedTime: 0.0,
+          speedKmh: zeroCrossingThreshold,
+          gForce: current.gForce,
+          altitude: currentAltitude,
+        ));
+
+        // Points from crossingIndex + 1 to k
+        for (int j = crossingIndex + 1; j <= k; j++) {
+          double tJ = firstStepTime + (j - (crossingIndex + 1)) * dt;
+          initialHistory.add(DataPoint(
+            elapsedTime: tJ,
+            speedKmh: _speedBuffer[j],
+            gForce: current.gForce,
+            altitude: currentAltitude,
+          ));
+        }
+
+        RaceMetrics simulated = current.copyWith(
+          isRunning: true,
+          elapsedTime: elapsedOffset,
+          distanceMeters: initialDistance,
+          speedKmh: newSpeedKmh,
+          gForce: current.gForce,
+          startAltitude: currentAltitude,
+          runMode: runMode,
+          targetDistance: targetDistance,
+          targetDistanceUnit: targetDistanceUnit,
+          targetStartSpeed: targetStartSpeed,
+          targetEndSpeed: targetEndSpeed,
+          targetSpeedUnit: targetSpeedUnit,
+          history: initialHistory,
+        );
+
+        _speedBuffer.clear();
+        return simulated;
+      }
+    }
+    return null;
   }
 
   RaceMetrics reset() {

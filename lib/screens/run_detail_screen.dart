@@ -91,7 +91,13 @@ class RunDetailScreen extends StatelessWidget {
       }
       if (!matchesAny) {
         final unit = metrics.targetSpeedUnit ?? (isMetric ? 'kmh' : 'mph');
-        final customId = 'custom_${metrics.targetStartSpeed}_${metrics.targetEndSpeed}_$unit';
+        final start = unit == 'mph'
+            ? (metrics.targetStartSpeed! * 0.621371).roundToDouble()
+            : metrics.targetStartSpeed!.roundToDouble();
+        final end = unit == 'mph'
+            ? (metrics.targetEndSpeed! * 0.621371).roundToDouble()
+            : metrics.targetEndSpeed!.roundToDouble();
+        final customId = 'custom_${start}_${end}_$unit';
         final compTime = getCompletedTimeForCategory(metrics, customId);
         if (compTime != null) {
           final label = getDisplayLabelForTarget(
@@ -161,7 +167,13 @@ class RunDetailScreen extends StatelessWidget {
       );
       primaryLabel = "$label Time";
       final unit = metrics.targetSpeedUnit ?? (isMetric ? 'kmh' : 'mph');
-      final customId = 'custom_${metrics.targetStartSpeed}_${metrics.targetEndSpeed}_$unit';
+      final start = unit == 'mph'
+          ? (metrics.targetStartSpeed! * 0.621371).roundToDouble()
+          : metrics.targetStartSpeed!.roundToDouble();
+      final end = unit == 'mph'
+          ? (metrics.targetEndSpeed! * 0.621371).roundToDouble()
+          : metrics.targetEndSpeed!.roundToDouble();
+      final customId = 'custom_${start}_${end}_$unit';
       completedTime = getCompletedTimeForCategory(metrics, customId);
     }
 

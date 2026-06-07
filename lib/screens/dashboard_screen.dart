@@ -71,7 +71,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           case RaceIntervalTarget.fiftyToSeventyFiveMph:
             completedTime = getCompletedTimeForCategory(
               metrics,
-              'custom_80.4672_120.7008_mph',
+              'custom_50.0_75.0_mph',
             );
             break;
           case RaceIntervalTarget.eightyToOneTwentyKmh:

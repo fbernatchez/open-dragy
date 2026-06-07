@@ -21,12 +21,12 @@ enum SpeedUnit {
 class OfficialTest {
   final String id;
   final String displayName;
-  
+
   // Criteria
   final double? distance;
   final DistanceUnit? distanceUnit;
   final double? startSpeed; // in km/h
-  final double? endSpeed;   // in km/h
+  final double? endSpeed; // in km/h
   final SpeedUnit? speedUnit;
 
   const OfficialTest({
@@ -44,7 +44,7 @@ class HistoryCategory {
   final String id;
   final String displayName;
   final bool isOfficial;
-  
+
   // Custom interval details if applicable
   final double? startSpeed;
   final double? endSpeed;
@@ -139,18 +139,30 @@ const List<OfficialTest> officialTests = [
 // Helper to retrieve precalculated fields from RaceMetrics
 double? _getPrecalculatedTime(RaceMetrics m, String id) {
   switch (id) {
-    case '60ft': return m.time60ft;
-    case '0-60mph': return m.time0to60mph;
-    case '0-100kmh': return m.time0to100kmh;
-    case '1/8mile': return m.time18Mile;
-    case '1000ft': return m.time1000ft;
-    case '1/4mile': return m.time14Mile;
-    case '1/2mile': return m.time12Mile;
-    case '0-130mph': return m.time0to130mph;
-    case '0-200kmh': return m.time0to200kmh;
-    case '60-130mph': return m.time60to130mph;
-    case '100-200kmh': return m.time100to200kmh;
-    default: return null;
+    case '60ft':
+      return m.time60ft;
+    case '0-60mph':
+      return m.time0to60mph;
+    case '0-100kmh':
+      return m.time0to100kmh;
+    case '1/8mile':
+      return m.time18Mile;
+    case '1000ft':
+      return m.time1000ft;
+    case '1/4mile':
+      return m.time14Mile;
+    case '1/2mile':
+      return m.time12Mile;
+    case '0-130mph':
+      return m.time0to130mph;
+    case '0-200kmh':
+      return m.time0to200kmh;
+    case '60-130mph':
+      return m.time60to130mph;
+    case '100-200kmh':
+      return m.time100to200kmh;
+    default:
+      return null;
   }
 }
 
@@ -169,7 +181,10 @@ double _convertToMeters(double distance, DistanceUnit unit) {
 }
 
 // Search and interpolate distance crossing time
-double? _findDistanceCrossingTime(List<DataPoint> history, double targetMeters) {
+double? _findDistanceCrossingTime(
+  List<DataPoint> history,
+  double targetMeters,
+) {
   double currentDistance = 0.0;
   for (int i = 1; i < history.length; i++) {
     final prev = history[i - 1];
@@ -177,7 +192,7 @@ double? _findDistanceCrossingTime(List<DataPoint> history, double targetMeters) 
     final dt = curr.elapsedTime - prev.elapsedTime;
     final avgSpeedMs = ((prev.speedKmh / 3.6) + (curr.speedKmh / 3.6)) / 2;
     final stepDist = avgSpeedMs * dt;
-    
+
     if (currentDistance + stepDist >= targetMeters) {
       final neededDist = targetMeters - currentDistance;
       double fraction = 0.0;
@@ -192,12 +207,16 @@ double? _findDistanceCrossingTime(List<DataPoint> history, double targetMeters) 
 }
 
 // Search and interpolate speed crossing time
-double? _findSpeedCrossingTime(List<DataPoint> history, double targetSpeedKmh, double startTimeOffset) {
+double? _findSpeedCrossingTime(
+  List<DataPoint> history,
+  double targetSpeedKmh,
+  double startTimeOffset,
+) {
   for (int i = 1; i < history.length; i++) {
     final prev = history[i - 1];
     final curr = history[i];
     if (prev.elapsedTime < startTimeOffset) continue;
-    
+
     if (prev.speedKmh <= targetSpeedKmh && curr.speedKmh > targetSpeedKmh) {
       final speedDiff = curr.speedKmh - prev.speedKmh;
       double fraction = 0.0;
@@ -225,7 +244,11 @@ double? _calculateTimeFromHistory(RaceMetrics metrics, OfficialTest test) {
     } else {
       final startTime = _findSpeedCrossingTime(metrics.history, start, 0.0);
       if (startTime == null) return null;
-      final endTime = _findSpeedCrossingTime(metrics.history, test.endSpeed!, startTime);
+      final endTime = _findSpeedCrossingTime(
+        metrics.history,
+        test.endSpeed!,
+        startTime,
+      );
       if (endTime == null) return null;
       return endTime - startTime;
     }
@@ -235,14 +258,14 @@ double? _calculateTimeFromHistory(RaceMetrics metrics, OfficialTest test) {
 
 List<OfficialTest> getCompletedTests(RaceMetrics metrics) {
   final List<OfficialTest> completed = [];
-  
+
   for (final test in officialTests) {
     final time = getCompletedTimeForCategory(metrics, test.id);
     if (time != null) {
       completed.add(test);
     }
   }
-  
+
   return completed;
 }
 
@@ -251,13 +274,14 @@ double? getCompletedTimeForCategory(RaceMetrics metrics, String categoryId) {
   for (final test in officialTests) {
     if (test.id == categoryId) {
       // Standing start tests require either drag mode or an interval run that started from 0.
-      if (test.distance != null || (test.startSpeed != null && test.startSpeed == 0.0)) {
+      if (test.distance != null ||
+          (test.startSpeed != null && test.startSpeed == 0.0)) {
         if (metrics.runMode != 'drag' && metrics.targetStartSpeed != 0.0) {
           return null;
         }
       }
 
-      // Fast path B: Check standard precalculated fields
+      // Fast path: Check standard precalculated fields
       final precalculated = _getPrecalculatedTime(metrics, test.id);
       if (precalculated != null) return precalculated;
 
@@ -265,7 +289,7 @@ double? getCompletedTimeForCategory(RaceMetrics metrics, String categoryId) {
       return _calculateTimeFromHistory(metrics, test);
     }
   }
-  
+
   // 2. Custom categories lookup
   if (categoryId.startsWith('custom_')) {
     final parts = categoryId.split('_');
@@ -273,22 +297,37 @@ double? getCompletedTimeForCategory(RaceMetrics metrics, String categoryId) {
       final start = double.tryParse(parts[1]);
       final end = double.tryParse(parts[2]);
       final unit = parts[3];
-      
-      if (metrics.runMode == 'interval' &&
-          metrics.targetStartSpeed != null &&
-          metrics.targetEndSpeed != null &&
-          (metrics.targetStartSpeed! - start!).abs() < 0.1 &&
-          (metrics.targetEndSpeed! - end!).abs() < 0.1 &&
-          metrics.targetSpeedUnit == unit) {
-        final startTime = _findSpeedCrossingTime(metrics.history, start, 0.0);
-        if (startTime == null) return null;
-        final endTime = _findSpeedCrossingTime(metrics.history, end, startTime);
-        if (endTime == null) return null;
-        return endTime - startTime;
+
+      if (start != null && end != null) {
+        double startKmh = start;
+        double endKmh = end;
+        if (unit == 'mph') {
+          startKmh = start / 0.621371;
+          endKmh = end / 0.621371;
+        }
+
+        if (metrics.runMode == 'interval' &&
+            metrics.targetStartSpeed != null &&
+            metrics.targetEndSpeed != null &&
+            (metrics.targetStartSpeed! - startKmh).abs() < 0.1 &&
+            (metrics.targetEndSpeed! - endKmh).abs() < 0.1 &&
+            metrics.targetSpeedUnit == unit) {
+          final startTime = startKmh == 0.0
+              ? 0.0
+              : _findSpeedCrossingTime(metrics.history, startKmh, 0.0);
+          if (startTime == null) return null;
+          final endTime = _findSpeedCrossingTime(
+            metrics.history,
+            endKmh,
+            startTime,
+          );
+          if (endTime == null) return null;
+          return endTime - startTime;
+        }
       }
     }
   }
-  
+
   return null;
 }
 

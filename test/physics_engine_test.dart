@@ -503,5 +503,225 @@ void main() {
       // Since 50-75mph was removed from official tests, it should return null via getCompletedTimeForCategory
       expect(getCompletedTimeForCategory(metrics, '50-75mph'), isNull);
     });
+
+    test('standing-start interval run triggers and completes correctly', () {
+      RaceMetrics metrics = RaceMetrics();
+      // Custom 0-50 mph target
+      // startSpeed: 0.0 mph = 0.0 km/h
+      // endSpeed: 50.0 mph = 80.4672 km/h
+      
+      // Arm in interval mode and keep speed at 0
+      metrics = engine.updateMetrics(
+        metrics,
+        0.0,
+        100.0,
+        isArmed: true,
+        runMode: 'interval',
+        targetDistance: null,
+        targetDistanceUnit: null,
+        targetStartSpeed: 0.0,
+        targetEndSpeed: 80.4672,
+        targetSpeedUnit: 'mph',
+        intervalStartSpeed: 0.0,
+        intervalEndSpeed: 80.4672,
+      );
+      expect(metrics.isRunning, false);
+
+      // Accelerate slightly (below launchCommitThreshold)
+      metrics = engine.updateMetrics(
+        metrics,
+        1.5,
+        100.0,
+        isArmed: true,
+        runMode: 'interval',
+        targetDistance: null,
+        targetDistanceUnit: null,
+        targetStartSpeed: 0.0,
+        targetEndSpeed: 80.4672,
+        targetSpeedUnit: 'mph',
+        intervalStartSpeed: 0.0,
+        intervalEndSpeed: 80.4672,
+      );
+      expect(metrics.isRunning, false);
+
+      // Accelerate above launchCommitThreshold (3.0 km/h) -> Trigger!
+      metrics = engine.updateMetrics(
+        metrics,
+        4.0,
+        100.0,
+        isArmed: true,
+        runMode: 'interval',
+        targetDistance: null,
+        targetDistanceUnit: null,
+        targetStartSpeed: 0.0,
+        targetEndSpeed: 80.4672,
+        targetSpeedUnit: 'mph',
+        intervalStartSpeed: 0.0,
+        intervalEndSpeed: 80.4672,
+      );
+      expect(metrics.isRunning, true);
+
+      // Accelerate further up to endSpeed
+      double speed = 4.0;
+      while (metrics.isRunning) {
+        speed += 3.0;
+        metrics = engine.updateMetrics(
+          metrics,
+          speed,
+          100.0,
+          isArmed: true,
+          runMode: 'interval',
+          targetDistance: null,
+          targetDistanceUnit: null,
+          targetStartSpeed: 0.0,
+          targetEndSpeed: 80.4672,
+          targetSpeedUnit: 'mph',
+          intervalStartSpeed: 0.0,
+          intervalEndSpeed: 80.4672,
+        );
+      }
+      expect(metrics.isRunning, false);
+      expect(metrics.elapsedTime, greaterThan(0.0));
+    });
+
+    test('standing-start interval run cancels when speed drops below 3 km/h', () {
+      RaceMetrics metrics = RaceMetrics();
+      // Arm and trigger standing start
+      metrics = engine.updateMetrics(
+        metrics,
+        0.0,
+        100.0,
+        isArmed: true,
+        runMode: 'interval',
+        targetDistance: null,
+        targetDistanceUnit: null,
+        targetStartSpeed: 0.0,
+        targetEndSpeed: 80.4672,
+        targetSpeedUnit: 'mph',
+        intervalStartSpeed: 0.0,
+        intervalEndSpeed: 80.4672,
+      );
+      metrics = engine.updateMetrics(
+        metrics,
+        1.5,
+        100.0,
+        isArmed: true,
+        runMode: 'interval',
+        targetDistance: null,
+        targetDistanceUnit: null,
+        targetStartSpeed: 0.0,
+        targetEndSpeed: 80.4672,
+        targetSpeedUnit: 'mph',
+        intervalStartSpeed: 0.0,
+        intervalEndSpeed: 80.4672,
+      );
+      metrics = engine.updateMetrics(
+        metrics,
+        4.0,
+        100.0,
+        isArmed: true,
+        runMode: 'interval',
+        targetDistance: null,
+        targetDistanceUnit: null,
+        targetStartSpeed: 0.0,
+        targetEndSpeed: 80.4672,
+        targetSpeedUnit: 'mph',
+        intervalStartSpeed: 0.0,
+        intervalEndSpeed: 80.4672,
+      );
+      expect(metrics.isRunning, true);
+
+      // Drops below 3.0 km/h for 20 ticks (2 seconds)
+      for (int i = 0; i < 20; i++) {
+        metrics = engine.updateMetrics(
+          metrics,
+          1.5,
+          100.0,
+          isArmed: true,
+          runMode: 'interval',
+          targetDistance: null,
+          targetDistanceUnit: null,
+          targetStartSpeed: 0.0,
+          targetEndSpeed: 80.4672,
+          targetSpeedUnit: 'mph',
+          intervalStartSpeed: 0.0,
+          intervalEndSpeed: 80.4672,
+        );
+      }
+      expect(metrics.isRunning, false);
+    });
+
+    test('getCompletedTimeForCategory calculates custom interval category with mph unit conversion', () {
+      RaceMetrics metrics = RaceMetrics();
+      // Arm, trigger, and complete custom 0-50 mph run
+      metrics = engine.updateMetrics(
+        metrics,
+        0.0,
+        100.0,
+        isArmed: true,
+        runMode: 'interval',
+        targetDistance: null,
+        targetDistanceUnit: null,
+        targetStartSpeed: 0.0,
+        targetEndSpeed: 80.4672,
+        targetSpeedUnit: 'mph',
+        intervalStartSpeed: 0.0,
+        intervalEndSpeed: 80.4672,
+      );
+      metrics = engine.updateMetrics(
+        metrics,
+        3.0,
+        100.0,
+        isArmed: true,
+        runMode: 'interval',
+        targetDistance: null,
+        targetDistanceUnit: null,
+        targetStartSpeed: 0.0,
+        targetEndSpeed: 80.4672,
+        targetSpeedUnit: 'mph',
+        intervalStartSpeed: 0.0,
+        intervalEndSpeed: 80.4672,
+      );
+      metrics = engine.updateMetrics(
+        metrics,
+        5.0,
+        100.0,
+        isArmed: true,
+        runMode: 'interval',
+        targetDistance: null,
+        targetDistanceUnit: null,
+        targetStartSpeed: 0.0,
+        targetEndSpeed: 80.4672,
+        targetSpeedUnit: 'mph',
+        intervalStartSpeed: 0.0,
+        intervalEndSpeed: 80.4672,
+      );
+      expect(metrics.isRunning, true);
+
+      double speed = 5.0;
+      while (metrics.isRunning) {
+        speed += 3.0;
+        metrics = engine.updateMetrics(
+          metrics,
+          speed,
+          100.0,
+          isArmed: true,
+          runMode: 'interval',
+          targetDistance: null,
+          targetDistanceUnit: null,
+          targetStartSpeed: 0.0,
+          targetEndSpeed: 80.4672,
+          targetSpeedUnit: 'mph',
+          intervalStartSpeed: 0.0,
+          intervalEndSpeed: 80.4672,
+        );
+      }
+      expect(metrics.isRunning, false);
+
+      // Look up via custom category ID (values in user units, e.g. 0.0 to 50.0 mph)
+      final time = getCompletedTimeForCategory(metrics, 'custom_0.0_50.0_mph');
+      expect(time, isNotNull);
+      expect(time, closeTo(metrics.elapsedTime, 0.01));
+    });
   });
 }
