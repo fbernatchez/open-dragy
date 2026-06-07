@@ -89,7 +89,7 @@ const List<OfficialTest> officialTests = [
   OfficialTest(
     id: '1/8mile',
     type: 'drag',
-    displayName: '1/8 Mile',
+    displayName: '1/8 mile',
     distance: 0.125,
     distanceUnit: DistanceUnit.mile,
   ),
@@ -103,14 +103,14 @@ const List<OfficialTest> officialTests = [
   OfficialTest(
     id: '1/4mile',
     type: 'drag',
-    displayName: '1/4 Mile',
+    displayName: '1/4 mile',
     distance: 0.25,
     distanceUnit: DistanceUnit.mile,
   ),
   OfficialTest(
     id: '1/2mile',
     type: 'drag',
-    displayName: '1/2 Mile',
+    displayName: '1/2 mile',
     distance: 0.5,
     distanceUnit: DistanceUnit.mile,
   ),
@@ -262,10 +262,10 @@ String getDisplayLabelForTarget({
       if (unit == 'feet') {
         return '${distance.round()}ft';
       } else if (unit == 'mile') {
-        if (distance == 0.125) return '1/8 Mile';
-        if (distance == 0.25) return '1/4 Mile';
-        if (distance == 0.5) return '1/2 Mile';
-        return '$distance Mile';
+        if (distance == 0.125) return '1/8 mile';
+        if (distance == 0.25) return '1/4 mile';
+        if (distance == 0.5) return '1/2 mile';
+        return '$distance mile';
       } else if (unit == 'meter') {
         return '${distance.round()}m';
       }

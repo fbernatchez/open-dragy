@@ -477,7 +477,7 @@ void main() {
     // 2. Verify PB for "0-60 mph" shows the faster time "2.92s"
     expect(find.text('2.92s'), findsNWidgets(2));
 
-    // 3. Verify PB for "1/4 Mile" shows "11.45s"
+    // 3. Verify PB for "1/4 mile" shows "11.45s"
     expect(find.text('11.45s'), findsNWidgets(2));
 
     // 4. Verify custom rolling target run is displayed in the list
@@ -487,16 +487,16 @@ void main() {
     // 5. Verify all three runs are shown initially
     expect(find.byType(RunHistoryCard), findsNWidgets(3));
 
-    // 5. Tap on the "1/4 Mile" category card to filter the list
-    final quarterMileCard = find.text('1/4 Mile').first;
+    // 5. Tap on the "1/4 mile" category card to filter the list
+    final quarterMileCard = find.text('1/4 mile').first;
     await tester.tap(quarterMileCard);
     await tester.pumpAndSettle();
 
-    // 6. Verify that only 1 run is shown (since only Run 1 has 1/4 Mile completed)
+    // 6. Verify that only 1 run is shown (since only Run 1 has 1/4 mile completed)
     expect(find.byType(RunHistoryCard), findsOneWidget);
 
     // 7. Verify that the run history card now shows the selected category as primary label and correct time
-    expect(find.text('1/4 Mile'), findsNWidgets(2));
+    expect(find.text('1/4 mile'), findsNWidgets(2));
     expect(find.text('11.45s'), findsNWidgets(2));
 
     // 8. Tap on the "0-60 mph" category card to filter the list
