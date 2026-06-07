@@ -30,9 +30,6 @@ class OfficialTest {
   final double? endSpeed;   // in km/h
   final SpeedUnit? speedUnit;
 
-  // Retrieve the completed time for this test from the metrics
-  final double? Function(RaceMetrics)? getTime;
-
   const OfficialTest({
     required this.id,
     required this.type,
@@ -42,7 +39,6 @@ class OfficialTest {
     this.startSpeed,
     this.endSpeed,
     this.speedUnit,
-    this.getTime,
   });
 }
 
@@ -73,7 +69,6 @@ const List<OfficialTest> officialTests = [
     displayName: '60ft',
     distance: 60.0,
     distanceUnit: DistanceUnit.feet,
-    getTime: _getTime60ft,
   ),
   OfficialTest(
     id: '0-60mph',
@@ -82,7 +77,6 @@ const List<OfficialTest> officialTests = [
     startSpeed: 0.0,
     endSpeed: 96.56064, // 60 mph in km/h
     speedUnit: SpeedUnit.mph,
-    getTime: _getTime0to60mph,
   ),
   OfficialTest(
     id: '0-100kmh',
@@ -91,7 +85,6 @@ const List<OfficialTest> officialTests = [
     startSpeed: 0.0,
     endSpeed: 100.0,
     speedUnit: SpeedUnit.kmh,
-    getTime: _getTime0to100kmh,
   ),
   OfficialTest(
     id: '1/8mile',
@@ -99,7 +92,6 @@ const List<OfficialTest> officialTests = [
     displayName: '1/8 mile',
     distance: 0.125,
     distanceUnit: DistanceUnit.mile,
-    getTime: _getTime18Mile,
   ),
   OfficialTest(
     id: '1000ft',
@@ -107,7 +99,6 @@ const List<OfficialTest> officialTests = [
     displayName: '1000ft',
     distance: 1000.0,
     distanceUnit: DistanceUnit.feet,
-    getTime: _getTime1000ft,
   ),
   OfficialTest(
     id: '1/4mile',
@@ -115,7 +106,6 @@ const List<OfficialTest> officialTests = [
     displayName: '1/4 mile',
     distance: 0.25,
     distanceUnit: DistanceUnit.mile,
-    getTime: _getTime14Mile,
   ),
   OfficialTest(
     id: '1/2mile',
@@ -123,7 +113,6 @@ const List<OfficialTest> officialTests = [
     displayName: '1/2 mile',
     distance: 0.5,
     distanceUnit: DistanceUnit.mile,
-    getTime: _getTime12Mile,
   ),
   OfficialTest(
     id: '0-130mph',
@@ -132,7 +121,6 @@ const List<OfficialTest> officialTests = [
     startSpeed: 0.0,
     endSpeed: 209.21472, // 130 mph in km/h
     speedUnit: SpeedUnit.mph,
-    getTime: _getTime0to130mph,
   ),
   OfficialTest(
     id: '0-200kmh',
@@ -141,7 +129,6 @@ const List<OfficialTest> officialTests = [
     startSpeed: 0.0,
     endSpeed: 200.0,
     speedUnit: SpeedUnit.kmh,
-    getTime: _getTime0to200kmh,
   ),
   // Interval tests
   OfficialTest(
@@ -151,7 +138,6 @@ const List<OfficialTest> officialTests = [
     startSpeed: 96.56064,
     endSpeed: 209.21472,
     speedUnit: SpeedUnit.mph,
-    getTime: _getTime60to130mph,
   ),
   OfficialTest(
     id: '100-200kmh',
@@ -160,7 +146,6 @@ const List<OfficialTest> officialTests = [
     startSpeed: 100.0,
     endSpeed: 200.0,
     speedUnit: SpeedUnit.kmh,
-    getTime: _getTime100to200kmh,
   ),
   OfficialTest(
     id: '50-75mph',
@@ -169,7 +154,6 @@ const List<OfficialTest> officialTests = [
     startSpeed: 80.4672,
     endSpeed: 120.7008,
     speedUnit: SpeedUnit.mph,
-    getTime: _getTime50to75mph,
   ),
   OfficialTest(
     id: '80-120kmh',
@@ -178,53 +162,112 @@ const List<OfficialTest> officialTests = [
     startSpeed: 80.0,
     endSpeed: 120.0,
     speedUnit: SpeedUnit.kmh,
-    getTime: _getTime80to120kmh,
   ),
 ];
 
-// Helper functions for const functions mapping (closures)
-double? _getTime60ft(RaceMetrics m) => m.time60ft;
-double? _getTime0to60mph(RaceMetrics m) => m.time0to60mph;
-double? _getTime0to100kmh(RaceMetrics m) => m.time0to100kmh;
-double? _getTime18Mile(RaceMetrics m) => m.time18Mile;
-double? _getTime1000ft(RaceMetrics m) => m.time1000ft;
-double? _getTime14Mile(RaceMetrics m) => m.time14Mile;
-double? _getTime12Mile(RaceMetrics m) => m.time12Mile;
-double? _getTime0to130mph(RaceMetrics m) => m.time0to130mph;
-double? _getTime0to200kmh(RaceMetrics m) => m.time0to200kmh;
+// Helper to retrieve precalculated fields from RaceMetrics
+double? _getPrecalculatedTime(RaceMetrics m, String id) {
+  switch (id) {
+    case '60ft': return m.time60ft;
+    case '0-60mph': return m.time0to60mph;
+    case '0-100kmh': return m.time0to100kmh;
+    case '1/8mile': return m.time18Mile;
+    case '1000ft': return m.time1000ft;
+    case '1/4mile': return m.time14Mile;
+    case '1/2mile': return m.time12Mile;
+    case '0-130mph': return m.time0to130mph;
+    case '0-200kmh': return m.time0to200kmh;
+    case '60-130mph': return m.time60to130mph;
+    case '100-200kmh': return m.time100to200kmh;
+    default: return null;
+  }
+}
 
-double? _getTime60to130mph(RaceMetrics m) => m.time60to130mph;
-double? _getTime100to200kmh(RaceMetrics m) => m.time100to200kmh;
+// Convert distance units to meters
+double _convertToMeters(double distance, DistanceUnit unit) {
+  switch (unit) {
+    case DistanceUnit.feet:
+      return distance * 0.3048;
+    case DistanceUnit.mile:
+      return distance * 1609.344;
+    case DistanceUnit.meter:
+      return distance;
+    case DistanceUnit.kilometer:
+      return distance * 1000.0;
+  }
+}
 
-double? _getTime50to75mph(RaceMetrics m) => (m.runMode == 'interval' &&
-        m.targetStartSpeed != null &&
-        (m.targetStartSpeed! - 80.4672).abs() < 0.1 &&
-        m.targetEndSpeed != null &&
-        (m.targetEndSpeed! - 120.7008).abs() < 0.1 &&
-        m.targetSpeedUnit == 'mph' &&
-        !m.isRunning &&
-        m.history.isNotEmpty &&
-        m.elapsedTime > 0)
-    ? m.elapsedTime
-    : null;
+// Search and interpolate distance crossing time
+double? _findDistanceCrossingTime(List<DataPoint> history, double targetMeters) {
+  double currentDistance = 0.0;
+  for (int i = 1; i < history.length; i++) {
+    final prev = history[i - 1];
+    final curr = history[i];
+    final dt = curr.elapsedTime - prev.elapsedTime;
+    final avgSpeedMs = ((prev.speedKmh / 3.6) + (curr.speedKmh / 3.6)) / 2;
+    final stepDist = avgSpeedMs * dt;
+    
+    if (currentDistance + stepDist >= targetMeters) {
+      final neededDist = targetMeters - currentDistance;
+      double fraction = 0.0;
+      if (stepDist > 0) {
+        fraction = neededDist / stepDist;
+      }
+      return prev.elapsedTime + (dt * fraction);
+    }
+    currentDistance += stepDist;
+  }
+  return null;
+}
 
-double? _getTime80to120kmh(RaceMetrics m) => (m.runMode == 'interval' &&
-        m.targetStartSpeed != null &&
-        (m.targetStartSpeed! - 80.0).abs() < 0.1 &&
-        m.targetEndSpeed != null &&
-        (m.targetEndSpeed! - 120.0).abs() < 0.1 &&
-        m.targetSpeedUnit == 'kmh' &&
-        !m.isRunning &&
-        m.history.isNotEmpty &&
-        m.elapsedTime > 0)
-    ? m.elapsedTime
-    : null;
+// Search and interpolate speed crossing time
+double? _findSpeedCrossingTime(List<DataPoint> history, double targetSpeedKmh, double startTimeOffset) {
+  for (int i = 1; i < history.length; i++) {
+    final prev = history[i - 1];
+    final curr = history[i];
+    if (prev.elapsedTime < startTimeOffset) continue;
+    
+    if (prev.speedKmh <= targetSpeedKmh && curr.speedKmh > targetSpeedKmh) {
+      final speedDiff = curr.speedKmh - prev.speedKmh;
+      double fraction = 0.0;
+      if (speedDiff > 0) {
+        fraction = (targetSpeedKmh - prev.speedKmh) / speedDiff;
+      }
+      final dt = curr.elapsedTime - prev.elapsedTime;
+      return prev.elapsedTime + (dt * fraction);
+    }
+  }
+  return null;
+}
+
+// Calculate run times dynamically from history points
+double? _calculateTimeFromHistory(RaceMetrics metrics, OfficialTest test) {
+  if (metrics.history.isEmpty) return null;
+
+  if (test.type == 'drag') {
+    if (test.distance != null && test.distanceUnit != null) {
+      final targetMeters = _convertToMeters(test.distance!, test.distanceUnit!);
+      return _findDistanceCrossingTime(metrics.history, targetMeters);
+    } else if (test.endSpeed != null && test.startSpeed == 0.0) {
+      return _findSpeedCrossingTime(metrics.history, test.endSpeed!, 0.0);
+    }
+  } else if (test.type == 'interval') {
+    if (test.startSpeed != null && test.endSpeed != null) {
+      final startTime = _findSpeedCrossingTime(metrics.history, test.startSpeed!, 0.0);
+      if (startTime == null) return null;
+      final endTime = _findSpeedCrossingTime(metrics.history, test.endSpeed!, startTime);
+      if (endTime == null) return null;
+      return endTime - startTime;
+    }
+  }
+  return null;
+}
 
 List<OfficialTest> getCompletedTests(RaceMetrics metrics) {
   final List<OfficialTest> completed = [];
   
   for (final test in officialTests) {
-    final time = test.getTime?.call(metrics);
+    final time = getCompletedTimeForCategory(metrics, test.id);
     if (time != null) {
       completed.add(test);
     }
@@ -234,12 +277,16 @@ List<OfficialTest> getCompletedTests(RaceMetrics metrics) {
 }
 
 double? getCompletedTimeForCategory(RaceMetrics metrics, String categoryId) {
+  // 1. Check if it matches an official test definition
   for (final test in officialTests) {
     if (test.id == categoryId) {
-      return test.getTime?.call(metrics);
+      final precalculated = _getPrecalculatedTime(metrics, test.id);
+      if (precalculated != null) return precalculated;
+      return _calculateTimeFromHistory(metrics, test);
     }
   }
   
+  // 2. Custom categories lookup
   if (categoryId.startsWith('custom_')) {
     final parts = categoryId.split('_');
     if (parts.length >= 4) {

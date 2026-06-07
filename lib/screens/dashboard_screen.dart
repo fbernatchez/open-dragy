@@ -197,7 +197,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           startSpeed: metrics.targetStartSpeed,
           endSpeed: metrics.targetEndSpeed,
           speedUnit: metrics.targetSpeedUnit,
-          runMode: 'rolling',
+          runMode: 'interval',
         );
         reachedMilestones.add(
           _ReachedMilestone(

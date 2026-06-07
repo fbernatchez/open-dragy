@@ -35,73 +35,46 @@ class RunDetailScreen extends StatelessWidget {
     // Collect reached milestones sorted by completion time ascending
     final List<_ReachedMilestone> reachedMilestones = [];
 
-    if (metrics.time60ft != null) {
-      reachedMilestones.add(_ReachedMilestone(label: '60ft', time: metrics.time60ft!, sortTime: metrics.time60ft!));
+    // 1. Official completed tests
+    final completedTests = getCompletedTests(metrics);
+    for (final test in completedTests) {
+      // Filter out speed targets of the opposite unit system to match user's preference
+      if (test.speedUnit != null) {
+        final isTestMetric = test.speedUnit == SpeedUnit.kmh;
+        if (isTestMetric != isMetric) {
+          continue;
+        }
+      }
+
+      final time = getCompletedTimeForCategory(metrics, test.id);
+      if (time != null) {
+        double sortTime = time;
+        if (test.type == 'interval' && test.startSpeed != null) {
+          if (test.speedUnit == SpeedUnit.mph) {
+            sortTime = (metrics.time0to60mph ?? 0.0) + time;
+          } else {
+            sortTime = (metrics.time0to100kmh ?? 0.0) + time;
+          }
+        }
+
+        reachedMilestones.add(_ReachedMilestone(
+          label: test.displayName,
+          time: time,
+          sortTime: sortTime,
+          trapSpeed: test.id == '1/8mile'
+              ? metrics.trap18Mile
+              : (test.id == '1000ft'
+                  ? metrics.trap1000ft
+                  : (test.id == '1/4mile'
+                      ? metrics.trap14Mile
+                      : (test.id == '1/2mile'
+                          ? metrics.trap12Mile
+                          : null))),
+        ));
+      }
     }
 
-
-    final double? tSpeedUnit = isMetric ? metrics.time0to100kmh : metrics.time0to60mph;
-    if (tSpeedUnit != null) {
-      reachedMilestones.add(_ReachedMilestone(
-        label: isMetric ? '0-100 km/h' : '0-60 mph',
-        time: tSpeedUnit,
-        sortTime: tSpeedUnit,
-      ));
-    }
-
-    if (metrics.time18Mile != null) {
-      reachedMilestones.add(_ReachedMilestone(
-        label: '1/8 mile',
-        time: metrics.time18Mile!,
-        sortTime: metrics.time18Mile!,
-        trapSpeed: metrics.trap18Mile,
-      ));
-    }
-    if (metrics.time1000ft != null) {
-      reachedMilestones.add(_ReachedMilestone(
-        label: '1000ft',
-        time: metrics.time1000ft!,
-        sortTime: metrics.time1000ft!,
-        trapSpeed: metrics.trap1000ft,
-      ));
-    }
-    if (metrics.time14Mile != null) {
-      reachedMilestones.add(_ReachedMilestone(
-        label: '1/4 mile',
-        time: metrics.time14Mile!,
-        sortTime: metrics.time14Mile!,
-        trapSpeed: metrics.trap14Mile,
-      ));
-    }
-    if (metrics.time12Mile != null) {
-      reachedMilestones.add(_ReachedMilestone(
-        label: '1/2 mile',
-        time: metrics.time12Mile!,
-        sortTime: metrics.time12Mile!,
-        trapSpeed: metrics.trap12Mile,
-      ));
-    }
-
-    final double? tInterval = isMetric ? metrics.time100to200kmh : metrics.time60to130mph;
-    if (tInterval != null) {
-      reachedMilestones.add(_ReachedMilestone(
-        label: isMetric ? '100-200 km/h' : '60-130 mph',
-        time: tInterval,
-        sortTime: isMetric
-            ? (metrics.time0to100kmh ?? 0.0) + tInterval
-            : (metrics.time0to60mph ?? 0.0) + tInterval,
-      ));
-    }
-
-    final double? t0to130_200 = isMetric ? metrics.time0to200kmh : metrics.time0to130mph;
-    if (t0to130_200 != null) {
-      reachedMilestones.add(_ReachedMilestone(
-        label: isMetric ? '0-200 km/h' : '0-130 mph',
-        time: t0to130_200,
-        sortTime: t0to130_200,
-      ));
-    }
-
+    // 2. Custom interval category if it's an interval run and not an official test
     if (metrics.runMode == 'interval' &&
         metrics.targetStartSpeed != null &&
         metrics.targetEndSpeed != null) {
@@ -142,68 +115,77 @@ class RunDetailScreen extends StatelessWidget {
     // Determine primary display
     String primaryLabel = isMetric ? "0-100 km/h Time" : "0-60 mph Time";
     String primaryTime = "-.--s";
-    if (metrics.time12Mile != null) {
-      primaryLabel = "1/2 Mile Time";
-      primaryTime = "${metrics.time12Mile!.toStringAsFixed(2)}s";
-    } else if (metrics.time14Mile != null) {
-      primaryLabel = "1/4 Mile Time";
-      primaryTime = "${metrics.time14Mile!.toStringAsFixed(2)}s";
-    } else if (isMetric && metrics.time0to200kmh != null) {
-      primaryLabel = "0-200 km/h Time";
-      primaryTime = "${metrics.time0to200kmh!.toStringAsFixed(2)}s";
-    } else if (!isMetric && metrics.time0to130mph != null) {
-      primaryLabel = "0-130 mph Time";
-      primaryTime = "${metrics.time0to130mph!.toStringAsFixed(2)}s";
-    } else if (isMetric && metrics.time100to200kmh != null) {
-      primaryLabel = "100-200 km/h Time";
-      primaryTime = "${metrics.time100to200kmh!.toStringAsFixed(2)}s";
-    } else if (!isMetric && metrics.time60to130mph != null) {
-      primaryLabel = "60-130 mph Time";
-      primaryTime = "${metrics.time60to130mph!.toStringAsFixed(2)}s";
-    } else if (metrics.time0to200kmh != null) {
-      primaryLabel = "0-200 km/h Time";
-      primaryTime = "${metrics.time0to200kmh!.toStringAsFixed(2)}s";
-    } else if (metrics.time0to130mph != null) {
-      primaryLabel = "0-130 mph Time";
-      primaryTime = "${metrics.time0to130mph!.toStringAsFixed(2)}s";
-    } else if (metrics.time100to200kmh != null) {
-      primaryLabel = "100-200 km/h Time";
-      primaryTime = "${metrics.time100to200kmh!.toStringAsFixed(2)}s";
-    } else if (metrics.time60to130mph != null) {
-      primaryLabel = "60-130 mph Time";
-      primaryTime = "${metrics.time60to130mph!.toStringAsFixed(2)}s";
-    } else if (metrics.time1000ft != null) {
-      primaryLabel = "1000ft Time";
-      primaryTime = "${metrics.time1000ft!.toStringAsFixed(2)}s";
-    } else if (metrics.time18Mile != null) {
-      primaryLabel = "1/8 Mile Time";
-      primaryTime = "${metrics.time18Mile!.toStringAsFixed(2)}s";
-    } else if (metrics.runMode == 'rolling' &&
-               metrics.targetStartSpeed != null &&
-               metrics.targetEndSpeed != null) {
+
+    // Try to find if the run has an active/completed target matching an official test
+    OfficialTest? targetTest;
+    for (final test in officialTests) {
+      if (test.type == metrics.runMode) {
+        if (test.type == 'drag') {
+          if (test.distance != null &&
+              metrics.targetDistance != null &&
+              (test.distance! - metrics.targetDistance!).abs() < 0.001 &&
+              test.distanceUnit?.name == metrics.targetDistanceUnit) {
+            targetTest = test;
+            break;
+          } else if (test.endSpeed != null &&
+              metrics.targetEndSpeed != null &&
+              (test.endSpeed! - metrics.targetEndSpeed!).abs() < 0.1 &&
+              test.speedUnit?.name == metrics.targetSpeedUnit) {
+            targetTest = test;
+            break;
+          }
+        } else if (test.type == 'interval') {
+          if (metrics.targetStartSpeed != null &&
+              (test.startSpeed! - metrics.targetStartSpeed!).abs() < 0.1 &&
+              metrics.targetEndSpeed != null &&
+              (test.endSpeed! - metrics.targetEndSpeed!).abs() < 0.1 &&
+              test.speedUnit?.name == metrics.targetSpeedUnit) {
+            targetTest = test;
+            break;
+          }
+        }
+      }
+    }
+
+    double? completedTime;
+    if (targetTest != null) {
+      completedTime = getCompletedTimeForCategory(metrics, targetTest.id);
+      if (completedTime != null) {
+        primaryLabel = "${targetTest.displayName} Time";
+      }
+    } else if (metrics.runMode == 'interval' &&
+        metrics.targetStartSpeed != null &&
+        metrics.targetEndSpeed != null) {
+      // Custom interval target
       final label = getDisplayLabelForTarget(
         startSpeed: metrics.targetStartSpeed,
         endSpeed: metrics.targetEndSpeed,
         speedUnit: metrics.targetSpeedUnit,
-        runMode: 'rolling',
+        runMode: 'interval',
       );
       primaryLabel = "$label Time";
-      primaryTime = "${metrics.elapsedTime.toStringAsFixed(2)}s";
-    } else if (isMetric && metrics.time0to100kmh != null) {
-      primaryLabel = "0-100 km/h Time";
-      primaryTime = "${metrics.time0to100kmh!.toStringAsFixed(2)}s";
-    } else if (!isMetric && metrics.time0to60mph != null) {
-      primaryLabel = "0-60 mph Time";
-      primaryTime = "${metrics.time0to60mph!.toStringAsFixed(2)}s";
-    } else if (metrics.time0to100kmh != null) {
-      primaryLabel = "0-100 km/h Time";
-      primaryTime = "${metrics.time0to100kmh!.toStringAsFixed(2)}s";
-    } else if (metrics.time0to60mph != null) {
-      primaryLabel = "0-60 mph Time";
-      primaryTime = "${metrics.time0to60mph!.toStringAsFixed(2)}s";
-    } else if (metrics.time60ft != null) {
-      primaryLabel = "60ft Time";
-      primaryTime = "${metrics.time60ft!.toStringAsFixed(2)}s";
+      completedTime = metrics.elapsedTime > 0 ? metrics.elapsedTime : null;
+    }
+
+    // Fallback if target is not completed or none was set
+    if (completedTime == null) {
+      final priorityIds = isMetric
+          ? ['1/2mile', '1/4mile', '0-200kmh', '100-200kmh', '1000ft', '1/8mile', '0-100kmh', '0-130mph', '60-130mph', '0-60mph', '60ft']
+          : ['1/2mile', '1/4mile', '0-130mph', '60-130mph', '1000ft', '1/8mile', '0-60mph', '0-200kmh', '100-200kmh', '0-100kmh', '60ft'];
+          
+      for (final id in priorityIds) {
+        final time = getCompletedTimeForCategory(metrics, id);
+        if (time != null) {
+          completedTime = time;
+          final test = officialTests.firstWhere((t) => t.id == id);
+          primaryLabel = "${test.displayName} Time";
+          break;
+        }
+      }
+    }
+
+    if (completedTime != null) {
+      primaryTime = "${completedTime.toStringAsFixed(2)}s";
     }
 
     final double startAlt = metrics.startAltitude ?? 0.0;
