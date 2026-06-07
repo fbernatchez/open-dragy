@@ -30,6 +30,9 @@ class OfficialTest {
   final double? endSpeed;   // in km/h
   final SpeedUnit? speedUnit;
 
+  // Retrieve the completed time for this test from the metrics
+  final double? Function(RaceMetrics)? getTime;
+
   const OfficialTest({
     required this.id,
     required this.type,
@@ -39,6 +42,7 @@ class OfficialTest {
     this.startSpeed,
     this.endSpeed,
     this.speedUnit,
+    this.getTime,
   });
 }
 
@@ -69,6 +73,7 @@ const List<OfficialTest> officialTests = [
     displayName: '60ft',
     distance: 60.0,
     distanceUnit: DistanceUnit.feet,
+    getTime: _getTime60ft,
   ),
   OfficialTest(
     id: '0-60mph',
@@ -77,6 +82,7 @@ const List<OfficialTest> officialTests = [
     startSpeed: 0.0,
     endSpeed: 96.56064, // 60 mph in km/h
     speedUnit: SpeedUnit.mph,
+    getTime: _getTime0to60mph,
   ),
   OfficialTest(
     id: '0-100kmh',
@@ -85,6 +91,7 @@ const List<OfficialTest> officialTests = [
     startSpeed: 0.0,
     endSpeed: 100.0,
     speedUnit: SpeedUnit.kmh,
+    getTime: _getTime0to100kmh,
   ),
   OfficialTest(
     id: '1/8mile',
@@ -92,6 +99,7 @@ const List<OfficialTest> officialTests = [
     displayName: '1/8 mile',
     distance: 0.125,
     distanceUnit: DistanceUnit.mile,
+    getTime: _getTime18Mile,
   ),
   OfficialTest(
     id: '1000ft',
@@ -99,6 +107,7 @@ const List<OfficialTest> officialTests = [
     displayName: '1000ft',
     distance: 1000.0,
     distanceUnit: DistanceUnit.feet,
+    getTime: _getTime1000ft,
   ),
   OfficialTest(
     id: '1/4mile',
@@ -106,6 +115,7 @@ const List<OfficialTest> officialTests = [
     displayName: '1/4 mile',
     distance: 0.25,
     distanceUnit: DistanceUnit.mile,
+    getTime: _getTime14Mile,
   ),
   OfficialTest(
     id: '1/2mile',
@@ -113,6 +123,7 @@ const List<OfficialTest> officialTests = [
     displayName: '1/2 mile',
     distance: 0.5,
     distanceUnit: DistanceUnit.mile,
+    getTime: _getTime12Mile,
   ),
   OfficialTest(
     id: '0-130mph',
@@ -121,6 +132,7 @@ const List<OfficialTest> officialTests = [
     startSpeed: 0.0,
     endSpeed: 209.21472, // 130 mph in km/h
     speedUnit: SpeedUnit.mph,
+    getTime: _getTime0to130mph,
   ),
   OfficialTest(
     id: '0-200kmh',
@@ -129,6 +141,7 @@ const List<OfficialTest> officialTests = [
     startSpeed: 0.0,
     endSpeed: 200.0,
     speedUnit: SpeedUnit.kmh,
+    getTime: _getTime0to200kmh,
   ),
   // Interval tests
   OfficialTest(
@@ -138,6 +151,7 @@ const List<OfficialTest> officialTests = [
     startSpeed: 96.56064,
     endSpeed: 209.21472,
     speedUnit: SpeedUnit.mph,
+    getTime: _getTime60to130mph,
   ),
   OfficialTest(
     id: '100-200kmh',
@@ -146,6 +160,7 @@ const List<OfficialTest> officialTests = [
     startSpeed: 100.0,
     endSpeed: 200.0,
     speedUnit: SpeedUnit.kmh,
+    getTime: _getTime100to200kmh,
   ),
   OfficialTest(
     id: '50-75mph',
@@ -154,6 +169,7 @@ const List<OfficialTest> officialTests = [
     startSpeed: 80.4672,
     endSpeed: 120.7008,
     speedUnit: SpeedUnit.mph,
+    getTime: _getTime50to75mph,
   ),
   OfficialTest(
     id: '80-120kmh',
@@ -162,40 +178,55 @@ const List<OfficialTest> officialTests = [
     startSpeed: 80.0,
     endSpeed: 120.0,
     speedUnit: SpeedUnit.kmh,
+    getTime: _getTime80to120kmh,
   ),
 ];
+
+// Helper functions for const functions mapping (closures)
+double? _getTime60ft(RaceMetrics m) => m.time60ft;
+double? _getTime0to60mph(RaceMetrics m) => m.time0to60mph;
+double? _getTime0to100kmh(RaceMetrics m) => m.time0to100kmh;
+double? _getTime18Mile(RaceMetrics m) => m.time18Mile;
+double? _getTime1000ft(RaceMetrics m) => m.time1000ft;
+double? _getTime14Mile(RaceMetrics m) => m.time14Mile;
+double? _getTime12Mile(RaceMetrics m) => m.time12Mile;
+double? _getTime0to130mph(RaceMetrics m) => m.time0to130mph;
+double? _getTime0to200kmh(RaceMetrics m) => m.time0to200kmh;
+
+double? _getTime60to130mph(RaceMetrics m) => m.time60to130mph;
+double? _getTime100to200kmh(RaceMetrics m) => m.time100to200kmh;
+
+double? _getTime50to75mph(RaceMetrics m) => (m.runMode == 'interval' &&
+        m.targetStartSpeed != null &&
+        (m.targetStartSpeed! - 80.4672).abs() < 0.1 &&
+        m.targetEndSpeed != null &&
+        (m.targetEndSpeed! - 120.7008).abs() < 0.1 &&
+        m.targetSpeedUnit == 'mph' &&
+        !m.isRunning &&
+        m.history.isNotEmpty &&
+        m.elapsedTime > 0)
+    ? m.elapsedTime
+    : null;
+
+double? _getTime80to120kmh(RaceMetrics m) => (m.runMode == 'interval' &&
+        m.targetStartSpeed != null &&
+        (m.targetStartSpeed! - 80.0).abs() < 0.1 &&
+        m.targetEndSpeed != null &&
+        (m.targetEndSpeed! - 120.0).abs() < 0.1 &&
+        m.targetSpeedUnit == 'kmh' &&
+        !m.isRunning &&
+        m.history.isNotEmpty &&
+        m.elapsedTime > 0)
+    ? m.elapsedTime
+    : null;
 
 List<OfficialTest> getCompletedTests(RaceMetrics metrics) {
   final List<OfficialTest> completed = [];
   
   for (final test in officialTests) {
-    if (test.type == 'drag') {
-      double? time;
-      if (test.id == '60ft') time = metrics.time60ft;
-      else if (test.id == '0-60mph') time = metrics.time0to60mph;
-      else if (test.id == '0-100kmh') time = metrics.time0to100kmh;
-      else if (test.id == '1/8mile') time = metrics.time18Mile;
-      else if (test.id == '1000ft') time = metrics.time1000ft;
-      else if (test.id == '1/4mile') time = metrics.time14Mile;
-      else if (test.id == '1/2mile') time = metrics.time12Mile;
-      else if (test.id == '0-130mph') time = metrics.time0to130mph;
-      else if (test.id == '0-200kmh') time = metrics.time0to200kmh;
-      
-      if (time != null) {
-        completed.add(test);
-      }
-    } else {
-      if (metrics.runMode == 'interval' &&
-          metrics.targetStartSpeed != null &&
-          metrics.targetEndSpeed != null &&
-          (metrics.targetStartSpeed! - test.startSpeed!).abs() < 0.1 &&
-          (metrics.targetEndSpeed! - test.endSpeed!).abs() < 0.1 &&
-          metrics.targetSpeedUnit == test.speedUnit?.name) {
-        
-        if (!metrics.isRunning && metrics.history.isNotEmpty && metrics.elapsedTime > 0) {
-          completed.add(test);
-        }
-      }
+    final time = test.getTime?.call(metrics);
+    if (time != null) {
+      completed.add(test);
     }
   }
   
@@ -203,49 +234,31 @@ List<OfficialTest> getCompletedTests(RaceMetrics metrics) {
 }
 
 double? getCompletedTimeForCategory(RaceMetrics metrics, String categoryId) {
-  switch (categoryId) {
-    case '60ft':
-      return metrics.time60ft;
-    case '0-60mph':
-      return metrics.time0to60mph;
-    case '0-100kmh':
-      return metrics.time0to100kmh;
-    case '1/8mile':
-      return metrics.time18Mile;
-    case '1000ft':
-      return metrics.time1000ft;
-    case '1/4mile':
-      return metrics.time14Mile;
-    case '1/2mile':
-      return metrics.time12Mile;
-    case '60-130mph':
-      return metrics.time60to130mph;
-    case '100-200kmh':
-      return metrics.time100to200kmh;
-    case '0-130mph':
-      return metrics.time0to130mph;
-    case '0-200kmh':
-      return metrics.time0to200kmh;
-    default:
-      if (categoryId.startsWith('custom_')) {
-        final parts = categoryId.split('_');
-        if (parts.length >= 4) {
-          final start = double.tryParse(parts[1]);
-          final end = double.tryParse(parts[2]);
-          final unit = parts[3];
-          
-          if (metrics.runMode == 'interval' &&
-              metrics.targetStartSpeed != null &&
-              metrics.targetEndSpeed != null &&
-              (metrics.targetStartSpeed! - start!).abs() < 0.1 &&
-              (metrics.targetEndSpeed! - end!).abs() < 0.1 &&
-              metrics.targetSpeedUnit == unit) {
-            return metrics.elapsedTime > 0 ? metrics.elapsedTime : null;
-          }
-        }
-      }
-      return null;
+  for (final test in officialTests) {
+    if (test.id == categoryId) {
+      return test.getTime?.call(metrics);
+    }
   }
+  
+  if (categoryId.startsWith('custom_')) {
+    final parts = categoryId.split('_');
+    if (parts.length >= 4) {
+      final start = double.tryParse(parts[1]);
+      final end = double.tryParse(parts[2]);
+      final unit = parts[3];
+      
+      if (metrics.runMode == 'interval' &&
+          metrics.targetStartSpeed != null &&
+          metrics.targetEndSpeed != null &&
+          (metrics.targetStartSpeed! - start!).abs() < 0.1 &&
+          (metrics.targetEndSpeed! - end!).abs() < 0.1 &&
+          metrics.targetSpeedUnit == unit) {
+        return metrics.elapsedTime > 0 ? metrics.elapsedTime : null;
+      }
+    }
+  }
+  
+  return null;
 }
 
 String getDisplayLabelForTarget({
