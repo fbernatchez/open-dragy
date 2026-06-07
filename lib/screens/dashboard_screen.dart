@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../providers/dragy_provider.dart';
+import '../models/race_target.dart';
 import '../widgets/device_selector_modal.dart';
 import 'run_history_screen.dart';
 import 'garage_screen.dart';
@@ -53,23 +54,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
       statusKey = "running";
     } else {
       double? completedTime;
-      if (dragy.runMode == 'rolling') {
-        switch (dragy.activeRollingTarget) {
-          case RaceRollingTarget.sixtyToOneThirtyMph:
+      if (dragy.runMode == 'interval') {
+        switch (dragy.activeIntervalTarget) {
+          case RaceIntervalTarget.sixtyToOneThirtyMph:
             completedTime = metrics.time60to130mph;
             break;
-          case RaceRollingTarget.oneHundredToTwoHundredKmh:
+          case RaceIntervalTarget.oneHundredToTwoHundredKmh:
             completedTime = metrics.time100to200kmh;
             break;
-          case RaceRollingTarget.zeroToSixtyMph:
+          case RaceIntervalTarget.zeroToSixtyMph:
             completedTime = metrics.time0to60mph;
             break;
-          case RaceRollingTarget.zeroToOneHundredKmh:
+          case RaceIntervalTarget.zeroToOneHundredKmh:
             completedTime = metrics.time0to100kmh;
             break;
-          case RaceRollingTarget.fiftyToSeventyFiveMph:
-          case RaceRollingTarget.eightyToOneTwentyKmh:
-          case RaceRollingTarget.custom:
+          case RaceIntervalTarget.fiftyToSeventyFiveMph:
+          case RaceIntervalTarget.eightyToOneTwentyKmh:
+          case RaceIntervalTarget.custom:
             completedTime = metrics.elapsedTime > 0
                 ? metrics.elapsedTime
                 : null;
@@ -150,158 +151,61 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final List<_ReachedMilestone> reachedMilestones = [];
 
     if (dragy.runMode == 'drag') {
-      if (metrics.time60ft != null) {
+      final completed = getCompletedTests(metrics);
+      for (final test in completed) {
+        if (test.speedUnit != null) {
+          final isTestMetric = test.speedUnit == SpeedUnit.kmh;
+          if (isTestMetric != isMetric && test.id.startsWith('0-')) {
+            continue;
+          }
+        }
+        
         reachedMilestones.add(
           _ReachedMilestone(
-            label: '60ft',
-            time: metrics.time60ft!,
-            sortTime: metrics.time60ft!,
-          ),
-        );
-      }
-
-      final double? tSpeedUnit = isMetric
-          ? metrics.time0to100kmh
-          : metrics.time0to60mph;
-      if (tSpeedUnit != null) {
-        reachedMilestones.add(
-          _ReachedMilestone(
-            label: isMetric ? '0-100 km/h' : '0-60 mph',
-            time: tSpeedUnit,
-            sortTime: tSpeedUnit,
-          ),
-        );
-      }
-
-      if (metrics.time18Mile != null) {
-        reachedMilestones.add(
-          _ReachedMilestone(
-            label: '1/8 mile',
-            time: metrics.time18Mile!,
-            sortTime: metrics.time18Mile!,
-            trapSpeed: metrics.trap18Mile,
-          ),
-        );
-      }
-      if (metrics.time1000ft != null) {
-        reachedMilestones.add(
-          _ReachedMilestone(
-            label: '1000ft',
-            time: metrics.time1000ft!,
-            sortTime: metrics.time1000ft!,
-            trapSpeed: metrics.trap1000ft,
-          ),
-        );
-      }
-      if (metrics.time14Mile != null) {
-        reachedMilestones.add(
-          _ReachedMilestone(
-            label: '1/4 mile',
-            time: metrics.time14Mile!,
-            sortTime: metrics.time14Mile!,
-            trapSpeed: metrics.trap14Mile,
-          ),
-        );
-      }
-      if (metrics.time12Mile != null) {
-        reachedMilestones.add(
-          _ReachedMilestone(
-            label: '1/2 mile',
-            time: metrics.time12Mile!,
-            sortTime: metrics.time12Mile!,
-            trapSpeed: metrics.trap12Mile,
-          ),
-        );
-      }
-
-      final double? tInterval = isMetric
-          ? metrics.time100to200kmh
-          : metrics.time60to130mph;
-      if (tInterval != null) {
-        reachedMilestones.add(
-          _ReachedMilestone(
-            label: isMetric ? '100-200 km/h' : '60-130 mph',
-            time: tInterval,
-            sortTime: isMetric
-                ? (metrics.time0to100kmh ?? 0.0) + tInterval
-                : (metrics.time0to60mph ?? 0.0) + tInterval,
-          ),
-        );
-      }
-
-      final double? t0to130_200 = isMetric
-          ? metrics.time0to200kmh
-          : metrics.time0to130mph;
-      if (t0to130_200 != null) {
-        reachedMilestones.add(
-          _ReachedMilestone(
-            label: isMetric ? '0-200 km/h' : '0-130 mph',
-            time: t0to130_200,
-            sortTime: t0to130_200,
+            label: test.displayName,
+            time: getCompletedTimeForCategory(metrics, test.id)!,
+            sortTime: getCompletedTimeForCategory(metrics, test.id)!,
+            trapSpeed: test.id == '1/8mile'
+                ? metrics.trap18Mile
+                : (test.id == '1000ft'
+                    ? metrics.trap1000ft
+                    : (test.id == '1/4mile'
+                        ? metrics.trap14Mile
+                        : (test.id == '1/2mile'
+                            ? metrics.trap12Mile
+                            : null))),
           ),
         );
       }
     } else {
-      switch (dragy.activeRollingTarget) {
-        case RaceRollingTarget.sixtyToOneThirtyMph:
-          if (metrics.time60to130mph != null) {
-            reachedMilestones.add(
-              _ReachedMilestone(
-                label: '60-130 mph',
-                time: metrics.time60to130mph!,
-                sortTime: metrics.time60to130mph!,
-              ),
-            );
-          }
-          break;
-        case RaceRollingTarget.oneHundredToTwoHundredKmh:
-          if (metrics.time100to200kmh != null) {
-            reachedMilestones.add(
-              _ReachedMilestone(
-                label: '100-200 km/h',
-                time: metrics.time100to200kmh!,
-                sortTime: metrics.time100to200kmh!,
-              ),
-            );
-          }
-          break;
-        case RaceRollingTarget.zeroToSixtyMph:
-          if (metrics.time0to60mph != null) {
-            reachedMilestones.add(
-              _ReachedMilestone(
-                label: '0-60 mph',
-                time: metrics.time0to60mph!,
-                sortTime: metrics.time0to60mph!,
-              ),
-            );
-          }
-          break;
-        case RaceRollingTarget.zeroToOneHundredKmh:
-          if (metrics.time0to100kmh != null) {
-            reachedMilestones.add(
-              _ReachedMilestone(
-                label: '0-100 km/h',
-                time: metrics.time0to100kmh!,
-                sortTime: metrics.time0to100kmh!,
-              ),
-            );
-          }
-          break;
-        case RaceRollingTarget.fiftyToSeventyFiveMph:
-        case RaceRollingTarget.eightyToOneTwentyKmh:
-        case RaceRollingTarget.custom:
-          if (!metrics.isRunning &&
-              metrics.history.isNotEmpty &&
-              metrics.elapsedTime > 0) {
-            reachedMilestones.add(
-              _ReachedMilestone(
-                label: dragy.activeRollingTargetLabel,
-                time: metrics.elapsedTime,
-                sortTime: metrics.elapsedTime,
-              ),
-            );
-          }
-          break;
+      final completed = getCompletedTests(metrics);
+      if (completed.isNotEmpty) {
+        final test = completed.first;
+        reachedMilestones.add(
+          _ReachedMilestone(
+            label: test.displayName,
+            time: metrics.elapsedTime,
+            sortTime: metrics.elapsedTime,
+          ),
+        );
+      } else if (!metrics.isRunning &&
+                 metrics.history.isNotEmpty &&
+                 metrics.elapsedTime > 0 &&
+                 metrics.targetStartSpeed != null &&
+                 metrics.targetEndSpeed != null) {
+        final label = getDisplayLabelForTarget(
+          startSpeed: metrics.targetStartSpeed,
+          endSpeed: metrics.targetEndSpeed,
+          speedUnit: metrics.targetSpeedUnit,
+          runMode: 'rolling',
+        );
+        reachedMilestones.add(
+          _ReachedMilestone(
+            label: label,
+            time: metrics.elapsedTime,
+            sortTime: metrics.elapsedTime,
+          ),
+        );
       }
     }
 
@@ -668,8 +572,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   ),
                                   _ModeButton(
                                     label: 'INTERVAL',
-                                    isActive: dragy.runMode == 'rolling',
-                                    onTap: () => dragy.setRunMode('rolling'),
+                                    isActive: dragy.runMode == 'interval',
+                                    onTap: () => dragy.setRunMode('interval'),
                                   ),
                                 ],
                               ),
@@ -746,8 +650,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                       ),
                                     ),
                                     child: DropdownButtonHideUnderline(
-                                      child: DropdownButton<RaceRollingTarget>(
-                                        value: dragy.activeRollingTarget,
+                                      child: DropdownButton<RaceIntervalTarget>(
+                                        value: dragy.activeIntervalTarget,
                                         dropdownColor: Colors.grey.shade900,
                                         icon: const Icon(
                                           Icons.arrow_drop_down,
@@ -760,28 +664,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                         ),
                                         onChanged: (val) {
                                           if (val != null)
-                                            dragy.setActiveRollingTarget(val);
+                                            dragy.setActiveIntervalTarget(val);
                                         },
                                         items: dragy.isMetric
                                             ? const [
                                                 DropdownMenuItem(
-                                                  value: RaceRollingTarget
+                                                  value: RaceIntervalTarget
                                                       .zeroToOneHundredKmh,
                                                   child: Text('0-100 km/h'),
                                                 ),
                                                 DropdownMenuItem(
-                                                  value: RaceRollingTarget
+                                                  value: RaceIntervalTarget
                                                       .eightyToOneTwentyKmh,
                                                   child: Text('80-120 km/h'),
                                                 ),
                                                 DropdownMenuItem(
-                                                  value: RaceRollingTarget
+                                                  value: RaceIntervalTarget
                                                       .oneHundredToTwoHundredKmh,
                                                   child: Text('100-200 km/h'),
                                                 ),
                                                 DropdownMenuItem(
                                                   value:
-                                                      RaceRollingTarget.custom,
+                                                      RaceIntervalTarget.custom,
                                                   child: Text(
                                                     'Custom Range...',
                                                   ),
@@ -789,23 +693,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                               ]
                                             : const [
                                                 DropdownMenuItem(
-                                                  value: RaceRollingTarget
+                                                  value: RaceIntervalTarget
                                                       .zeroToSixtyMph,
                                                   child: Text('0-60 mph'),
                                                 ),
                                                 DropdownMenuItem(
-                                                  value: RaceRollingTarget
+                                                  value: RaceIntervalTarget
                                                       .fiftyToSeventyFiveMph,
                                                   child: Text('50-75 mph'),
                                                 ),
                                                 DropdownMenuItem(
-                                                  value: RaceRollingTarget
+                                                  value: RaceIntervalTarget
                                                       .sixtyToOneThirtyMph,
                                                   child: Text('60-130 mph'),
                                                 ),
                                                 DropdownMenuItem(
                                                   value:
-                                                      RaceRollingTarget.custom,
+                                                      RaceIntervalTarget.custom,
                                                   child: Text(
                                                     'Custom Range...',
                                                   ),
@@ -814,8 +718,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                       ),
                                     ),
                                   ),
-                                  if (dragy.activeRollingTarget ==
-                                      RaceRollingTarget.custom) ...[
+                                  if (dragy.activeIntervalTarget ==
+                                      RaceIntervalTarget.custom) ...[
                                     const SizedBox(width: 8),
                                     IconButton(
                                       onPressed: () => _showCustomRangeDialog(
@@ -1294,10 +1198,10 @@ class _ModeButton extends StatelessWidget {
 void _showCustomRangeDialog(BuildContext context, DragyProvider dragy) {
   final isMetric = dragy.isMetric;
   final startController = TextEditingController(
-    text: dragy.customRollingStartSpeedUserUnit.toStringAsFixed(0),
+    text: dragy.customIntervalStartSpeedUserUnit.toStringAsFixed(0),
   );
   final endController = TextEditingController(
-    text: dragy.customRollingEndSpeedUserUnit.toStringAsFixed(0),
+    text: dragy.customIntervalEndSpeedUserUnit.toStringAsFixed(0),
   );
 
   showDialog(
@@ -1355,7 +1259,7 @@ void _showCustomRangeDialog(BuildContext context, DragyProvider dragy) {
           onPressed: () {
             final start = double.tryParse(startController.text) ?? 100.0;
             final end = double.tryParse(endController.text) ?? 200.0;
-            dragy.setCustomRollingRange(start, end);
+            dragy.setCustomIntervalRange(start, end);
             Navigator.pop(context);
           },
           child: const Text(

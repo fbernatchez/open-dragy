@@ -40,7 +40,7 @@ class MockDragyProvider extends ChangeNotifier implements DragyProvider {
   double? longitude;
 
   @override
-  String appVersion = '1.0.0-beta.9';
+  String appVersion = '1.0.1-beta.1';
 
   @override
   BluetoothDevice? connectedDevice;
@@ -80,31 +80,78 @@ class MockDragyProvider extends ChangeNotifier implements DragyProvider {
   String runMode = 'drag';
 
   @override
-  RaceRollingTarget activeRollingTarget = RaceRollingTarget.sixtyToOneThirtyMph;
+  RaceIntervalTarget activeIntervalTarget = RaceIntervalTarget.sixtyToOneThirtyMph;
 
   @override
-  double customRollingStartSpeed = 100.0;
+  double customIntervalStartSpeed = 100.0;
 
   @override
-  double customRollingEndSpeed = 200.0;
+  double customIntervalEndSpeed = 200.0;
 
   @override
-  double get rollingStartSpeed => 100.0;
+  double get intervalStartSpeed => 100.0;
 
   @override
-  double get rollingEndSpeed => 200.0;
+  double get intervalEndSpeed => 200.0;
 
   @override
-  double get customRollingStartSpeedUserUnit => 100.0;
+  double get customIntervalStartSpeedUserUnit => 100.0;
 
   @override
-  double get customRollingEndSpeedUserUnit => 200.0;
+  double get customIntervalEndSpeedUserUnit => 200.0;
 
   @override
   String get activeDragTargetLabel => activeDragTarget.label;
 
   @override
-  String get activeRollingTargetLabel => activeRollingTarget.label;
+  String get activeIntervalTargetLabel => activeIntervalTarget.label;
+
+  @override
+  double? get targetDistance {
+    if (runMode != 'drag') return null;
+    switch (activeDragTarget) {
+      case RaceDragTarget.sixtyFeet: return 60.0;
+      case RaceDragTarget.eighthMile: return 0.125;
+      case RaceDragTarget.thousandFeet: return 1000.0;
+      case RaceDragTarget.quarterMile: return 0.25;
+      case RaceDragTarget.halfMile: return 0.5;
+    }
+  }
+
+  @override
+  String? get targetDistanceUnit {
+    if (runMode != 'drag') return null;
+    switch (activeDragTarget) {
+      case RaceDragTarget.sixtyFeet: return 'feet';
+      case RaceDragTarget.eighthMile: return 'mile';
+      case RaceDragTarget.thousandFeet: return 'feet';
+      case RaceDragTarget.quarterMile: return 'mile';
+      case RaceDragTarget.halfMile: return 'mile';
+    }
+  }
+
+  @override
+  double? get targetStartSpeed => runMode == 'interval' ? intervalStartSpeed : null;
+
+  @override
+  double? get targetEndSpeed => runMode == 'interval' ? intervalEndSpeed : null;
+
+  @override
+  String? get targetSpeedUnit {
+    if (runMode != 'interval') return null;
+    switch (activeIntervalTarget) {
+      case RaceIntervalTarget.zeroToSixtyMph:
+      case RaceIntervalTarget.fiftyToSeventyFiveMph:
+      case RaceIntervalTarget.sixtyToOneThirtyMph:
+        return 'mph';
+      case RaceIntervalTarget.zeroToOneHundredKmh:
+      case RaceIntervalTarget.eightyToOneTwentyKmh:
+      case RaceIntervalTarget.oneHundredToTwoHundredKmh:
+        return 'kmh';
+      default:
+        return isMetric ? 'kmh' : 'mph';
+    }
+  }
 
   @override
   bool get isSpeedConstant => true;
@@ -122,15 +169,15 @@ class MockDragyProvider extends ChangeNotifier implements DragyProvider {
   }
 
   @override
-  void setActiveRollingTarget(RaceRollingTarget target) {
-    activeRollingTarget = target;
+  void setActiveIntervalTarget(RaceIntervalTarget target) {
+    activeIntervalTarget = target;
     notifyListeners();
   }
 
   @override
-  void setCustomRollingRange(double start, double end) {
-    customRollingStartSpeed = start;
-    customRollingEndSpeed = end;
+  void setCustomIntervalRange(double start, double end) {
+    customIntervalStartSpeed = start;
+    customIntervalEndSpeed = end;
     notifyListeners();
   }
 
@@ -149,19 +196,9 @@ class MockDragyProvider extends ChangeNotifier implements DragyProvider {
   @override
   void setActiveDragTarget(RaceDragTarget target) {
     activeDragTarget = target;
-    stopAtQuarterMile = target == RaceDragTarget.quarterMile;
     notifyListeners();
   }
 
-  @override
-  bool stopAtQuarterMile = true;
-
-  @override
-  void setStopAtQuarterMile(bool value) {
-    stopAtQuarterMile = value;
-    activeDragTarget = value ? RaceDragTarget.quarterMile : RaceDragTarget.halfMile;
-    notifyListeners();
-  }
 
   // --- Settings ---
   @override
@@ -231,14 +268,12 @@ class MockDragyProvider extends ChangeNotifier implements DragyProvider {
     bool? isConnected,
     RaceMetrics? metrics,
     double? liveElapsedTime,
-    bool? stopAtQuarterMile,
     int? satellites,
     double? hdop,
   }) {
     if (isConnected != null) this.isConnected = isConnected;
     if (metrics != null) this.metrics = metrics;
     if (liveElapsedTime != null) this.liveElapsedTime = liveElapsedTime;
-    if (stopAtQuarterMile != null) this.stopAtQuarterMile = stopAtQuarterMile;
     if (satellites != null) this.satellites = satellites;
     if (hdop != null) this.hdop = hdop;
     notifyListeners();
@@ -382,7 +417,9 @@ void main() {
         elapsedTime: 11.45,
         time0to60mph: 3.42,
         time14Mile: 11.45,
-        targetLabel: '1/4 mile',
+        runMode: 'drag',
+        targetDistance: 0.25,
+        targetDistanceUnit: 'mile',
         history: [],
       ),
     );
@@ -396,12 +433,15 @@ void main() {
         distanceMeters: 100.0,
         elapsedTime: 2.92,
         time0to60mph: 2.92,
-        targetLabel: '0-60 mph',
+        runMode: 'drag',
+        targetStartSpeed: 0.0,
+        targetEndSpeed: 96.56064,
+        targetSpeedUnit: 'mph',
         history: [],
       ),
     );
 
-    // Run 3: Custom rolling interval run
+    // Run 3: Custom interval run
     final run3 = SavedRun(
       id: 'run_3',
       dateTime: DateTime.now().subtract(const Duration(minutes: 15)),
@@ -409,8 +449,10 @@ void main() {
         speedKmh: 0.0,
         distanceMeters: 150.0,
         elapsedTime: 2.15,
-        runMode: 'rolling',
-        targetLabel: '30-50 mph',
+        runMode: 'interval',
+        targetStartSpeed: 48.28032,
+        targetEndSpeed: 80.4672,
+        targetSpeedUnit: 'mph',
         history: [],
       ),
     );
@@ -435,7 +477,7 @@ void main() {
     // 2. Verify PB for "0-60 mph" shows the faster time "2.92s"
     expect(find.text('2.92s'), findsNWidgets(2));
 
-    // 3. Verify PB for "1/4 mile" shows "11.45s"
+    // 3. Verify PB for "1/4 Mile" shows "11.45s"
     expect(find.text('11.45s'), findsNWidgets(2));
 
     // 4. Verify custom rolling target run is displayed in the list
@@ -445,16 +487,16 @@ void main() {
     // 5. Verify all three runs are shown initially
     expect(find.byType(RunHistoryCard), findsNWidgets(3));
 
-    // 5. Tap on the "1/4 mile" category card to filter the list
-    final quarterMileCard = find.text('1/4 mile').first;
+    // 5. Tap on the "1/4 Mile" category card to filter the list
+    final quarterMileCard = find.text('1/4 Mile').first;
     await tester.tap(quarterMileCard);
     await tester.pumpAndSettle();
 
-    // 6. Verify that only 1 run is shown (since only Run 1 has 1/4 mile completed)
+    // 6. Verify that only 1 run is shown (since only Run 1 has 1/4 Mile completed)
     expect(find.byType(RunHistoryCard), findsOneWidget);
 
     // 7. Verify that the run history card now shows the selected category as primary label and correct time
-    expect(find.text('1/4 mile'), findsNWidgets(2));
+    expect(find.text('1/4 Mile'), findsNWidgets(2));
     expect(find.text('11.45s'), findsNWidgets(2));
 
     // 8. Tap on the "0-60 mph" category card to filter the list
@@ -512,7 +554,7 @@ void main() {
     expect(mockProvider.tempInCelsius, false);
 
     // Verify version info is displayed
-    expect(find.text('1.0.0-beta.9'), findsOneWidget);
+    expect(find.text('1.0.1-beta.1'), findsOneWidget);
   });
 
   testWidgets('GarageScreen displays empty state and lists vehicles', (WidgetTester tester) async {
@@ -552,11 +594,11 @@ void main() {
   testWidgets('Dashboard rolling target dropdown filtering by unit setting test', (WidgetTester tester) async {
     final mockProvider = MockDragyProvider();
     mockProvider.isConnected = true;
-    mockProvider.runMode = 'rolling';
+    mockProvider.runMode = 'interval';
 
     // 1. Imperial units (isMetric = false)
     mockProvider.isMetric = false;
-    mockProvider.activeRollingTarget = RaceRollingTarget.sixtyToOneThirtyMph;
+    mockProvider.activeIntervalTarget = RaceIntervalTarget.sixtyToOneThirtyMph;
 
     await tester.pumpWidget(
       ChangeNotifierProvider<DragyProvider>.value(
@@ -592,7 +634,7 @@ void main() {
 
     // 2. Metric units (isMetric = true)
     mockProvider.isMetric = true;
-    mockProvider.activeRollingTarget = RaceRollingTarget.oneHundredToTwoHundredKmh;
+    mockProvider.activeIntervalTarget = RaceIntervalTarget.oneHundredToTwoHundredKmh;
     mockProvider.notifyListeners();
     await tester.pumpAndSettle();
 
@@ -733,18 +775,18 @@ void main() {
   });
 
   test('DragyProvider settings serialization test', () {
-    double customRollingStartSpeed = 100.0;
-    double customRollingEndSpeed = 200.0;
+    double customIntervalStartSpeed = 100.0;
+    double customIntervalEndSpeed = 200.0;
     
     final savedMap = {
       'isMetric': false,
-      'customRollingStartSpeed': customRollingStartSpeed.round(),
-      'customRollingEndSpeed': customRollingEndSpeed.round(),
+      'customIntervalStartSpeed': customIntervalStartSpeed.round(),
+      'customIntervalEndSpeed': customIntervalEndSpeed.round(),
     };
     
-    expect(savedMap['customRollingStartSpeed'], 100);
-    expect(savedMap['customRollingEndSpeed'], 200);
-    expect(savedMap['customRollingStartSpeed'] is int, true);
-    expect(savedMap['customRollingEndSpeed'] is int, true);
+    expect(savedMap['customIntervalStartSpeed'], 100);
+    expect(savedMap['customIntervalEndSpeed'], 200);
+    expect(savedMap['customIntervalStartSpeed'] is int, true);
+    expect(savedMap['customIntervalEndSpeed'] is int, true);
   });
 }

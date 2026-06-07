@@ -6,6 +6,7 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 import '../models/race_metrics.dart';
 import '../models/saved_run.dart';
 import '../models/vehicle.dart';
+import '../models/race_target.dart';
 import '../services/ble_service.dart';
 import '../services/physics_engine.dart';
 import '../services/history_service.dart';
@@ -26,7 +27,7 @@ enum RaceDragTarget {
   const RaceDragTarget(this.label);
 }
 
-enum RaceRollingTarget {
+enum RaceIntervalTarget {
   zeroToSixtyMph('0-60 mph'),
   fiftyToSeventyFiveMph('50-75 mph'),
   sixtyToOneThirtyMph('60-130 mph'),
@@ -36,7 +37,7 @@ enum RaceRollingTarget {
   custom('Custom Range...');
 
   final String label;
-  const RaceRollingTarget(this.label);
+  const RaceIntervalTarget(this.label);
 }
 
 class DragyProvider extends ChangeNotifier {
@@ -77,8 +78,6 @@ class DragyProvider extends ChangeNotifier {
   RaceDragTarget _activeDragTarget = RaceDragTarget.quarterMile;
   RaceDragTarget get activeDragTarget => _activeDragTarget;
 
-  bool get stopAtQuarterMile => _activeDragTarget == RaceDragTarget.quarterMile;
-
   // --- Settings ---
   bool _tempInCelsius = true;
   bool get tempInCelsius => _tempInCelsius;
@@ -90,73 +89,128 @@ class DragyProvider extends ChangeNotifier {
   String _runMode = 'drag';
   String get runMode => _runMode;
 
-  RaceRollingTarget _activeRollingTarget = RaceRollingTarget.sixtyToOneThirtyMph;
-  RaceRollingTarget get activeRollingTarget => _activeRollingTarget;
+  RaceIntervalTarget _activeIntervalTarget = RaceIntervalTarget.sixtyToOneThirtyMph;
+  RaceIntervalTarget get activeIntervalTarget => _activeIntervalTarget;
 
-  double _customRollingStartSpeed = 100.0;
-  double get customRollingStartSpeed => _customRollingStartSpeed;
+  double _customIntervalStartSpeed = 100.0;
+  double get customIntervalStartSpeed => _customIntervalStartSpeed;
 
-  double _customRollingEndSpeed = 200.0;
-  double get customRollingEndSpeed => _customRollingEndSpeed;
+  double _customIntervalEndSpeed = 200.0;
+  double get customIntervalEndSpeed => _customIntervalEndSpeed;
 
-  double get rollingStartSpeed {
-    switch (_activeRollingTarget) {
-      case RaceRollingTarget.zeroToSixtyMph:
+  double get intervalStartSpeed {
+    switch (_activeIntervalTarget) {
+      case RaceIntervalTarget.zeroToSixtyMph:
         return 0.0;
-      case RaceRollingTarget.fiftyToSeventyFiveMph:
+      case RaceIntervalTarget.fiftyToSeventyFiveMph:
         return 80.4672;
-      case RaceRollingTarget.sixtyToOneThirtyMph:
+      case RaceIntervalTarget.sixtyToOneThirtyMph:
         return 96.5606;
-      case RaceRollingTarget.zeroToOneHundredKmh:
+      case RaceIntervalTarget.zeroToOneHundredKmh:
         return 0.0;
-      case RaceRollingTarget.eightyToOneTwentyKmh:
+      case RaceIntervalTarget.eightyToOneTwentyKmh:
         return 80.0;
-      case RaceRollingTarget.oneHundredToTwoHundredKmh:
+      case RaceIntervalTarget.oneHundredToTwoHundredKmh:
         return 100.0;
-      case RaceRollingTarget.custom:
-        return _isMetric ? _customRollingStartSpeed : _customRollingStartSpeed / 0.621371;
+      case RaceIntervalTarget.custom:
+        return _isMetric ? _customIntervalStartSpeed : _customIntervalStartSpeed / 0.621371;
     }
   }
 
-  double get rollingEndSpeed {
-    switch (_activeRollingTarget) {
-      case RaceRollingTarget.zeroToSixtyMph:
+  double get intervalEndSpeed {
+    switch (_activeIntervalTarget) {
+      case RaceIntervalTarget.zeroToSixtyMph:
         return 96.5606;
-      case RaceRollingTarget.fiftyToSeventyFiveMph:
+      case RaceIntervalTarget.fiftyToSeventyFiveMph:
         return 120.7008;
-      case RaceRollingTarget.sixtyToOneThirtyMph:
+      case RaceIntervalTarget.sixtyToOneThirtyMph:
         return 209.2147;
-      case RaceRollingTarget.zeroToOneHundredKmh:
+      case RaceIntervalTarget.zeroToOneHundredKmh:
         return 100.0;
-      case RaceRollingTarget.eightyToOneTwentyKmh:
+      case RaceIntervalTarget.eightyToOneTwentyKmh:
         return 120.0;
-      case RaceRollingTarget.oneHundredToTwoHundredKmh:
+      case RaceIntervalTarget.oneHundredToTwoHundredKmh:
         return 200.0;
-      case RaceRollingTarget.custom:
-        return _isMetric ? _customRollingEndSpeed : _customRollingEndSpeed / 0.621371;
+      case RaceIntervalTarget.custom:
+        return _isMetric ? _customIntervalEndSpeed : _customIntervalEndSpeed / 0.621371;
     }
   }
 
-  double get customRollingStartSpeedUserUnit {
-    return _customRollingStartSpeed;
+  double get customIntervalStartSpeedUserUnit {
+    return _customIntervalStartSpeed;
   }
 
-  double get customRollingEndSpeedUserUnit {
-    return _customRollingEndSpeed;
+  double get customIntervalEndSpeedUserUnit {
+    return _customIntervalEndSpeed;
   }
 
   String get activeDragTargetLabel {
     return _activeDragTarget.label;
   }
 
-  String get activeRollingTargetLabel {
-    if (_activeRollingTarget == RaceRollingTarget.custom) {
-      final start = _customRollingStartSpeed.round();
-      final end = _customRollingEndSpeed.round();
+  String get activeIntervalTargetLabel {
+    if (_activeIntervalTarget == RaceIntervalTarget.custom) {
+      final start = _customIntervalStartSpeed.round();
+      final end = _customIntervalEndSpeed.round();
       final unit = _isMetric ? 'km/h' : 'mph';
       return '$start-$end $unit';
     } else {
-      return _activeRollingTarget.label;
+      return _activeIntervalTarget.label;
+    }
+  }
+
+  double? get targetDistance {
+    if (_runMode != 'drag') return null;
+    switch (_activeDragTarget) {
+      case RaceDragTarget.sixtyFeet: return 60.0;
+      case RaceDragTarget.eighthMile: return 0.125;
+      case RaceDragTarget.thousandFeet: return 1000.0;
+      case RaceDragTarget.quarterMile: return 0.25;
+      case RaceDragTarget.halfMile: return 0.5;
+    }
+  }
+
+  String? get targetDistanceUnit {
+    if (_runMode != 'drag') return null;
+    switch (_activeDragTarget) {
+      case RaceDragTarget.sixtyFeet: return 'feet';
+      case RaceDragTarget.eighthMile: return 'mile';
+      case RaceDragTarget.thousandFeet: return 'feet';
+      case RaceDragTarget.quarterMile: return 'mile';
+      case RaceDragTarget.halfMile: return 'mile';
+    }
+  }
+
+  double? get targetStartSpeed {
+    if (_runMode == 'interval') {
+      return intervalStartSpeed;
+    }
+    return null;
+  }
+
+  double? get targetEndSpeed {
+    if (_runMode == 'interval') {
+      return intervalEndSpeed;
+    }
+    return null;
+  }
+
+  String? get targetSpeedUnit {
+    if (_runMode != 'interval') return null;
+    if (_activeIntervalTarget == RaceIntervalTarget.custom) {
+      return _isMetric ? 'kmh' : 'mph';
+    }
+    switch (_activeIntervalTarget) {
+      case RaceIntervalTarget.zeroToSixtyMph:
+      case RaceIntervalTarget.fiftyToSeventyFiveMph:
+      case RaceIntervalTarget.sixtyToOneThirtyMph:
+        return 'mph';
+      case RaceIntervalTarget.zeroToOneHundredKmh:
+      case RaceIntervalTarget.eightyToOneTwentyKmh:
+      case RaceIntervalTarget.oneHundredToTwoHundredKmh:
+        return 'kmh';
+      default:
+        return _isMetric ? 'kmh' : 'mph';
     }
   }
 
@@ -292,7 +346,6 @@ class DragyProvider extends ChangeNotifier {
           }
 
           final wasRunning = _metrics.isRunning;
-          final targetLabel = _runMode == 'drag' ? activeDragTargetLabel : activeRollingTargetLabel;
 
           _metrics = _physicsEngine.updateMetrics(
             _metrics,
@@ -300,9 +353,13 @@ class DragyProvider extends ChangeNotifier {
             _altitude,
             isArmed: _isArmed,
             runMode: _runMode,
-            targetLabel: targetLabel,
-            rollingStartSpeed: rollingStartSpeed,
-            rollingEndSpeed: rollingEndSpeed,
+            targetDistance: targetDistance,
+            targetDistanceUnit: targetDistanceUnit,
+            targetStartSpeed: targetStartSpeed,
+            targetEndSpeed: targetEndSpeed,
+            targetSpeedUnit: targetSpeedUnit,
+            intervalStartSpeed: intervalStartSpeed,
+            intervalEndSpeed: intervalEndSpeed,
           );
           final isRunning = _metrics.isRunning;
 
@@ -473,19 +530,16 @@ class DragyProvider extends ChangeNotifier {
     _isMetric = !_isMetric;
     _syncActiveTargetToUnit();
     if (_isMetric) {
-      _customRollingStartSpeed = (_customRollingStartSpeed / 0.621371).roundToDouble();
-      _customRollingEndSpeed = (_customRollingEndSpeed / 0.621371).roundToDouble();
+      _customIntervalStartSpeed = (_customIntervalStartSpeed / 0.621371).roundToDouble();
+      _customIntervalEndSpeed = (_customIntervalEndSpeed / 0.621371).roundToDouble();
     } else {
-      _customRollingStartSpeed = (_customRollingStartSpeed * 0.621371).roundToDouble();
-      _customRollingEndSpeed = (_customRollingEndSpeed * 0.621371).roundToDouble();
+      _customIntervalStartSpeed = (_customIntervalStartSpeed * 0.621371).roundToDouble();
+      _customIntervalEndSpeed = (_customIntervalEndSpeed * 0.621371).roundToDouble();
     }
     _saveSettings();
     notifyListeners();
   }
 
-  void setStopAtQuarterMile(bool value) {
-    setActiveDragTarget(value ? RaceDragTarget.quarterMile : RaceDragTarget.halfMile);
-  }
 
   void setActiveDragTarget(RaceDragTarget target) {
     if (_activeDragTarget != target) {
@@ -505,11 +559,11 @@ class DragyProvider extends ChangeNotifier {
       _isMetric = isMetric;
       _syncActiveTargetToUnit();
       if (_isMetric) {
-        _customRollingStartSpeed = (_customRollingStartSpeed / 0.621371).roundToDouble();
-        _customRollingEndSpeed = (_customRollingEndSpeed / 0.621371).roundToDouble();
+        _customIntervalStartSpeed = (_customIntervalStartSpeed / 0.621371).roundToDouble();
+        _customIntervalEndSpeed = (_customIntervalEndSpeed / 0.621371).roundToDouble();
       } else {
-        _customRollingStartSpeed = (_customRollingStartSpeed * 0.621371).roundToDouble();
-        _customRollingEndSpeed = (_customRollingEndSpeed * 0.621371).roundToDouble();
+        _customIntervalStartSpeed = (_customIntervalStartSpeed * 0.621371).roundToDouble();
+        _customIntervalEndSpeed = (_customIntervalEndSpeed * 0.621371).roundToDouble();
       }
       _saveSettings();
       notifyListeners();
@@ -518,20 +572,20 @@ class DragyProvider extends ChangeNotifier {
 
   void _syncActiveTargetToUnit() {
     if (_isMetric) {
-      if (_activeRollingTarget == RaceRollingTarget.sixtyToOneThirtyMph) {
-        _activeRollingTarget = RaceRollingTarget.oneHundredToTwoHundredKmh;
-      } else if (_activeRollingTarget == RaceRollingTarget.zeroToSixtyMph) {
-        _activeRollingTarget = RaceRollingTarget.zeroToOneHundredKmh;
-      } else if (_activeRollingTarget == RaceRollingTarget.fiftyToSeventyFiveMph) {
-        _activeRollingTarget = RaceRollingTarget.eightyToOneTwentyKmh;
+      if (_activeIntervalTarget == RaceIntervalTarget.sixtyToOneThirtyMph) {
+        _activeIntervalTarget = RaceIntervalTarget.oneHundredToTwoHundredKmh;
+      } else if (_activeIntervalTarget == RaceIntervalTarget.zeroToSixtyMph) {
+        _activeIntervalTarget = RaceIntervalTarget.zeroToOneHundredKmh;
+      } else if (_activeIntervalTarget == RaceIntervalTarget.fiftyToSeventyFiveMph) {
+        _activeIntervalTarget = RaceIntervalTarget.eightyToOneTwentyKmh;
       }
     } else {
-      if (_activeRollingTarget == RaceRollingTarget.oneHundredToTwoHundredKmh) {
-        _activeRollingTarget = RaceRollingTarget.sixtyToOneThirtyMph;
-      } else if (_activeRollingTarget == RaceRollingTarget.zeroToOneHundredKmh) {
-        _activeRollingTarget = RaceRollingTarget.zeroToSixtyMph;
-      } else if (_activeRollingTarget == RaceRollingTarget.eightyToOneTwentyKmh) {
-        _activeRollingTarget = RaceRollingTarget.fiftyToSeventyFiveMph;
+      if (_activeIntervalTarget == RaceIntervalTarget.oneHundredToTwoHundredKmh) {
+        _activeIntervalTarget = RaceIntervalTarget.sixtyToOneThirtyMph;
+      } else if (_activeIntervalTarget == RaceIntervalTarget.zeroToOneHundredKmh) {
+        _activeIntervalTarget = RaceIntervalTarget.zeroToSixtyMph;
+      } else if (_activeIntervalTarget == RaceIntervalTarget.eightyToOneTwentyKmh) {
+        _activeIntervalTarget = RaceIntervalTarget.fiftyToSeventyFiveMph;
       }
     }
   }
@@ -570,9 +624,9 @@ class DragyProvider extends ChangeNotifier {
 
 
 
-  void setActiveRollingTarget(RaceRollingTarget target) {
-    if (_activeRollingTarget != target) {
-      _activeRollingTarget = target;
+  void setActiveIntervalTarget(RaceIntervalTarget target) {
+    if (_activeIntervalTarget != target) {
+      _activeIntervalTarget = target;
       _isArmed = false; // Disarm on target change
       _metrics = _physicsEngine.reset();
       _lastGpsUpdateTime = null;
@@ -581,9 +635,9 @@ class DragyProvider extends ChangeNotifier {
     }
   }
 
-  void setCustomRollingRange(double start, double end) {
-    _customRollingStartSpeed = start.roundToDouble();
-    _customRollingEndSpeed = end.roundToDouble();
+  void setCustomIntervalRange(double start, double end) {
+    _customIntervalStartSpeed = start.roundToDouble();
+    _customIntervalEndSpeed = end.roundToDouble();
     _isArmed = false; // Disarm on range change
     _metrics = _physicsEngine.reset();
     _lastGpsUpdateTime = null;
@@ -603,14 +657,14 @@ class DragyProvider extends ChangeNotifier {
       orElse: () => RaceDragTarget.quarterMile,
     );
 
-    final rollingTargetName = data['activeRollingTarget'] as String?;
-    _activeRollingTarget = RaceRollingTarget.values.firstWhere(
-      (e) => e.name == rollingTargetName,
-      orElse: () => RaceRollingTarget.sixtyToOneThirtyMph,
+    final intervalTargetName = data['activeIntervalTarget'] as String?;
+    _activeIntervalTarget = RaceIntervalTarget.values.firstWhere(
+      (e) => e.name == intervalTargetName,
+      orElse: () => RaceIntervalTarget.sixtyToOneThirtyMph,
     );
 
-    _customRollingStartSpeed = (data['customRollingStartSpeed'] as num?)?.toDouble() ?? 100.0;
-    _customRollingEndSpeed = (data['customRollingEndSpeed'] as num?)?.toDouble() ?? 200.0;
+    _customIntervalStartSpeed = (data['customIntervalStartSpeed'] as num?)?.toDouble() ?? 100.0;
+    _customIntervalEndSpeed = (data['customIntervalEndSpeed'] as num?)?.toDouble() ?? 200.0;
     _syncActiveTargetToUnit();
     notifyListeners();
   }
@@ -621,10 +675,9 @@ class DragyProvider extends ChangeNotifier {
       'tempInCelsius': _tempInCelsius,
       'runMode': _runMode,
       'activeDragTarget': _activeDragTarget.name,
-      'stopAtQuarterMile': stopAtQuarterMile,
-      'activeRollingTarget': _activeRollingTarget.name,
-      'customRollingStartSpeed': _customRollingStartSpeed.round(),
-      'customRollingEndSpeed': _customRollingEndSpeed.round(),
+      'activeIntervalTarget': _activeIntervalTarget.name,
+      'customIntervalStartSpeed': _customIntervalStartSpeed.round(),
+      'customIntervalEndSpeed': _customIntervalEndSpeed.round(),
     });
   }
 

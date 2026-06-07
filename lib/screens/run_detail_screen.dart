@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../providers/dragy_provider.dart';
 import '../models/saved_run.dart';
+import '../models/race_target.dart';
 
 class RunDetailScreen extends StatelessWidget {
   final SavedRun run;
@@ -101,14 +102,32 @@ class RunDetailScreen extends StatelessWidget {
       ));
     }
 
-    if (metrics.runMode == 'rolling' && metrics.targetLabel != null &&
-        metrics.targetLabel != '60-130 mph' && metrics.targetLabel != '100-200 km/h' &&
-        metrics.targetLabel != '0-60 mph' && metrics.targetLabel != '0-100 km/h') {
-      reachedMilestones.add(_ReachedMilestone(
-        label: metrics.targetLabel!,
-        time: metrics.elapsedTime,
-        sortTime: metrics.elapsedTime,
-      ));
+    if (metrics.runMode == 'interval' &&
+        metrics.targetStartSpeed != null &&
+        metrics.targetEndSpeed != null) {
+      bool matchesAny = false;
+      for (final test in officialTests) {
+        if (test.type == 'interval' &&
+            (metrics.targetStartSpeed! - test.startSpeed!).abs() < 0.1 &&
+            (metrics.targetEndSpeed! - test.endSpeed!).abs() < 0.1 &&
+            metrics.targetSpeedUnit == test.speedUnit?.name) {
+          matchesAny = true;
+          break;
+        }
+      }
+      if (!matchesAny) {
+        final label = getDisplayLabelForTarget(
+          startSpeed: metrics.targetStartSpeed,
+          endSpeed: metrics.targetEndSpeed,
+          speedUnit: metrics.targetSpeedUnit,
+          runMode: 'interval',
+        );
+        reachedMilestones.add(_ReachedMilestone(
+          label: label,
+          time: metrics.elapsedTime,
+          sortTime: metrics.elapsedTime,
+        ));
+      }
     }
 
     reachedMilestones.sort((a, b) => a.sortTime.compareTo(b.sortTime));
@@ -159,8 +178,16 @@ class RunDetailScreen extends StatelessWidget {
     } else if (metrics.time18Mile != null) {
       primaryLabel = "1/8 Mile Time";
       primaryTime = "${metrics.time18Mile!.toStringAsFixed(2)}s";
-    } else if (metrics.runMode == 'rolling' && metrics.targetLabel != null) {
-      primaryLabel = "${metrics.targetLabel} Time";
+    } else if (metrics.runMode == 'rolling' &&
+               metrics.targetStartSpeed != null &&
+               metrics.targetEndSpeed != null) {
+      final label = getDisplayLabelForTarget(
+        startSpeed: metrics.targetStartSpeed,
+        endSpeed: metrics.targetEndSpeed,
+        speedUnit: metrics.targetSpeedUnit,
+        runMode: 'rolling',
+      );
+      primaryLabel = "$label Time";
       primaryTime = "${metrics.elapsedTime.toStringAsFixed(2)}s";
     } else if (isMetric && metrics.time0to100kmh != null) {
       primaryLabel = "0-100 km/h Time";

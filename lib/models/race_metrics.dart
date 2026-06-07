@@ -61,8 +61,12 @@ class RaceMetrics {
   final double? startAltitude; // Start elevation in meters
 
   // Mode & Target Info
-  final String? runMode; // 'drag' or 'rolling'
-  final String? targetLabel; // e.g. '1/4 mile', '60-130 mph'
+  final String? runMode; // 'drag' or 'interval'
+  final double? targetDistance;
+  final String? targetDistanceUnit;
+  final double? targetStartSpeed;
+  final double? targetEndSpeed;
+  final String? targetSpeedUnit;
 
   final bool isRunning;
   final List<DataPoint> history;
@@ -89,7 +93,11 @@ class RaceMetrics {
     this.time0to200kmh,
     this.startAltitude,
     this.runMode,
-    this.targetLabel,
+    this.targetDistance,
+    this.targetDistanceUnit,
+    this.targetStartSpeed,
+    this.targetEndSpeed,
+    this.targetSpeedUnit,
     this.isRunning = false,
     this.history = const [],
   });
@@ -116,7 +124,11 @@ class RaceMetrics {
     double? time0to200kmh,
     double? startAltitude,
     String? runMode,
-    String? targetLabel,
+    double? targetDistance,
+    String? targetDistanceUnit,
+    double? targetStartSpeed,
+    double? targetEndSpeed,
+    String? targetSpeedUnit,
     bool? isRunning,
     List<DataPoint>? history,
   }) {
@@ -142,7 +154,11 @@ class RaceMetrics {
       time0to200kmh: time0to200kmh ?? this.time0to200kmh,
       startAltitude: startAltitude ?? this.startAltitude,
       runMode: runMode ?? this.runMode,
-      targetLabel: targetLabel ?? this.targetLabel,
+      targetDistance: targetDistance ?? this.targetDistance,
+      targetDistanceUnit: targetDistanceUnit ?? this.targetDistanceUnit,
+      targetStartSpeed: targetStartSpeed ?? this.targetStartSpeed,
+      targetEndSpeed: targetEndSpeed ?? this.targetEndSpeed,
+      targetSpeedUnit: targetSpeedUnit ?? this.targetSpeedUnit,
       isRunning: isRunning ?? this.isRunning,
       history: history ?? this.history,
     );
@@ -171,7 +187,11 @@ class RaceMetrics {
       'time0to200kmh': time0to200kmh,
       'startAltitude': startAltitude,
       'runMode': runMode,
-      'targetLabel': targetLabel,
+      'targetDistance': targetDistance,
+      'targetDistanceUnit': targetDistanceUnit,
+      'targetStartSpeed': targetStartSpeed,
+      'targetEndSpeed': targetEndSpeed,
+      'targetSpeedUnit': targetSpeedUnit,
       'history': history.map((e) => e.toJson()).toList(),
     };
   }
@@ -231,7 +251,17 @@ class RaceMetrics {
           ? (json['startAltitude'] as num).toDouble()
           : null,
       runMode: json['runMode'] as String?,
-      targetLabel: json['targetLabel'] as String?,
+      targetDistance: json['targetDistance'] != null
+          ? (json['targetDistance'] as num).toDouble()
+          : null,
+      targetDistanceUnit: json['targetDistanceUnit'] as String?,
+      targetStartSpeed: json['targetStartSpeed'] != null
+          ? (json['targetStartSpeed'] as num).toDouble()
+          : null,
+      targetEndSpeed: json['targetEndSpeed'] != null
+          ? (json['targetEndSpeed'] as num).toDouble()
+          : null,
+      targetSpeedUnit: json['targetSpeedUnit'] as String?,
       isRunning: false,
       history: (json['history'] as List? ?? [])
           .map((e) => DataPoint.fromJson(Map<String, dynamic>.from(e as Map)))

@@ -30,9 +30,13 @@ class PhysicsEngine {
     double currentAltitude, {
     required bool isArmed,
     required String runMode,
-    required String targetLabel,
-    required double rollingStartSpeed,
-    required double rollingEndSpeed,
+    required double? targetDistance,
+    required String? targetDistanceUnit,
+    required double? targetStartSpeed,
+    required double? targetEndSpeed,
+    required String? targetSpeedUnit,
+    required double intervalStartSpeed,
+    required double intervalEndSpeed,
   }) {
     // 0.5 Sensor-Fusion Outlier Rejection
     // Validate the GPS speed jump against the live IMU acceleration.
@@ -95,7 +99,11 @@ class PhysicsEngine {
             gForce: current.gForce,
             startAltitude: current.history.isNotEmpty ? current.startAltitude : currentAltitude,
             runMode: 'drag',
-            targetLabel: targetLabel,
+            targetDistance: targetDistance,
+            targetDistanceUnit: targetDistanceUnit,
+            targetStartSpeed: targetStartSpeed,
+            targetEndSpeed: targetEndSpeed,
+            targetSpeedUnit: targetSpeedUnit,
           );
         }
 
@@ -163,7 +171,11 @@ class PhysicsEngine {
               gForce: current.gForce, // Retain IMU G-force
               startAltitude: currentAltitude,
               runMode: 'drag',
-              targetLabel: targetLabel,
+              targetDistance: targetDistance,
+              targetDistanceUnit: targetDistanceUnit,
+              targetStartSpeed: targetStartSpeed,
+              targetEndSpeed: targetEndSpeed,
+              targetSpeedUnit: targetSpeedUnit,
               history: initialHistory,
             );
 
@@ -181,22 +193,26 @@ class PhysicsEngine {
           gForce: current.gForce,
           startAltitude: current.history.isNotEmpty ? current.startAltitude : currentAltitude,
           runMode: 'drag',
-          targetLabel: targetLabel,
+          targetDistance: targetDistance,
+          targetDistanceUnit: targetDistanceUnit,
+          targetStartSpeed: targetStartSpeed,
+          targetEndSpeed: targetEndSpeed,
+          targetSpeedUnit: targetSpeedUnit,
         );
       } else {
-        // Rolling Mode
+        // Interval Mode
         if (_speedBuffer.length >= 2) {
           double prevSpeed = _speedBuffer[_speedBuffer.length - 2];
-          if (prevSpeed <= rollingStartSpeed && newSpeedKmh > rollingStartSpeed) {
+          if (prevSpeed <= intervalStartSpeed && newSpeedKmh > intervalStartSpeed) {
             // Trigger! Calculate the exact start crossing point.
             double speedDiff = newSpeedKmh - prevSpeed;
-            double fraction = (rollingStartSpeed - prevSpeed) / speedDiff;
+            double fraction = (intervalStartSpeed - prevSpeed) / speedDiff;
             
             // Time offset from the crossing point to the current tick
             double elapsedOffset = (1.0 - fraction) * dt;
 
             // Average speed during this fractional step (m/s)
-            double avgSpeedMs = ((rollingStartSpeed / 3.6) + (newSpeedKmh / 3.6)) / 2;
+            double avgSpeedMs = ((intervalStartSpeed / 3.6) + (newSpeedKmh / 3.6)) / 2;
             double initialDistance = avgSpeedMs * elapsedOffset;
 
             RaceMetrics simulated = current.copyWith(
@@ -206,12 +222,16 @@ class PhysicsEngine {
               speedKmh: newSpeedKmh,
               gForce: current.gForce,
               startAltitude: currentAltitude,
-              runMode: 'rolling',
-              targetLabel: targetLabel,
+              runMode: 'interval',
+              targetDistance: targetDistance,
+              targetDistanceUnit: targetDistanceUnit,
+              targetStartSpeed: targetStartSpeed,
+              targetEndSpeed: targetEndSpeed,
+              targetSpeedUnit: targetSpeedUnit,
               history: [
                 DataPoint(
                   elapsedTime: 0.0,
-                  speedKmh: rollingStartSpeed,
+                  speedKmh: intervalStartSpeed,
                   gForce: current.gForce,
                   altitude: currentAltitude,
                 ),
@@ -236,8 +256,12 @@ class PhysicsEngine {
           elapsedTime: current.history.isNotEmpty ? current.elapsedTime : 0.0,
           gForce: current.gForce,
           startAltitude: current.history.isNotEmpty ? current.startAltitude : currentAltitude,
-          runMode: 'rolling',
-          targetLabel: targetLabel,
+          runMode: 'interval',
+          targetDistance: targetDistance,
+          targetDistanceUnit: targetDistanceUnit,
+          targetStartSpeed: targetStartSpeed,
+          targetEndSpeed: targetEndSpeed,
+          targetSpeedUnit: targetSpeedUnit,
         );
       }
     } else {
@@ -258,11 +282,11 @@ class PhysicsEngine {
           _stoppedTicks = 0;
         }
 
-        return _integrateDrag(current, newSpeedKmh, currentAltitude, targetLabel: targetLabel);
+        return _integrateDrag(current, newSpeedKmh, currentAltitude);
       } else {
-        // Rolling Mode
+        // Interval Mode
         // Auto-cancel logic: if speed drops below starting speed - 10 km/h for 2 seconds, cancel the run
-        final double cancelThreshold = (rollingStartSpeed - 10.0).clamp(0.0, 300.0);
+        final double cancelThreshold = (intervalStartSpeed - 10.0).clamp(0.0, 300.0);
         if (newSpeedKmh < cancelThreshold) {
           _stoppedTicks++;
           if (_stoppedTicks >= 20) {
@@ -277,13 +301,12 @@ class PhysicsEngine {
           _stoppedTicks = 0;
         }
 
-        return _integrateRolling(
+        return _integrateInterval(
           current,
           newSpeedKmh,
           currentAltitude,
-          targetLabel: targetLabel,
-          rollingStartSpeed: rollingStartSpeed,
-          rollingEndSpeed: rollingEndSpeed,
+          intervalStartSpeed: intervalStartSpeed,
+          intervalEndSpeed: intervalEndSpeed,
         );
       }
     }
@@ -292,9 +315,8 @@ class PhysicsEngine {
   RaceMetrics _integrateDrag(
     RaceMetrics current,
     double newSpeedKmh,
-    double currentAltitude, {
-    required String targetLabel,
-  }) {
+    double currentAltitude,
+  ) {
     final currentSpeedMs = current.speedKmh / 3.6;
     final newSpeedMs = newSpeedKmh / 3.6;
 
@@ -466,17 +488,24 @@ class PhysicsEngine {
 
     // Determine target completion
     bool targetAchieved = false;
-    final labelLower = targetLabel.toLowerCase();
-    if (labelLower.contains('60ft') && t60ft != null) targetAchieved = true;
-    if (labelLower.contains('60mph') && t0_60mph != null) targetAchieved = true;
-    if (labelLower.contains('0-60') && t0_60mph != null) targetAchieved = true;
-    if (labelLower.contains('100km') && t0_100kmh != null) targetAchieved = true;
-    if (labelLower.contains('1/8') && t18 != null) targetAchieved = true;
-    if (labelLower.contains('1000ft') && t1000ft != null) targetAchieved = true;
-    if (labelLower.contains('1/4') && t14 != null) targetAchieved = true;
-    if (labelLower.contains('1/2') && t12 != null) targetAchieved = true;
-    if (labelLower.contains('200km') && t0_200kmh != null) targetAchieved = true;
-    if (labelLower.contains('130mph') && t0_130mph != null) targetAchieved = true;
+    if (current.targetDistance != null && current.targetDistanceUnit != null) {
+      double targetDistanceMeters = current.targetDistance!;
+      final unit = current.targetDistanceUnit!.toLowerCase();
+      if (unit == 'feet') {
+        targetDistanceMeters = current.targetDistance! * 0.3048;
+      } else if (unit == 'mile') {
+        targetDistanceMeters = current.targetDistance! * 1609.344;
+      } else if (unit == 'kilometer') {
+        targetDistanceMeters = current.targetDistance! * 1000.0;
+      }
+      if (newDistance >= targetDistanceMeters) {
+        targetAchieved = true;
+      }
+    } else if (current.targetEndSpeed != null && current.targetStartSpeed == 0.0) {
+      if (newSpeedKmh >= current.targetEndSpeed!) {
+        targetAchieved = true;
+      }
+    }
 
     return current.copyWith(
       speedKmh: newSpeedKmh,
@@ -504,13 +533,12 @@ class PhysicsEngine {
     );
   }
 
-  RaceMetrics _integrateRolling(
+  RaceMetrics _integrateInterval(
     RaceMetrics current,
     double newSpeedKmh,
     double currentAltitude, {
-    required String targetLabel,
-    required double rollingStartSpeed,
-    required double rollingEndSpeed,
+    required double intervalStartSpeed,
+    required double intervalEndSpeed,
   }) {
     final currentSpeedMs = current.speedKmh / 3.6;
     final newSpeedMs = newSpeedKmh / 3.6;
@@ -536,11 +564,11 @@ class PhysicsEngine {
     bool targetAchieved = false;
     double newElapsedTimeCalculated = newElapsedTime;
     
-    if (newSpeedKmh >= rollingEndSpeed) {
+    if (newSpeedKmh >= intervalEndSpeed) {
       targetAchieved = true;
       double speedDiff = newSpeedKmh - current.speedKmh;
       if (speedDiff > 0) {
-        double fraction = (rollingEndSpeed - current.speedKmh) / speedDiff;
+        double fraction = (intervalEndSpeed - current.speedKmh) / speedDiff;
         newElapsedTimeCalculated = current.elapsedTime + (dt * fraction);
       }
     }
@@ -548,10 +576,16 @@ class PhysicsEngine {
     double? t60_130 = current.time60to130mph;
     double? t100_200 = current.time100to200kmh;
     
-    if (targetLabel == '60-130 mph') {
-      t60_130 = newElapsedTimeCalculated;
-    } else if (targetLabel == '100-200 km/h') {
-      t100_200 = newElapsedTimeCalculated;
+    if (current.targetStartSpeed != null && current.targetEndSpeed != null) {
+      if ((current.targetStartSpeed! - 96.56).abs() < 1.0 &&
+          (current.targetEndSpeed! - 209.21).abs() < 1.0 &&
+          current.targetSpeedUnit == 'mph') {
+        t60_130 = newElapsedTimeCalculated;
+      } else if ((current.targetStartSpeed! - 100.0).abs() < 0.1 &&
+                 (current.targetEndSpeed! - 200.0).abs() < 0.1 &&
+                 current.targetSpeedUnit == 'kmh') {
+        t100_200 = newElapsedTimeCalculated;
+      }
     }
 
     return current.copyWith(

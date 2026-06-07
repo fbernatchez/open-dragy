@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../providers/dragy_provider.dart';
 import '../models/saved_run.dart';
 import '../models/race_metrics.dart';
+import '../models/race_target.dart';
 import 'run_detail_screen.dart';
 
 class RunHistoryScreen extends StatefulWidget {
@@ -14,7 +15,7 @@ class RunHistoryScreen extends StatefulWidget {
 }
 
 class _RunHistoryScreenState extends State<RunHistoryScreen> {
-  String _selectedCategory = 'All';
+  String _selectedCategory = 'all';
 
   String _formatDate(DateTime dt) {
     final months = [
@@ -38,165 +39,119 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
     final minute = dt.minute.toString().padLeft(2, '0');
     final ampm = dt.hour >= 12 ? 'PM' : 'AM';
     return '$month $day, $year at $hour:$minute $ampm';
-  }
+  }  List<HistoryCategory> _getCategories(List<SavedRun> runs, bool isMetric) {
+    final Set<String> seenIds = {};
+    final List<HistoryCategory> categories = [
+      const HistoryCategory(id: 'all', displayName: 'All Runs', isOfficial: true)
+    ];
 
-  static List<String> getCompletedMilestones(
-    RaceMetrics metrics,
-    bool isMetric,
-  ) {
-    final List<String> milestones = [];
-
-    // Drag distance/time milestones
-    if (metrics.time60ft != null) milestones.add('60ft');
-
-    if (isMetric) {
-      if (metrics.time0to100kmh != null) milestones.add('0-100 km/h');
-      if (metrics.time0to200kmh != null) milestones.add('0-200 km/h');
-    } else {
-      if (metrics.time0to60mph != null) milestones.add('0-60 mph');
-      if (metrics.time0to130mph != null) milestones.add('0-130 mph');
-    }
-
-    if (metrics.time18Mile != null) milestones.add('1/8 mile');
-    if (metrics.time1000ft != null) milestones.add('1000ft');
-    if (metrics.time14Mile != null) milestones.add('1/4 mile');
-    if (metrics.time12Mile != null) milestones.add('1/2 mile');
-
-    // Rolling milestones
-    if (metrics.time60to130mph != null) milestones.add('60-130 mph');
-    if (metrics.time100to200kmh != null) milestones.add('100-200 km/h');
-
-    // Custom target label if present
-    if (metrics.targetLabel != null && metrics.targetLabel!.isNotEmpty) {
-      final standardLabels = {
-        '60ft',
-        '0-100 km/h',
-        '0-200 km/h',
-        '0-60 mph',
-        '0-130 mph',
-        '1/8 mile',
-        '1000ft',
-        '1/4 mile',
-        '1/2 mile',
-        '60-130 mph',
-        '100-200 km/h',
-      };
-      if (!standardLabels.contains(metrics.targetLabel)) {
-        milestones.add(metrics.targetLabel!);
-      }
-    }
-
-    return milestones;
-  }
-
-  static double? getCompletedTimeForMilestone(
-    RaceMetrics metrics,
-    String milestone,
-    bool isMetric,
-  ) {
-    switch (milestone) {
-      case '60ft':
-        return metrics.time60ft;
-      case '0-60 mph':
-        return metrics.time0to60mph;
-      case '0-100 km/h':
-        return metrics.time0to100kmh;
-      case '1/8 mile':
-        return metrics.time18Mile;
-      case '1000ft':
-        return metrics.time1000ft;
-      case '1/4 mile':
-        return metrics.time14Mile;
-      case '1/2 mile':
-        return metrics.time12Mile;
-      case '60-130 mph':
-        return metrics.time60to130mph;
-      case '100-200 km/h':
-        return metrics.time100to200kmh;
-      case '0-130 mph':
-        return metrics.time0to130mph;
-      case '0-200 km/h':
-        return metrics.time0to200kmh;
-      default:
-        if (metrics.targetLabel == milestone) {
-          return metrics.elapsedTime > 0 ? metrics.elapsedTime : null;
-        }
-        return null;
-    }
-  }
-
-  List<String> _getCategories(List<SavedRun> runs, bool isMetric) {
-    final Set<String> categories = {'All'};
     for (final run in runs) {
-      final milestones = getCompletedMilestones(run.metrics, isMetric);
-      categories.addAll(milestones);
-    }
-    final list = categories.toList();
-    if (list.length > 1) {
-      final order = [
-        '60ft',
-        '0-60 mph',
-        '0-100 km/h',
-        '1/8 mile',
-        '1000ft',
-        '1/4 mile',
-        '1/2 mile',
-        '60-130 mph',
-        '100-200 km/h',
-        '0-130 mph',
-        '0-200 km/h',
-      ];
-      final others = list.sublist(1)
-        ..sort((a, b) {
-          final idxA = order.indexOf(a);
-          final idxB = order.indexOf(b);
-          if (idxA != -1 && idxB != -1) {
-            return idxA.compareTo(idxB);
-          } else if (idxA != -1) {
-            return -1;
-          } else if (idxB != -1) {
-            return 1;
-          } else {
-            return a.compareTo(b);
+      final completed = getCompletedTests(run.metrics);
+      for (final test in completed) {
+        if (test.speedUnit != null) {
+          final isTestMetric = test.speedUnit == SpeedUnit.kmh;
+          if (isTestMetric != isMetric && test.id.startsWith('0-')) {
+            continue;
           }
-        });
-      return ['All', ...others];
-    }
-    return list;
-  }
-
-  static double? getCompletedTime(RaceMetrics metrics, bool isMetric) {
-    if (metrics.runMode == 'rolling') {
-      if (metrics.targetLabel == '60-130 mph') {
-        return metrics.time60to130mph;
-      } else if (metrics.targetLabel == '100-200 km/h') {
-        return metrics.time100to200kmh;
-      } else if (metrics.targetLabel == '0-60 mph') {
-        return metrics.time0to60mph;
-      } else if (metrics.targetLabel == '0-100 km/h') {
-        return metrics.time0to100kmh;
-      } else {
-        return metrics.elapsedTime > 0 ? metrics.elapsedTime : null;
+        }
+        
+        if (!seenIds.contains(test.id)) {
+          seenIds.add(test.id);
+          categories.add(HistoryCategory(
+            id: test.id,
+            displayName: test.displayName,
+            isOfficial: true,
+          ));
+        }
       }
-    } else {
-      if (metrics.time12Mile != null) return metrics.time12Mile;
-      if (metrics.time14Mile != null) return metrics.time14Mile;
-      if (metrics.time1000ft != null) return metrics.time1000ft;
-      if (metrics.time18Mile != null) return metrics.time18Mile;
-      if (metrics.time0to100kmh != null && isMetric)
-        return metrics.time0to100kmh;
-      if (metrics.time0to60mph != null && !isMetric)
-        return metrics.time0to60mph;
-      if (metrics.time60ft != null) return metrics.time60ft;
-      return metrics.elapsedTime > 0 ? metrics.elapsedTime : null;
+
+      if (run.metrics.runMode == 'interval' &&
+          run.metrics.targetStartSpeed != null &&
+          run.metrics.targetEndSpeed != null) {
+        
+        bool matchesAny = false;
+        for (final test in officialTests) {
+          if (test.type == 'interval' &&
+              (run.metrics.targetStartSpeed! - test.startSpeed!).abs() < 0.1 &&
+              (run.metrics.targetEndSpeed! - test.endSpeed!).abs() < 0.1 &&
+              run.metrics.targetSpeedUnit == test.speedUnit?.name) {
+            matchesAny = true;
+            break;
+          }
+        }
+
+        if (!matchesAny) {
+          final customId = 'custom_${run.metrics.targetStartSpeed}_${run.metrics.targetEndSpeed}_${run.metrics.targetSpeedUnit}';
+          if (!seenIds.contains(customId)) {
+            seenIds.add(customId);
+            final label = getDisplayLabelForTarget(
+              startSpeed: run.metrics.targetStartSpeed,
+              endSpeed: run.metrics.targetEndSpeed,
+              speedUnit: run.metrics.targetSpeedUnit,
+              runMode: 'interval',
+            );
+            categories.add(HistoryCategory(
+              id: customId,
+              displayName: label,
+              isOfficial: false,
+              startSpeed: run.metrics.targetStartSpeed,
+              endSpeed: run.metrics.targetEndSpeed,
+              speedUnit: run.metrics.targetSpeedUnit == 'mph' ? SpeedUnit.mph : SpeedUnit.kmh,
+            ));
+          }
+        }
+      }
     }
+
+    const order = [
+      '60ft',
+      '0-60mph',
+      '0-100kmh',
+      '1/8mile',
+      '1000ft',
+      '1/4mile',
+      '1/2mile',
+      '60-130mph',
+      '100-200kmh',
+      '0-130mph',
+      '0-200kmh',
+      '50-75mph',
+      '80-120kmh',
+    ];
+
+    final allCategory = categories.first;
+    final others = categories.sublist(1);
+
+    others.sort((a, b) {
+      if (a.isOfficial && b.isOfficial) {
+        final idxA = order.indexOf(a.id);
+        final idxB = order.indexOf(b.id);
+        if (idxA != -1 && idxB != -1) {
+          return idxA.compareTo(idxB);
+        } else if (idxA != -1) {
+          return -1;
+        } else if (idxB != -1) {
+          return 1;
+        } else {
+          return a.displayName.compareTo(b.displayName);
+        }
+      } else if (a.isOfficial) {
+        return -1;
+      } else if (b.isOfficial) {
+        return 1;
+      } else {
+        return a.displayName.compareTo(b.displayName);
+      }
+    });
+
+    return [allCategory, ...others];
   }
 
-  double? _getPB(String category, List<SavedRun> runs, bool isMetric) {
-    if (category == 'All') return null;
+  double? _getPB(String categoryId, List<SavedRun> runs) {
+    if (categoryId == 'all') return null;
     double? best;
     for (final run in runs) {
-      final val = getCompletedTimeForMilestone(run.metrics, category, isMetric);
+      final val = getCompletedTimeForCategory(run.metrics, categoryId);
       if (val != null) {
         if (best == null || val < best) {
           best = val;
@@ -207,21 +162,37 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
   }
 
   List<SavedRun> _getFilteredRuns(
-    String category,
+    String categoryId,
     List<SavedRun> runs,
-    bool isMetric,
   ) {
-    if (category == 'All') return runs;
+    if (categoryId == 'all') return runs;
     return runs.where((run) {
-      final time = getCompletedTimeForMilestone(
-        run.metrics,
-        category,
-        isMetric,
-      );
+      final time = getCompletedTimeForCategory(run.metrics, categoryId);
       return time != null;
     }).toList();
   }
 
+  static String getCategoryDisplayName(String categoryId) {
+    if (categoryId == 'all') return 'All Runs';
+    for (final test in officialTests) {
+      if (test.id == categoryId) return test.displayName;
+    }
+    if (categoryId.startsWith('custom_')) {
+      final parts = categoryId.split('_');
+      if (parts.length >= 4) {
+        final start = double.tryParse(parts[1]);
+        final end = double.tryParse(parts[2]);
+        final unit = parts[3];
+        return getDisplayLabelForTarget(
+          startSpeed: start,
+          endSpeed: end,
+          speedUnit: unit,
+          runMode: 'interval',
+        );
+      }
+    }
+    return categoryId;
+  }
   @override
   Widget build(BuildContext context) {
     final dragy = Provider.of<DragyProvider>(context);
@@ -229,10 +200,10 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
     final isMetric = dragy.isMetric;
 
     final categories = _getCategories(runs, isMetric);
-    if (!categories.contains(_selectedCategory)) {
-      _selectedCategory = 'All';
+    if (!categories.any((c) => c.id == _selectedCategory)) {
+      _selectedCategory = 'all';
     }
-    final filteredRuns = _getFilteredRuns(_selectedCategory, runs, isMetric);
+    final filteredRuns = _getFilteredRuns(_selectedCategory, runs);
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -286,12 +257,12 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                     itemCount: categories.length,
                     itemBuilder: (context, idx) {
                       final category = categories[idx];
-                      final isSelected = _selectedCategory == category;
-                      final label = category == 'All' ? 'All Runs' : category;
-                      final pb = _getPB(category, runs, isMetric);
+                      final isSelected = _selectedCategory == category.id;
+                      final label = category.displayName;
+                      final pb = _getPB(category.id, runs);
 
                       String pbText = '-.--s';
-                      if (category == 'All') {
+                      if (category.id == 'all') {
                         pbText = '${runs.length} Runs';
                       } else if (pb != null) {
                         pbText = '${pb.toStringAsFixed(2)}s';
@@ -300,7 +271,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                       return GestureDetector(
                         onTap: () {
                           setState(() {
-                            _selectedCategory = category;
+                            _selectedCategory = category.id;
                           });
                         },
                         child: Container(
@@ -476,67 +447,70 @@ class RunHistoryCard extends StatelessWidget {
     String primaryLabel = "0-60";
     String primaryTime = "-.--s";
 
-    if (selectedCategory != 'All') {
-      primaryLabel = selectedCategory;
-      final displayTime = _RunHistoryScreenState.getCompletedTimeForMilestone(
-        metrics,
-        selectedCategory,
-        isMetric,
-      );
+    if (selectedCategory != 'all') {
+      primaryLabel = _RunHistoryScreenState.getCategoryDisplayName(selectedCategory);
+      final displayTime = getCompletedTimeForCategory(metrics, selectedCategory);
       if (displayTime != null) {
         primaryTime = "${displayTime.toStringAsFixed(2)}s";
       }
     } else {
       if (metrics.time12Mile != null) {
-        primaryLabel = "1/2 mile";
+        primaryLabel = "1/2 Mile";
         primaryTime = "${metrics.time12Mile!.toStringAsFixed(2)}s";
       } else if (metrics.time14Mile != null) {
-        primaryLabel = "1/4 mile";
+        primaryLabel = "1/4 Mile";
         primaryTime = "${metrics.time14Mile!.toStringAsFixed(2)}s";
       } else if (isMetric && metrics.time0to200kmh != null) {
-        primaryLabel = "0-200";
+        primaryLabel = "0-200 km/h";
         primaryTime = "${metrics.time0to200kmh!.toStringAsFixed(2)}s";
       } else if (!isMetric && metrics.time0to130mph != null) {
-        primaryLabel = "0-130";
+        primaryLabel = "0-130 mph";
         primaryTime = "${metrics.time0to130mph!.toStringAsFixed(2)}s";
       } else if (isMetric && metrics.time100to200kmh != null) {
-        primaryLabel = "100-200";
+        primaryLabel = "100-200 km/h";
         primaryTime = "${metrics.time100to200kmh!.toStringAsFixed(2)}s";
       } else if (!isMetric && metrics.time60to130mph != null) {
-        primaryLabel = "60-130";
+        primaryLabel = "60-130 mph";
         primaryTime = "${metrics.time60to130mph!.toStringAsFixed(2)}s";
       } else if (metrics.time100to200kmh != null) {
-        primaryLabel = "100-200";
+        primaryLabel = "100-200 km/h";
         primaryTime = "${metrics.time100to200kmh!.toStringAsFixed(2)}s";
       } else if (metrics.time60to130mph != null) {
-        primaryLabel = "60-130";
+        primaryLabel = "60-130 mph";
         primaryTime = "${metrics.time60to130mph!.toStringAsFixed(2)}s";
       } else if (metrics.time0to200kmh != null) {
-        primaryLabel = "0-200";
+        primaryLabel = "0-200 km/h";
         primaryTime = "${metrics.time0to200kmh!.toStringAsFixed(2)}s";
       } else if (metrics.time0to130mph != null) {
-        primaryLabel = "0-130";
+        primaryLabel = "0-130 mph";
         primaryTime = "${metrics.time0to130mph!.toStringAsFixed(2)}s";
       } else if (metrics.time1000ft != null) {
         primaryLabel = "1000ft";
         primaryTime = "${metrics.time1000ft!.toStringAsFixed(2)}s";
       } else if (metrics.time18Mile != null) {
-        primaryLabel = "1/8 mile";
+        primaryLabel = "1/8 Mile";
         primaryTime = "${metrics.time18Mile!.toStringAsFixed(2)}s";
-      } else if (metrics.runMode == 'rolling' && metrics.targetLabel != null) {
-        primaryLabel = metrics.targetLabel!;
+      } else if (metrics.runMode == 'interval' &&
+                 metrics.targetStartSpeed != null &&
+                 metrics.targetEndSpeed != null) {
+        primaryLabel = getDisplayLabelForTarget(
+          startSpeed: metrics.targetStartSpeed,
+          endSpeed: metrics.targetEndSpeed,
+          speedUnit: metrics.targetSpeedUnit,
+          runMode: 'interval',
+        );
         primaryTime = "${metrics.elapsedTime.toStringAsFixed(2)}s";
       } else if (isMetric && metrics.time0to100kmh != null) {
-        primaryLabel = "0-100";
+        primaryLabel = "0-100 km/h";
         primaryTime = "${metrics.time0to100kmh!.toStringAsFixed(2)}s";
       } else if (!isMetric && metrics.time0to60mph != null) {
-        primaryLabel = "0-60";
+        primaryLabel = "0-60 mph";
         primaryTime = "${metrics.time0to60mph!.toStringAsFixed(2)}s";
       } else if (metrics.time0to100kmh != null) {
-        primaryLabel = "0-100";
+        primaryLabel = "0-100 km/h";
         primaryTime = "${metrics.time0to100kmh!.toStringAsFixed(2)}s";
       } else if (metrics.time0to60mph != null) {
-        primaryLabel = "0-60";
+        primaryLabel = "0-60 mph";
         primaryTime = "${metrics.time0to60mph!.toStringAsFixed(2)}s";
       } else if (metrics.time60ft != null) {
         primaryLabel = "60ft";
