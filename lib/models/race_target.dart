@@ -20,7 +20,6 @@ enum SpeedUnit {
 
 class OfficialTest {
   final String id;
-  final String type; // 'drag' or 'interval'
   final String displayName;
   
   // Criteria
@@ -32,7 +31,6 @@ class OfficialTest {
 
   const OfficialTest({
     required this.id,
-    required this.type,
     required this.displayName,
     this.distance,
     this.distanceUnit,
@@ -65,14 +63,12 @@ class HistoryCategory {
 const List<OfficialTest> officialTests = [
   OfficialTest(
     id: '60ft',
-    type: 'drag',
     displayName: '60ft',
     distance: 60.0,
     distanceUnit: DistanceUnit.feet,
   ),
   OfficialTest(
     id: '0-60mph',
-    type: 'drag',
     displayName: '0-60 mph',
     startSpeed: 0.0,
     endSpeed: 96.56064, // 60 mph in km/h
@@ -80,7 +76,6 @@ const List<OfficialTest> officialTests = [
   ),
   OfficialTest(
     id: '0-100kmh',
-    type: 'drag',
     displayName: '0-100 km/h',
     startSpeed: 0.0,
     endSpeed: 100.0,
@@ -88,35 +83,30 @@ const List<OfficialTest> officialTests = [
   ),
   OfficialTest(
     id: '1/8mile',
-    type: 'drag',
     displayName: '1/8 mile',
     distance: 0.125,
     distanceUnit: DistanceUnit.mile,
   ),
   OfficialTest(
     id: '1000ft',
-    type: 'drag',
     displayName: '1000ft',
     distance: 1000.0,
     distanceUnit: DistanceUnit.feet,
   ),
   OfficialTest(
     id: '1/4mile',
-    type: 'drag',
     displayName: '1/4 mile',
     distance: 0.25,
     distanceUnit: DistanceUnit.mile,
   ),
   OfficialTest(
     id: '1/2mile',
-    type: 'drag',
     displayName: '1/2 mile',
     distance: 0.5,
     distanceUnit: DistanceUnit.mile,
   ),
   OfficialTest(
     id: '0-130mph',
-    type: 'drag',
     displayName: '0-130 mph',
     startSpeed: 0.0,
     endSpeed: 209.21472, // 130 mph in km/h
@@ -124,7 +114,6 @@ const List<OfficialTest> officialTests = [
   ),
   OfficialTest(
     id: '0-200kmh',
-    type: 'drag',
     displayName: '0-200 km/h',
     startSpeed: 0.0,
     endSpeed: 200.0,
@@ -133,7 +122,6 @@ const List<OfficialTest> officialTests = [
   // Interval tests
   OfficialTest(
     id: '60-130mph',
-    type: 'interval',
     displayName: '60-130 mph',
     startSpeed: 96.56064,
     endSpeed: 209.21472,
@@ -141,7 +129,6 @@ const List<OfficialTest> officialTests = [
   ),
   OfficialTest(
     id: '100-200kmh',
-    type: 'interval',
     displayName: '100-200 km/h',
     startSpeed: 100.0,
     endSpeed: 200.0,
