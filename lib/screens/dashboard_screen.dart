@@ -69,11 +69,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
             completedTime = metrics.time0to100kmh;
             break;
           case RaceIntervalTarget.fiftyToSeventyFiveMph:
+            completedTime = getCompletedTimeForCategory(
+              metrics,
+              'custom_80.4672_120.7008_mph',
+            );
+            break;
           case RaceIntervalTarget.eightyToOneTwentyKmh:
+            completedTime = getCompletedTimeForCategory(
+              metrics,
+              'custom_80.0_120.0_kmh',
+            );
+            break;
           case RaceIntervalTarget.custom:
-            completedTime = metrics.elapsedTime > 0
-                ? metrics.elapsedTime
-                : null;
+            final unit = isMetric ? 'kmh' : 'mph';
+            completedTime = getCompletedTimeForCategory(
+              metrics,
+              'custom_${dragy.customIntervalStartSpeed}_${dragy.customIntervalEndSpeed}_$unit',
+            );
             break;
         }
       } else {

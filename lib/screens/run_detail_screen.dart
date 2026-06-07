@@ -89,17 +89,22 @@ class RunDetailScreen extends StatelessWidget {
         }
       }
       if (!matchesAny) {
-        final label = getDisplayLabelForTarget(
-          startSpeed: metrics.targetStartSpeed,
-          endSpeed: metrics.targetEndSpeed,
-          speedUnit: metrics.targetSpeedUnit,
-          runMode: 'interval',
-        );
-        reachedMilestones.add(_ReachedMilestone(
-          label: label,
-          time: metrics.elapsedTime,
-          sortTime: metrics.elapsedTime,
-        ));
+        final unit = metrics.targetSpeedUnit ?? (isMetric ? 'kmh' : 'mph');
+        final customId = 'custom_${metrics.targetStartSpeed}_${metrics.targetEndSpeed}_$unit';
+        final compTime = getCompletedTimeForCategory(metrics, customId);
+        if (compTime != null) {
+          final label = getDisplayLabelForTarget(
+            startSpeed: metrics.targetStartSpeed,
+            endSpeed: metrics.targetEndSpeed,
+            speedUnit: metrics.targetSpeedUnit,
+            runMode: 'interval',
+          );
+          reachedMilestones.add(_ReachedMilestone(
+            label: label,
+            time: compTime,
+            sortTime: compTime,
+          ));
+        }
       }
     }
 
@@ -164,7 +169,9 @@ class RunDetailScreen extends StatelessWidget {
         runMode: 'interval',
       );
       primaryLabel = "$label Time";
-      completedTime = metrics.elapsedTime > 0 ? metrics.elapsedTime : null;
+      final unit = metrics.targetSpeedUnit ?? (isMetric ? 'kmh' : 'mph');
+      final customId = 'custom_${metrics.targetStartSpeed}_${metrics.targetEndSpeed}_$unit';
+      completedTime = getCompletedTimeForCategory(metrics, customId);
     }
 
     // Fallback if target is not completed or none was set

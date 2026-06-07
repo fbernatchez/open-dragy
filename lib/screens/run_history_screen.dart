@@ -499,7 +499,24 @@ class RunHistoryCard extends StatelessWidget {
           speedUnit: metrics.targetSpeedUnit,
           runMode: 'interval',
         );
-        primaryTime = "${metrics.elapsedTime.toStringAsFixed(2)}s";
+        double? compTime;
+        bool isOfficial = false;
+        for (final test in officialTests) {
+          if (test.type == 'interval' &&
+              (metrics.targetStartSpeed! - test.startSpeed!).abs() < 0.1 &&
+              (metrics.targetEndSpeed! - test.endSpeed!).abs() < 0.1 &&
+              metrics.targetSpeedUnit == test.speedUnit?.name) {
+            compTime = getCompletedTimeForCategory(metrics, test.id);
+            isOfficial = true;
+            break;
+          }
+        }
+        if (!isOfficial) {
+          final unit = metrics.targetSpeedUnit ?? (isMetric ? 'kmh' : 'mph');
+          final customId = 'custom_${metrics.targetStartSpeed}_${metrics.targetEndSpeed}_$unit';
+          compTime = getCompletedTimeForCategory(metrics, customId);
+        }
+        primaryTime = compTime != null ? "${compTime.toStringAsFixed(2)}s" : "-.--s";
       } else if (isMetric && metrics.time0to100kmh != null) {
         primaryLabel = "0-100 km/h";
         primaryTime = "${metrics.time0to100kmh!.toStringAsFixed(2)}s";
