@@ -29,7 +29,6 @@ class OfficialTest {
   final double? startSpeed; // in km/h
   final double? endSpeed;   // in km/h
   final SpeedUnit? speedUnit;
-  final bool activeTargetOnly;
 
   const OfficialTest({
     required this.id,
@@ -40,7 +39,6 @@ class OfficialTest {
     this.startSpeed,
     this.endSpeed,
     this.speedUnit,
-    this.activeTargetOnly = false,
   });
 }
 
@@ -148,24 +146,6 @@ const List<OfficialTest> officialTests = [
     startSpeed: 100.0,
     endSpeed: 200.0,
     speedUnit: SpeedUnit.kmh,
-  ),
-  OfficialTest(
-    id: '50-75mph',
-    type: 'interval',
-    displayName: '50-75 mph',
-    startSpeed: 80.4672,
-    endSpeed: 120.7008,
-    speedUnit: SpeedUnit.mph,
-    activeTargetOnly: true,
-  ),
-  OfficialTest(
-    id: '80-120kmh',
-    type: 'interval',
-    displayName: '80-120 km/h',
-    startSpeed: 80.0,
-    endSpeed: 120.0,
-    speedUnit: SpeedUnit.kmh,
-    activeTargetOnly: true,
   ),
 ];
 
@@ -286,17 +266,6 @@ double? getCompletedTimeForCategory(RaceMetrics metrics, String categoryId) {
     if (test.id == categoryId) {
       // Drag tests require a standing start, so they must be run in drag mode.
       if (test.type == 'drag' && metrics.runMode != 'drag') {
-        return null;
-      }
-
-      // If the test is configured as activeTargetOnly, verify that it matches the run's active target.
-      if (test.activeTargetOnly &&
-          (metrics.runMode != test.type ||
-           metrics.targetStartSpeed == null ||
-           metrics.targetEndSpeed == null ||
-           (test.startSpeed! - metrics.targetStartSpeed!).abs() >= 0.1 ||
-           (test.endSpeed! - metrics.targetEndSpeed!).abs() >= 0.1 ||
-           test.speedUnit?.name != metrics.targetSpeedUnit)) {
         return null;
       }
 

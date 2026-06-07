@@ -500,8 +500,8 @@ void main() {
       expect(getCompletedTimeForCategory(metrics, '60ft'), isNull);
       expect(getCompletedTimeForCategory(metrics, '0-60mph'), isNull);
       
-      // Verify interval milestone returns the correct time
-      expect(getCompletedTimeForCategory(metrics, '50-75mph'), equals(metrics.elapsedTime));
+      // Since 50-75mph was removed from official tests, it should return null via getCompletedTimeForCategory
+      expect(getCompletedTimeForCategory(metrics, '50-75mph'), isNull);
     });
   });
 }
