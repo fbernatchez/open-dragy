@@ -58,7 +58,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
     }
 
     if (metrics.time18Mile != null) milestones.add('1/8 mile');
-    if (metrics.time1000ft != null) milestones.add('1000 ft');
+    if (metrics.time1000ft != null) milestones.add('1000ft');
     if (metrics.time14Mile != null) milestones.add('1/4 mile');
     if (metrics.time12Mile != null) milestones.add('1/2 mile');
 
@@ -75,7 +75,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
         '0-60 mph',
         '0-130 mph',
         '1/8 mile',
-        '1000 ft',
+        '1000ft',
         '1/4 mile',
         '1/2 mile',
         '60-130 mph',
@@ -103,7 +103,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
         return metrics.time0to100kmh;
       case '1/8 mile':
         return metrics.time18Mile;
-      case '1000 ft':
+      case '1000ft':
         return metrics.time1000ft;
       case '1/4 mile':
         return metrics.time14Mile;
@@ -138,7 +138,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
         '0-60 mph',
         '0-100 km/h',
         '1/8 mile',
-        '1000 ft',
+        '1000ft',
         '1/4 mile',
         '1/2 mile',
         '60-130 mph',
@@ -518,7 +518,7 @@ class RunHistoryCard extends StatelessWidget {
         primaryLabel = "0-130";
         primaryTime = "${metrics.time0to130mph!.toStringAsFixed(2)}s";
       } else if (metrics.time1000ft != null) {
-        primaryLabel = "1000 ft";
+        primaryLabel = "1000ft";
         primaryTime = "${metrics.time1000ft!.toStringAsFixed(2)}s";
       } else if (metrics.time18Mile != null) {
         primaryLabel = "1/8 mile";

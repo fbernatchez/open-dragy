@@ -18,7 +18,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 enum RaceDragTarget {
   sixtyFeet('60ft'),
   eighthMile('1/8 mile'),
-  thousandFeet('1000 ft'),
+  thousandFeet('1000ft'),
   quarterMile('1/4 mile'),
   halfMile('1/2 mile');
 

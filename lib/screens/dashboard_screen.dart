@@ -186,7 +186,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (metrics.time1000ft != null) {
         reachedMilestones.add(
           _ReachedMilestone(
-            label: '1000 ft',
+            label: '1000ft',
             time: metrics.time1000ft!,
             sortTime: metrics.time1000ft!,
             trapSpeed: metrics.trap1000ft,
@@ -716,7 +716,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                       ),
                                       DropdownMenuItem(
                                         value: RaceDragTarget.thousandFeet,
-                                        child: Text('1000 ft'),
+                                        child: Text('1000ft'),
                                       ),
                                       DropdownMenuItem(
                                         value: RaceDragTarget.quarterMile,
