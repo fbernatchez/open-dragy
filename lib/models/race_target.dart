@@ -228,16 +228,15 @@ double? _findSpeedCrossingTime(List<DataPoint> history, double targetSpeedKmh, d
 double? _calculateTimeFromHistory(RaceMetrics metrics, OfficialTest test) {
   if (metrics.history.isEmpty) return null;
 
-  if (test.type == 'drag') {
-    if (test.distance != null && test.distanceUnit != null) {
-      final targetMeters = _convertToMeters(test.distance!, test.distanceUnit!);
-      return _findDistanceCrossingTime(metrics.history, targetMeters);
-    } else if (test.endSpeed != null && test.startSpeed == 0.0) {
+  if (test.distance != null && test.distanceUnit != null) {
+    final targetMeters = _convertToMeters(test.distance!, test.distanceUnit!);
+    return _findDistanceCrossingTime(metrics.history, targetMeters);
+  } else if (test.endSpeed != null) {
+    final start = test.startSpeed ?? 0.0;
+    if (start == 0.0) {
       return _findSpeedCrossingTime(metrics.history, test.endSpeed!, 0.0);
-    }
-  } else if (test.type == 'interval') {
-    if (test.startSpeed != null && test.endSpeed != null) {
-      final startTime = _findSpeedCrossingTime(metrics.history, test.startSpeed!, 0.0);
+    } else {
+      final startTime = _findSpeedCrossingTime(metrics.history, start, 0.0);
       if (startTime == null) return null;
       final endTime = _findSpeedCrossingTime(metrics.history, test.endSpeed!, startTime);
       if (endTime == null) return null;
@@ -264,11 +263,11 @@ double? getCompletedTimeForCategory(RaceMetrics metrics, String categoryId) {
   // 1. Check if it matches an official test definition
   for (final test in officialTests) {
     if (test.id == categoryId) {
-      // Standing start tests (drag type tests) require either drag mode or an interval run that started from 0.
-      if (test.type == 'drag' &&
-          metrics.runMode != 'drag' &&
-          metrics.targetStartSpeed != 0.0) {
-        return null;
+      // Standing start tests require either drag mode or an interval run that started from 0.
+      if (test.distance != null || (test.startSpeed != null && test.startSpeed == 0.0)) {
+        if (metrics.runMode != 'drag' && metrics.targetStartSpeed != 0.0) {
+          return null;
+        }
       }
 
       // Fast path B: Check standard precalculated fields

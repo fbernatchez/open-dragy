@@ -49,7 +49,7 @@ class RunDetailScreen extends StatelessWidget {
       final time = getCompletedTimeForCategory(metrics, test.id);
       if (time != null) {
         double sortTime = time;
-        if (test.type == 'interval' && test.startSpeed != null) {
+        if (test.startSpeed != null && test.startSpeed! > 0.0) {
           if (test.speedUnit == SpeedUnit.mph) {
             sortTime = (metrics.time0to60mph ?? 0.0) + time;
           } else {
@@ -80,8 +80,9 @@ class RunDetailScreen extends StatelessWidget {
         metrics.targetEndSpeed != null) {
       bool matchesAny = false;
       for (final test in officialTests) {
-        if (test.type == 'interval' &&
+        if (test.startSpeed != null &&
             (metrics.targetStartSpeed! - test.startSpeed!).abs() < 0.1 &&
+            test.endSpeed != null &&
             (metrics.targetEndSpeed! - test.endSpeed!).abs() < 0.1 &&
             metrics.targetSpeedUnit == test.speedUnit?.name) {
           matchesAny = true;
@@ -124,31 +125,21 @@ class RunDetailScreen extends StatelessWidget {
     // Try to find if the run has an active/completed target matching an official test
     OfficialTest? targetTest;
     for (final test in officialTests) {
-      if (test.type == metrics.runMode) {
-        if (test.type == 'drag') {
-          if (test.distance != null &&
-              metrics.targetDistance != null &&
-              (test.distance! - metrics.targetDistance!).abs() < 0.001 &&
-              test.distanceUnit?.name == metrics.targetDistanceUnit) {
-            targetTest = test;
-            break;
-          } else if (test.endSpeed != null &&
-              metrics.targetEndSpeed != null &&
-              (test.endSpeed! - metrics.targetEndSpeed!).abs() < 0.1 &&
-              test.speedUnit?.name == metrics.targetSpeedUnit) {
-            targetTest = test;
-            break;
-          }
-        } else if (test.type == 'interval') {
-          if (metrics.targetStartSpeed != null &&
-              (test.startSpeed! - metrics.targetStartSpeed!).abs() < 0.1 &&
-              metrics.targetEndSpeed != null &&
-              (test.endSpeed! - metrics.targetEndSpeed!).abs() < 0.1 &&
-              test.speedUnit?.name == metrics.targetSpeedUnit) {
-            targetTest = test;
-            break;
-          }
-        }
+      if (test.distance != null &&
+          metrics.targetDistance != null &&
+          (test.distance! - metrics.targetDistance!).abs() < 0.001 &&
+          test.distanceUnit?.name == metrics.targetDistanceUnit) {
+        targetTest = test;
+        break;
+      } else if (test.startSpeed != null &&
+          metrics.targetStartSpeed != null &&
+          (test.startSpeed! - metrics.targetStartSpeed!).abs() < 0.1 &&
+          test.endSpeed != null &&
+          metrics.targetEndSpeed != null &&
+          (test.endSpeed! - metrics.targetEndSpeed!).abs() < 0.1 &&
+          test.speedUnit?.name == metrics.targetSpeedUnit) {
+        targetTest = test;
+        break;
       }
     }
 

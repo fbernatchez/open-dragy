@@ -71,8 +71,9 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
         
         bool matchesAny = false;
         for (final test in officialTests) {
-          if (test.type == 'interval' &&
+          if (test.startSpeed != null &&
               (run.metrics.targetStartSpeed! - test.startSpeed!).abs() < 0.1 &&
+              test.endSpeed != null &&
               (run.metrics.targetEndSpeed! - test.endSpeed!).abs() < 0.1 &&
               run.metrics.targetSpeedUnit == test.speedUnit?.name) {
             matchesAny = true;
@@ -502,8 +503,9 @@ class RunHistoryCard extends StatelessWidget {
         double? compTime;
         bool isOfficial = false;
         for (final test in officialTests) {
-          if (test.type == 'interval' &&
+          if (test.startSpeed != null &&
               (metrics.targetStartSpeed! - test.startSpeed!).abs() < 0.1 &&
+              test.endSpeed != null &&
               (metrics.targetEndSpeed! - test.endSpeed!).abs() < 0.1 &&
               metrics.targetSpeedUnit == test.speedUnit?.name) {
             compTime = getCompletedTimeForCategory(metrics, test.id);
