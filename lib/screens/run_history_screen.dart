@@ -18,8 +18,18 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
 
   String _formatDate(DateTime dt) {
     final months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     final month = months[dt.month - 1];
     final day = dt.day;
@@ -30,12 +40,15 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
     return '$month $day, $year at $hour:$minute $ampm';
   }
 
-  static List<String> getCompletedMilestones(RaceMetrics metrics, bool isMetric) {
+  static List<String> getCompletedMilestones(
+    RaceMetrics metrics,
+    bool isMetric,
+  ) {
     final List<String> milestones = [];
 
     // Drag distance/time milestones
     if (metrics.time60ft != null) milestones.add('60ft');
-    
+
     if (isMetric) {
       if (metrics.time0to100kmh != null) milestones.add('0-100 km/h');
       if (metrics.time0to200kmh != null) milestones.add('0-200 km/h');
@@ -44,10 +57,10 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
       if (metrics.time0to130mph != null) milestones.add('0-130 mph');
     }
 
-    if (metrics.time18Mile != null) milestones.add('1/8 Mile');
+    if (metrics.time18Mile != null) milestones.add('1/8 mile');
     if (metrics.time1000ft != null) milestones.add('1000ft');
-    if (metrics.time14Mile != null) milestones.add('1/4 Mile');
-    if (metrics.time12Mile != null) milestones.add('1/2 Mile');
+    if (metrics.time14Mile != null) milestones.add('1/4 mile');
+    if (metrics.time12Mile != null) milestones.add('1/2 mile');
 
     // Rolling milestones
     if (metrics.time60to130mph != null) milestones.add('60-130 mph');
@@ -56,9 +69,19 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
     // Custom target label if present
     if (metrics.targetLabel != null && metrics.targetLabel!.isNotEmpty) {
       final standardLabels = {
-        '60ft', '0-100 km/h', '0-200 km/h', '0-60 mph', '0-130 mph',
-        '1/8 Mile', '1000ft', '1/4 Mile', '1/2 Mile',
-        '60-130 mph', '100-200 km/h', '60-130', '100-200'
+        '60ft',
+        '0-100 km/h',
+        '0-200 km/h',
+        '0-60 mph',
+        '0-130 mph',
+        '1/8 mile',
+        '1000ft',
+        '1/4 mile',
+        '1/2 mile',
+        '60-130 mph',
+        '100-200 km/h',
+        '60-130',
+        '100-200',
       };
       if (!standardLabels.contains(metrics.targetLabel)) {
         milestones.add(metrics.targetLabel!);
@@ -68,7 +91,11 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
     return milestones;
   }
 
-  static double? getCompletedTimeForMilestone(RaceMetrics metrics, String milestone, bool isMetric) {
+  static double? getCompletedTimeForMilestone(
+    RaceMetrics metrics,
+    String milestone,
+    bool isMetric,
+  ) {
     switch (milestone) {
       case '60ft':
         return metrics.time60ft;
@@ -76,13 +103,13 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
         return metrics.time0to60mph;
       case '0-100 km/h':
         return metrics.time0to100kmh;
-      case '1/8 Mile':
+      case '1/8 mile':
         return metrics.time18Mile;
       case '1000ft':
         return metrics.time1000ft;
-      case '1/4 Mile':
+      case '1/4 mile':
         return metrics.time14Mile;
-      case '1/2 Mile':
+      case '1/2 mile':
         return metrics.time12Mile;
       case '60-130 mph':
         return metrics.time60to130mph;
@@ -112,28 +139,29 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
         '60ft',
         '0-60 mph',
         '0-100 km/h',
-        '1/8 Mile',
+        '1/8 mile',
         '1000ft',
-        '1/4 Mile',
-        '1/2 Mile',
+        '1/4 mile',
+        '1/2 mile',
         '60-130 mph',
         '100-200 km/h',
         '0-130 mph',
         '0-200 km/h',
       ];
-      final others = list.sublist(1)..sort((a, b) {
-        final idxA = order.indexOf(a);
-        final idxB = order.indexOf(b);
-        if (idxA != -1 && idxB != -1) {
-          return idxA.compareTo(idxB);
-        } else if (idxA != -1) {
-          return -1;
-        } else if (idxB != -1) {
-          return 1;
-        } else {
-          return a.compareTo(b);
-        }
-      });
+      final others = list.sublist(1)
+        ..sort((a, b) {
+          final idxA = order.indexOf(a);
+          final idxB = order.indexOf(b);
+          if (idxA != -1 && idxB != -1) {
+            return idxA.compareTo(idxB);
+          } else if (idxA != -1) {
+            return -1;
+          } else if (idxB != -1) {
+            return 1;
+          } else {
+            return a.compareTo(b);
+          }
+        });
       return ['All', ...others];
     }
     return list;
@@ -141,9 +169,11 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
 
   static double? getCompletedTime(RaceMetrics metrics, bool isMetric) {
     if (metrics.runMode == 'rolling') {
-      if (metrics.targetLabel == '60-130 mph' || metrics.targetLabel == '60-130') {
+      if (metrics.targetLabel == '60-130 mph' ||
+          metrics.targetLabel == '60-130') {
         return metrics.time60to130mph;
-      } else if (metrics.targetLabel == '100-200 km/h' || metrics.targetLabel == '100-200') {
+      } else if (metrics.targetLabel == '100-200 km/h' ||
+          metrics.targetLabel == '100-200') {
         return metrics.time100to200kmh;
       } else if (metrics.targetLabel == '0-60 mph') {
         return metrics.time0to60mph;
@@ -157,8 +187,10 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
       if (metrics.time14Mile != null) return metrics.time14Mile;
       if (metrics.time1000ft != null) return metrics.time1000ft;
       if (metrics.time18Mile != null) return metrics.time18Mile;
-      if (metrics.time0to100kmh != null && isMetric) return metrics.time0to100kmh;
-      if (metrics.time0to60mph != null && !isMetric) return metrics.time0to60mph;
+      if (metrics.time0to100kmh != null && isMetric)
+        return metrics.time0to100kmh;
+      if (metrics.time0to60mph != null && !isMetric)
+        return metrics.time0to60mph;
       if (metrics.time60ft != null) return metrics.time60ft;
       return metrics.elapsedTime > 0 ? metrics.elapsedTime : null;
     }
@@ -178,10 +210,18 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
     return best;
   }
 
-  List<SavedRun> _getFilteredRuns(String category, List<SavedRun> runs, bool isMetric) {
+  List<SavedRun> _getFilteredRuns(
+    String category,
+    List<SavedRun> runs,
+    bool isMetric,
+  ) {
     if (category == 'All') return runs;
     return runs.where((run) {
-      final time = getCompletedTimeForMilestone(run.metrics, category, isMetric);
+      final time = getCompletedTimeForMilestone(
+        run.metrics,
+        category,
+        isMetric,
+      );
       return time != null;
     }).toList();
   }
@@ -191,7 +231,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
     final dragy = Provider.of<DragyProvider>(context);
     final runs = dragy.savedRuns;
     final isMetric = dragy.isMetric;
-    
+
     final categories = _getCategories(runs, isMetric);
     if (!categories.contains(_selectedCategory)) {
       _selectedCategory = 'All';
@@ -215,11 +255,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(
-                    Icons.history,
-                    size: 80,
-                    color: Colors.grey.shade800,
-                  ),
+                  Icon(Icons.history, size: 80, color: Colors.grey.shade800),
                   const SizedBox(height: 16),
                   Text(
                     'No runs recorded yet.',
@@ -247,7 +283,10 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                   height: 96,
                   child: ListView.builder(
                     scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
                     itemCount: categories.length,
                     itemBuilder: (context, idx) {
                       final category = categories[idx];
@@ -271,7 +310,10 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                         child: Container(
                           width: 105,
                           margin: const EdgeInsets.only(right: 10),
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 8,
+                          ),
                           decoration: BoxDecoration(
                             color: isSelected
                                 ? const Color(0xFFFFBF00).withOpacity(0.12)
@@ -286,10 +328,12 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                             boxShadow: isSelected
                                 ? [
                                     BoxShadow(
-                                      color: const Color(0xFFFFBF00).withOpacity(0.15),
+                                      color: const Color(
+                                        0xFFFFBF00,
+                                      ).withOpacity(0.15),
                                       blurRadius: 6,
                                       spreadRadius: 1,
-                                    )
+                                    ),
                                   ]
                                 : null,
                           ),
@@ -303,8 +347,12 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                                 overflow: TextOverflow.ellipsis,
                                 style: GoogleFonts.roboto(
                                   fontSize: 11,
-                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                  color: isSelected ? const Color(0xFFFFBF00) : Colors.white70,
+                                  fontWeight: isSelected
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
+                                  color: isSelected
+                                      ? const Color(0xFFFFBF00)
+                                      : Colors.white70,
                                 ),
                               ),
                               const SizedBox(height: 4),
@@ -313,7 +361,9 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                                 style: GoogleFonts.robotoMono(
                                   fontSize: 14,
                                   fontWeight: FontWeight.bold,
-                                  color: isSelected ? Colors.white : Colors.white54,
+                                  color: isSelected
+                                      ? Colors.white
+                                      : Colors.white54,
                                 ),
                               ),
                             ],
@@ -351,7 +401,10 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                           ),
                         )
                       : ListView.builder(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
                           itemCount: filteredRuns.length,
                           itemBuilder: (context, index) {
                             final run = filteredRuns[index];
@@ -359,7 +412,8 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                               run: run,
                               formattedDate: _formatDate(run.dateTime),
                               selectedCategory: _selectedCategory,
-                              onDelete: () => _confirmDelete(context, dragy, run),
+                              onDelete: () =>
+                                  _confirmDelete(context, dragy, run),
                             );
                           },
                         ),
@@ -374,10 +428,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: Colors.grey.shade900,
-        title: const Text(
-          'Delete Run',
-          style: TextStyle(color: Colors.white),
-        ),
+        title: const Text('Delete Run', style: TextStyle(color: Colors.white)),
         content: const Text(
           'Are you sure you want to permanently delete this run from your history?',
           style: TextStyle(color: Colors.white70),
@@ -428,20 +479,23 @@ class RunHistoryCard extends StatelessWidget {
     // Decide which milestone display is primary
     String primaryLabel = "0-60";
     String primaryTime = "-.--s";
-    double? displayTime;
 
     if (selectedCategory != 'All') {
       primaryLabel = selectedCategory;
-      final displayTime = _RunHistoryScreenState.getCompletedTimeForMilestone(metrics, selectedCategory, isMetric);
+      final displayTime = _RunHistoryScreenState.getCompletedTimeForMilestone(
+        metrics,
+        selectedCategory,
+        isMetric,
+      );
       if (displayTime != null) {
         primaryTime = "${displayTime.toStringAsFixed(2)}s";
       }
     } else {
       if (metrics.time12Mile != null) {
-        primaryLabel = "1/2 Mile";
+        primaryLabel = "1/2 mile";
         primaryTime = "${metrics.time12Mile!.toStringAsFixed(2)}s";
       } else if (metrics.time14Mile != null) {
-        primaryLabel = "1/4 Mile";
+        primaryLabel = "1/4 mile";
         primaryTime = "${metrics.time14Mile!.toStringAsFixed(2)}s";
       } else if (isMetric && metrics.time0to200kmh != null) {
         primaryLabel = "0-200";
@@ -471,7 +525,7 @@ class RunHistoryCard extends StatelessWidget {
         primaryLabel = "1000ft";
         primaryTime = "${metrics.time1000ft!.toStringAsFixed(2)}s";
       } else if (metrics.time18Mile != null) {
-        primaryLabel = "1/8 Mile";
+        primaryLabel = "1/8 mile";
         primaryTime = "${metrics.time18Mile!.toStringAsFixed(2)}s";
       } else if (metrics.runMode == 'rolling' && metrics.targetLabel != null) {
         primaryLabel = metrics.targetLabel!;
@@ -529,10 +583,7 @@ class RunHistoryCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: const Color(0xFF111111),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: Colors.white.withOpacity(0.05),
-            width: 1,
-          ),
+          border: Border.all(color: Colors.white.withOpacity(0.05), width: 1),
         ),
         child: InkWell(
           onTap: () {
@@ -545,7 +596,10 @@ class RunHistoryCard extends StatelessWidget {
           },
           borderRadius: BorderRadius.circular(16),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 16.0,
+              vertical: 14.0,
+            ),
             child: Row(
               children: [
                 // Highlight circle
@@ -610,20 +664,29 @@ class RunHistoryCard extends StatelessWidget {
                       Row(
                         children: [
                           Icon(
-                            isSlopeValid ? Icons.check_circle_outline : Icons.warning_amber_outlined,
+                            isSlopeValid
+                                ? Icons.check_circle_outline
+                                : Icons.warning_amber_outlined,
                             size: 14,
-                            color: isSlopeValid ? const Color(0xFF39FF14) : Colors.redAccent,
+                            color: isSlopeValid
+                                ? const Color(0xFF39FF14)
+                                : Colors.redAccent,
                           ),
                           const SizedBox(width: 4),
                           Text(
                             isSlopeValid ? 'Valid' : 'Invalid',
                             style: GoogleFonts.roboto(
                               fontSize: 12,
-                              color: isSlopeValid ? Colors.white70 : Colors.redAccent,
+                              color: isSlopeValid
+                                  ? Colors.white70
+                                  : Colors.redAccent,
                             ),
                           ),
                           const SizedBox(width: 12),
-                          const Text('•', style: TextStyle(color: Colors.white38)),
+                          const Text(
+                            '•',
+                            style: TextStyle(color: Colors.white38),
+                          ),
                           const SizedBox(width: 12),
                           Text(
                             'Duration: ${metrics.elapsedTime.toStringAsFixed(1)}s',
@@ -659,7 +722,8 @@ class RunHistoryCard extends StatelessWidget {
                           ],
                         ),
                       ],
-                      if (run.notes != null && run.notes!.trim().isNotEmpty) ...[
+                      if (run.notes != null &&
+                          run.notes!.trim().isNotEmpty) ...[
                         const SizedBox(height: 6),
                         Row(
                           children: [

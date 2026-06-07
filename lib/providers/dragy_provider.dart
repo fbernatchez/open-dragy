@@ -17,10 +17,10 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 enum RaceDragTarget {
   sixtyFeet('60ft'),
-  eighthMile('1/8 Mile'),
+  eighthMile('1/8 mile'),
   thousandFeet('1000 ft'),
-  quarterMile('1/4 Mile'),
-  halfMile('1/2 Mile');
+  quarterMile('1/4 mile'),
+  halfMile('1/2 mile');
 
   final String label;
   const RaceDragTarget(this.label);

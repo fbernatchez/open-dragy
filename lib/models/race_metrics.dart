@@ -62,7 +62,7 @@ class RaceMetrics {
 
   // Mode & Target Info
   final String? runMode; // 'drag' or 'rolling'
-  final String? targetLabel; // e.g. '1/4 Mile', '60-130 mph'
+  final String? targetLabel; // e.g. '1/4 mile', '60-130 mph'
 
   final bool isRunning;
   final List<DataPoint> history;

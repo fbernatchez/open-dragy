@@ -392,7 +392,7 @@ class PhysicsEngine {
       }
     }
 
-    // 1/8 Mile (201.168 meters)
+    // 1/8 mile (201.168 meters)
     if (t18 == null && newDistance >= distance18Mile) {
       double distDiff = newDistance - current.distanceMeters;
       if (distDiff > 0) {
@@ -418,7 +418,7 @@ class PhysicsEngine {
       }
     }
 
-    // 1/4 Mile (402.336 meters)
+    // 1/4 mile (402.336 meters)
     if (t14 == null && newDistance >= distance14Mile) {
       double distDiff = newDistance - current.distanceMeters;
       if (distDiff > 0) {
@@ -431,7 +431,7 @@ class PhysicsEngine {
       }
     }
 
-    // 1/2 Mile (804.672 meters)
+    // 1/2 mile (804.672 meters)
     if (t12 == null && newDistance >= distance12Mile) {
       double distDiff = newDistance - current.distanceMeters;
       if (distDiff > 0) {

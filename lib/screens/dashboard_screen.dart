@@ -70,7 +70,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           case RaceRollingTarget.fiftyToSeventyFiveMph:
           case RaceRollingTarget.eightyToOneTwentyKmh:
           case RaceRollingTarget.custom:
-            completedTime = metrics.elapsedTime > 0 ? metrics.elapsedTime : null;
+            completedTime = metrics.elapsedTime > 0
+                ? metrics.elapsedTime
+                : null;
             break;
         }
       } else {
@@ -82,7 +84,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           completedTime = metrics.time1000ft;
         } else if (metrics.time18Mile != null) {
           completedTime = metrics.time18Mile;
-        } else if (metrics.time0to60mph != null || metrics.time0to100kmh != null) {
+        } else if (metrics.time0to60mph != null ||
+            metrics.time0to100kmh != null) {
           if (isMetric && metrics.time0to100kmh != null) {
             completedTime = metrics.time0to100kmh;
           } else if (!isMetric && metrics.time0to60mph != null) {
@@ -103,7 +106,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         textColor = Colors.white;
         statusKey = "finished";
       } else {
-        final bool isGpsReady = dragy.satellites >= 4 && dragy.hdop > 0.0 && dragy.hdop <= 2.0;
+        final bool isGpsReady =
+            dragy.satellites >= 4 && dragy.hdop > 0.0 && dragy.hdop <= 2.0;
         if (!isGpsReady) {
           mainTime = "Waiting for GPS";
           fontSize = 35.0;
@@ -116,7 +120,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
             textColor = Colors.redAccent;
             statusKey = "stop";
           } else {
-            mainTime = dragy.runMode == 'drag' ? "Awaiting Launch" : "Awaiting Speed";
+            mainTime = dragy.runMode == 'drag'
+                ? "Awaiting Launch"
+                : "Awaiting Speed";
             fontSize = 32.0;
             textColor = const Color(0xFFFFBF00);
             statusKey = "armed";
@@ -145,117 +151,155 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     if (dragy.runMode == 'drag') {
       if (metrics.time60ft != null) {
-        reachedMilestones.add(_ReachedMilestone(label: '60ft', time: metrics.time60ft!, sortTime: metrics.time60ft!));
+        reachedMilestones.add(
+          _ReachedMilestone(
+            label: '60ft',
+            time: metrics.time60ft!,
+            sortTime: metrics.time60ft!,
+          ),
+        );
       }
 
-      final double? tSpeedUnit = isMetric ? metrics.time0to100kmh : metrics.time0to60mph;
+      final double? tSpeedUnit = isMetric
+          ? metrics.time0to100kmh
+          : metrics.time0to60mph;
       if (tSpeedUnit != null) {
-        reachedMilestones.add(_ReachedMilestone(
-          label: isMetric ? '0-100km/h' : '0-60mph',
-          time: tSpeedUnit,
-          sortTime: tSpeedUnit,
-        ));
+        reachedMilestones.add(
+          _ReachedMilestone(
+            label: isMetric ? '0-100km/h' : '0-60mph',
+            time: tSpeedUnit,
+            sortTime: tSpeedUnit,
+          ),
+        );
       }
 
       if (metrics.time18Mile != null) {
-        reachedMilestones.add(_ReachedMilestone(
-          label: '1/8mile',
-          time: metrics.time18Mile!,
-          sortTime: metrics.time18Mile!,
-          trapSpeed: metrics.trap18Mile,
-        ));
+        reachedMilestones.add(
+          _ReachedMilestone(
+            label: '1/8mile',
+            time: metrics.time18Mile!,
+            sortTime: metrics.time18Mile!,
+            trapSpeed: metrics.trap18Mile,
+          ),
+        );
       }
       if (metrics.time1000ft != null) {
-        reachedMilestones.add(_ReachedMilestone(
-          label: '1000ft',
-          time: metrics.time1000ft!,
-          sortTime: metrics.time1000ft!,
-          trapSpeed: metrics.trap1000ft,
-        ));
+        reachedMilestones.add(
+          _ReachedMilestone(
+            label: '1000ft',
+            time: metrics.time1000ft!,
+            sortTime: metrics.time1000ft!,
+            trapSpeed: metrics.trap1000ft,
+          ),
+        );
       }
       if (metrics.time14Mile != null) {
-        reachedMilestones.add(_ReachedMilestone(
-          label: '1/4mile',
-          time: metrics.time14Mile!,
-          sortTime: metrics.time14Mile!,
-          trapSpeed: metrics.trap14Mile,
-        ));
+        reachedMilestones.add(
+          _ReachedMilestone(
+            label: '1/4mile',
+            time: metrics.time14Mile!,
+            sortTime: metrics.time14Mile!,
+            trapSpeed: metrics.trap14Mile,
+          ),
+        );
       }
       if (metrics.time12Mile != null) {
-        reachedMilestones.add(_ReachedMilestone(
-          label: '1/2mile',
-          time: metrics.time12Mile!,
-          sortTime: metrics.time12Mile!,
-          trapSpeed: metrics.trap12Mile,
-        ));
+        reachedMilestones.add(
+          _ReachedMilestone(
+            label: '1/2mile',
+            time: metrics.time12Mile!,
+            sortTime: metrics.time12Mile!,
+            trapSpeed: metrics.trap12Mile,
+          ),
+        );
       }
 
-      final double? tInterval = isMetric ? metrics.time100to200kmh : metrics.time60to130mph;
+      final double? tInterval = isMetric
+          ? metrics.time100to200kmh
+          : metrics.time60to130mph;
       if (tInterval != null) {
-        reachedMilestones.add(_ReachedMilestone(
-          label: isMetric ? '100-200km/h' : '60-130mph',
-          time: tInterval,
-          sortTime: isMetric
-              ? (metrics.time0to100kmh ?? 0.0) + tInterval
-              : (metrics.time0to60mph ?? 0.0) + tInterval,
-        ));
+        reachedMilestones.add(
+          _ReachedMilestone(
+            label: isMetric ? '100-200km/h' : '60-130mph',
+            time: tInterval,
+            sortTime: isMetric
+                ? (metrics.time0to100kmh ?? 0.0) + tInterval
+                : (metrics.time0to60mph ?? 0.0) + tInterval,
+          ),
+        );
       }
 
-      final double? t0to130_200 = isMetric ? metrics.time0to200kmh : metrics.time0to130mph;
+      final double? t0to130_200 = isMetric
+          ? metrics.time0to200kmh
+          : metrics.time0to130mph;
       if (t0to130_200 != null) {
-        reachedMilestones.add(_ReachedMilestone(
-          label: isMetric ? '0-200km/h' : '0-130mph',
-          time: t0to130_200,
-          sortTime: t0to130_200,
-        ));
+        reachedMilestones.add(
+          _ReachedMilestone(
+            label: isMetric ? '0-200km/h' : '0-130mph',
+            time: t0to130_200,
+            sortTime: t0to130_200,
+          ),
+        );
       }
     } else {
       switch (dragy.activeRollingTarget) {
         case RaceRollingTarget.sixtyToOneThirtyMph:
           if (metrics.time60to130mph != null) {
-            reachedMilestones.add(_ReachedMilestone(
-              label: '60-130 mph',
-              time: metrics.time60to130mph!,
-              sortTime: metrics.time60to130mph!,
-            ));
+            reachedMilestones.add(
+              _ReachedMilestone(
+                label: '60-130 mph',
+                time: metrics.time60to130mph!,
+                sortTime: metrics.time60to130mph!,
+              ),
+            );
           }
           break;
         case RaceRollingTarget.oneHundredToTwoHundredKmh:
           if (metrics.time100to200kmh != null) {
-            reachedMilestones.add(_ReachedMilestone(
-              label: '100-200 km/h',
-              time: metrics.time100to200kmh!,
-              sortTime: metrics.time100to200kmh!,
-            ));
+            reachedMilestones.add(
+              _ReachedMilestone(
+                label: '100-200 km/h',
+                time: metrics.time100to200kmh!,
+                sortTime: metrics.time100to200kmh!,
+              ),
+            );
           }
           break;
         case RaceRollingTarget.zeroToSixtyMph:
           if (metrics.time0to60mph != null) {
-            reachedMilestones.add(_ReachedMilestone(
-              label: '0-60 mph',
-              time: metrics.time0to60mph!,
-              sortTime: metrics.time0to60mph!,
-            ));
+            reachedMilestones.add(
+              _ReachedMilestone(
+                label: '0-60 mph',
+                time: metrics.time0to60mph!,
+                sortTime: metrics.time0to60mph!,
+              ),
+            );
           }
           break;
         case RaceRollingTarget.zeroToOneHundredKmh:
           if (metrics.time0to100kmh != null) {
-            reachedMilestones.add(_ReachedMilestone(
-              label: '0-100 km/h',
-              time: metrics.time0to100kmh!,
-              sortTime: metrics.time0to100kmh!,
-            ));
+            reachedMilestones.add(
+              _ReachedMilestone(
+                label: '0-100 km/h',
+                time: metrics.time0to100kmh!,
+                sortTime: metrics.time0to100kmh!,
+              ),
+            );
           }
           break;
         case RaceRollingTarget.fiftyToSeventyFiveMph:
         case RaceRollingTarget.eightyToOneTwentyKmh:
         case RaceRollingTarget.custom:
-          if (!metrics.isRunning && metrics.history.isNotEmpty && metrics.elapsedTime > 0) {
-            reachedMilestones.add(_ReachedMilestone(
-              label: dragy.activeRollingTargetLabel,
-              time: metrics.elapsedTime,
-              sortTime: metrics.elapsedTime,
-            ));
+          if (!metrics.isRunning &&
+              metrics.history.isNotEmpty &&
+              metrics.elapsedTime > 0) {
+            reachedMilestones.add(
+              _ReachedMilestone(
+                label: dragy.activeRollingTargetLabel,
+                time: metrics.elapsedTime,
+                sortTime: metrics.elapsedTime,
+              ),
+            );
           }
           break;
       }
@@ -269,7 +313,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     double maxSpeed = isMetric ? 100.0 : 60.0;
     double speedRatio = (displaySpeed / maxSpeed).clamp(0.0, 1.0);
-    
+
     Color speedColor;
     if (displaySpeed < 1.0) {
       speedColor = Colors.grey.shade800;
@@ -281,7 +325,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     double maxG = 1.0;
     double gRatio = (metrics.gForce.abs() / maxG).clamp(0.0, 1.0);
-    
+
     Color gColor;
     if (metrics.gForce == 0.0) {
       gColor = Colors.grey.shade800;
@@ -350,7 +394,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             ),
                             const SizedBox(width: 8),
                             Text(
-                              isConnected ? '${dragy.satellites} SAT' : 'NO GPS',
+                              isConnected
+                                  ? '${dragy.satellites} SAT'
+                                  : 'NO GPS',
                               style: GoogleFonts.robotoMono(
                                 color: isConnected
                                     ? Colors.amberAccent
@@ -431,9 +477,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           decoration: BoxDecoration(
                             color: Colors.white10,
                             borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: Colors.white24,
-                            ),
+                            border: Border.all(color: Colors.white24),
                           ),
                           child: const Icon(
                             Icons.history,
@@ -572,10 +616,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 vertical: 6,
                               ),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFFFBF00).withOpacity(0.08),
+                                color: const Color(
+                                  0xFFFFBF00,
+                                ).withOpacity(0.08),
                                 borderRadius: BorderRadius.circular(16),
                                 border: Border.all(
-                                  color: const Color(0xFFFFBF00).withOpacity(0.3),
+                                  color: const Color(
+                                    0xFFFFBF00,
+                                  ).withOpacity(0.3),
                                 ),
                               ),
                               child: Row(
@@ -599,7 +647,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               ),
                             ),
                           ],
-                          if (!metrics.isRunning && metrics.history.isEmpty) ...[
+                          if (!metrics.isRunning &&
+                              metrics.history.isEmpty) ...[
                             const SizedBox(height: 16),
                             // Mode Selector
                             Container(
@@ -629,27 +678,54 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             // Target Selector
                             if (dragy.runMode == 'drag')
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 16),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                ),
                                 decoration: BoxDecoration(
                                   color: Colors.white.withOpacity(0.03),
                                   borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: Colors.white.withOpacity(0.06)),
+                                  border: Border.all(
+                                    color: Colors.white.withOpacity(0.06),
+                                  ),
                                 ),
                                 child: DropdownButtonHideUnderline(
                                   child: DropdownButton<RaceDragTarget>(
                                     value: dragy.activeDragTarget,
                                     dropdownColor: Colors.grey.shade900,
-                                    icon: const Icon(Icons.arrow_drop_down, color: Colors.white54),
-                                    style: GoogleFonts.roboto(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
+                                    icon: const Icon(
+                                      Icons.arrow_drop_down,
+                                      color: Colors.white54,
+                                    ),
+                                    style: GoogleFonts.roboto(
+                                      color: Colors.white,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                    ),
                                     onChanged: (val) {
-                                      if (val != null) dragy.setActiveDragTarget(val);
+                                      if (val != null)
+                                        dragy.setActiveDragTarget(val);
                                     },
                                     items: const [
-                                      DropdownMenuItem(value: RaceDragTarget.sixtyFeet, child: Text('60 ft (Launch)')),
-                                      DropdownMenuItem(value: RaceDragTarget.eighthMile, child: Text('1/8 Mile')),
-                                      DropdownMenuItem(value: RaceDragTarget.thousandFeet, child: Text('1000 ft')),
-                                      DropdownMenuItem(value: RaceDragTarget.quarterMile, child: Text('1/4 Mile')),
-                                      DropdownMenuItem(value: RaceDragTarget.halfMile, child: Text('1/2 Mile')),
+                                      DropdownMenuItem(
+                                        value: RaceDragTarget.sixtyFeet,
+                                        child: Text('60 ft'),
+                                      ),
+                                      DropdownMenuItem(
+                                        value: RaceDragTarget.eighthMile,
+                                        child: Text('1/8 mile'),
+                                      ),
+                                      DropdownMenuItem(
+                                        value: RaceDragTarget.thousandFeet,
+                                        child: Text('1000 ft'),
+                                      ),
+                                      DropdownMenuItem(
+                                        value: RaceDragTarget.quarterMile,
+                                        child: Text('1/4 mile'),
+                                      ),
+                                      DropdownMenuItem(
+                                        value: RaceDragTarget.halfMile,
+                                        child: Text('1/2 mile'),
+                                      ),
                                     ],
                                   ),
                                 ),
@@ -659,42 +735,97 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                    ),
                                     decoration: BoxDecoration(
                                       color: Colors.white.withOpacity(0.03),
                                       borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(color: Colors.white.withOpacity(0.06)),
+                                      border: Border.all(
+                                        color: Colors.white.withOpacity(0.06),
+                                      ),
                                     ),
                                     child: DropdownButtonHideUnderline(
                                       child: DropdownButton<RaceRollingTarget>(
                                         value: dragy.activeRollingTarget,
                                         dropdownColor: Colors.grey.shade900,
-                                        icon: const Icon(Icons.arrow_drop_down, color: Colors.white54),
-                                        style: GoogleFonts.roboto(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
+                                        icon: const Icon(
+                                          Icons.arrow_drop_down,
+                                          color: Colors.white54,
+                                        ),
+                                        style: GoogleFonts.roboto(
+                                          color: Colors.white,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w500,
+                                        ),
                                         onChanged: (val) {
-                                          if (val != null) dragy.setActiveRollingTarget(val);
+                                          if (val != null)
+                                            dragy.setActiveRollingTarget(val);
                                         },
                                         items: dragy.isMetric
                                             ? const [
-                                                DropdownMenuItem(value: RaceRollingTarget.zeroToOneHundredKmh, child: Text('0-100 km/h')),
-                                                DropdownMenuItem(value: RaceRollingTarget.eightyToOneTwentyKmh, child: Text('80-120 km/h')),
-                                                DropdownMenuItem(value: RaceRollingTarget.oneHundredToTwoHundredKmh, child: Text('100-200 km/h')),
-                                                DropdownMenuItem(value: RaceRollingTarget.custom, child: Text('Custom Range...')),
+                                                DropdownMenuItem(
+                                                  value: RaceRollingTarget
+                                                      .zeroToOneHundredKmh,
+                                                  child: Text('0-100 km/h'),
+                                                ),
+                                                DropdownMenuItem(
+                                                  value: RaceRollingTarget
+                                                      .eightyToOneTwentyKmh,
+                                                  child: Text('80-120 km/h'),
+                                                ),
+                                                DropdownMenuItem(
+                                                  value: RaceRollingTarget
+                                                      .oneHundredToTwoHundredKmh,
+                                                  child: Text('100-200 km/h'),
+                                                ),
+                                                DropdownMenuItem(
+                                                  value:
+                                                      RaceRollingTarget.custom,
+                                                  child: Text(
+                                                    'Custom Range...',
+                                                  ),
+                                                ),
                                               ]
                                             : const [
-                                                DropdownMenuItem(value: RaceRollingTarget.zeroToSixtyMph, child: Text('0-60 mph')),
-                                                DropdownMenuItem(value: RaceRollingTarget.fiftyToSeventyFiveMph, child: Text('50-75 mph')),
-                                                DropdownMenuItem(value: RaceRollingTarget.sixtyToOneThirtyMph, child: Text('60-130 mph')),
-                                                DropdownMenuItem(value: RaceRollingTarget.custom, child: Text('Custom Range...')),
+                                                DropdownMenuItem(
+                                                  value: RaceRollingTarget
+                                                      .zeroToSixtyMph,
+                                                  child: Text('0-60 mph'),
+                                                ),
+                                                DropdownMenuItem(
+                                                  value: RaceRollingTarget
+                                                      .fiftyToSeventyFiveMph,
+                                                  child: Text('50-75 mph'),
+                                                ),
+                                                DropdownMenuItem(
+                                                  value: RaceRollingTarget
+                                                      .sixtyToOneThirtyMph,
+                                                  child: Text('60-130 mph'),
+                                                ),
+                                                DropdownMenuItem(
+                                                  value:
+                                                      RaceRollingTarget.custom,
+                                                  child: Text(
+                                                    'Custom Range...',
+                                                  ),
+                                                ),
                                               ],
                                       ),
                                     ),
                                   ),
-                                  if (dragy.activeRollingTarget == RaceRollingTarget.custom) ...[
+                                  if (dragy.activeRollingTarget ==
+                                      RaceRollingTarget.custom) ...[
                                     const SizedBox(width: 8),
                                     IconButton(
-                                      onPressed: () => _showCustomRangeDialog(context, dragy),
-                                      icon: const Icon(Icons.edit_road, color: Color(0xFF42A5F5)),
+                                      onPressed: () => _showCustomRangeDialog(
+                                        context,
+                                        dragy,
+                                      ),
+                                      icon: const Icon(
+                                        Icons.edit_road,
+                                        color: Color(0xFF42A5F5),
+                                      ),
                                       tooltip: 'Edit Custom Range',
                                     ),
                                   ],
@@ -709,15 +840,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             child: Center(
                               child: AnimatedSwitcher(
                                 duration: const Duration(milliseconds: 150),
-                                transitionBuilder: (Widget child, Animation<double> animation) {
-                                  return FadeTransition(
-                                    opacity: animation,
-                                    child: ScaleTransition(
-                                      scale: Tween<double>(begin: 0.95, end: 1.0).animate(animation),
-                                      child: child,
-                                    ),
-                                  );
-                                },
+                                transitionBuilder:
+                                    (
+                                      Widget child,
+                                      Animation<double> animation,
+                                    ) {
+                                      return FadeTransition(
+                                        opacity: animation,
+                                        child: ScaleTransition(
+                                          scale: Tween<double>(
+                                            begin: 0.95,
+                                            end: 1.0,
+                                          ).animate(animation),
+                                          child: child,
+                                        ),
+                                      );
+                                    },
                                 child: Text(
                                   mainTime,
                                   key: ValueKey<String>(statusKey),
@@ -730,25 +868,36 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               ),
                             ),
                           ),
-                          if (isConnected && !(metrics.history.isNotEmpty && !metrics.isRunning)) ...[
+                          if (isConnected &&
+                              !(metrics.history.isNotEmpty &&
+                                  !metrics.isRunning)) ...[
                             const SizedBox(height: 16),
                             ElevatedButton(
                               onPressed: dragy.toggleArm,
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: dragy.isArmed ? Colors.redAccent : const Color(0xFF1565C0),
+                                backgroundColor: dragy.isArmed
+                                    ? Colors.redAccent
+                                    : const Color(0xFF1565C0),
                                 foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 40,
+                                  vertical: 16,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(30),
                                 ),
                                 elevation: 8,
-                                shadowColor: dragy.isArmed ? Colors.redAccent.withOpacity(0.5) : const Color(0xFF1565C0).withOpacity(0.5),
+                                shadowColor: dragy.isArmed
+                                    ? Colors.redAccent.withOpacity(0.5)
+                                    : const Color(0xFF1565C0).withOpacity(0.5),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Icon(
-                                    dragy.isArmed ? Icons.stop : Icons.play_arrow,
+                                    dragy.isArmed
+                                        ? Icons.stop
+                                        : Icons.play_arrow,
                                     size: 20,
                                   ),
                                   const SizedBox(width: 8),
@@ -764,21 +913,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               ),
                             ),
                           ],
-                          if (metrics.history.isNotEmpty && !metrics.isRunning) ...[
+                          if (metrics.history.isNotEmpty &&
+                              !metrics.isRunning) ...[
                             const SizedBox(height: 6),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Icon(
-                                  isSlopeValid ? Icons.check_circle_outline : Icons.warning_amber_outlined,
+                                  isSlopeValid
+                                      ? Icons.check_circle_outline
+                                      : Icons.warning_amber_outlined,
                                   size: 14,
-                                  color: isSlopeValid ? const Color(0xFF39FF14) : Colors.redAccent,
+                                  color: isSlopeValid
+                                      ? const Color(0xFF39FF14)
+                                      : Colors.redAccent,
                                 ),
                                 const SizedBox(width: 6),
                                 Text(
                                   'Overall Slope: ${avgSlope >= 0 ? '+' : ''}${avgSlope.toStringAsFixed(2)}% (${isSlopeValid ? "Valid" : "Invalid"})',
                                   style: GoogleFonts.roboto(
-                                    color: isSlopeValid ? Colors.white70 : Colors.redAccent,
+                                    color: isSlopeValid
+                                        ? Colors.white70
+                                        : Colors.redAccent,
                                     fontSize: 13,
                                     fontWeight: FontWeight.w500,
                                   ),
@@ -797,7 +953,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   label: m.label,
                                   time: m.time,
                                   trapSpeed: m.trapSpeed != null
-                                      ? (isMetric ? m.trapSpeed! : m.trapSpeed! * 0.621371)
+                                      ? (isMetric
+                                            ? m.trapSpeed!
+                                            : m.trapSpeed! * 0.621371)
                                       : null,
                                   isMetric: isMetric,
                                 ),
@@ -849,7 +1007,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     ),
                                     // Animated Color Fill
                                     AnimatedContainer(
-                                      duration: const Duration(milliseconds: 100),
+                                      duration: const Duration(
+                                        milliseconds: 100,
+                                      ),
                                       width: 70 + (speedRatio * 40.0),
                                       height: 70 + (speedRatio * 40.0),
                                       decoration: BoxDecoration(
@@ -866,7 +1026,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                         shape: BoxShape.circle,
                                       ),
                                       child: Column(
-                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
                                         children: [
                                           Text(
                                             displaySpeed.toStringAsFixed(0),
@@ -895,7 +1056,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ),
                           // G-Force Meter
                           Align(
-                            alignment: const Alignment(-0.15, 1.0), // Closer to speed
+                            alignment: const Alignment(
+                              -0.15,
+                              1.0,
+                            ), // Closer to speed
                             child: SizedBox(
                               width: 80,
                               height: 80,
@@ -921,7 +1085,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     ),
                                     // Animated Color Fill
                                     AnimatedContainer(
-                                      duration: const Duration(milliseconds: 100),
+                                      duration: const Duration(
+                                        milliseconds: 100,
+                                      ),
                                       width: 46 + (gRatio * 24.0),
                                       height: 46 + (gRatio * 24.0),
                                       decoration: BoxDecoration(
@@ -938,10 +1104,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                         shape: BoxShape.circle,
                                       ),
                                       child: Column(
-                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
                                         children: [
                                           Text(
-                                            metrics.gForce.abs().toStringAsFixed(1),
+                                            metrics.gForce
+                                                .abs()
+                                                .toStringAsFixed(1),
                                             style: GoogleFonts.robotoMono(
                                               color: Colors.white,
                                               fontSize: 12,
@@ -1072,7 +1241,6 @@ class _ResultRow extends StatelessWidget {
   }
 }
 
-
 class _ReachedMilestone {
   final String label;
   final double time;
@@ -1125,8 +1293,12 @@ class _ModeButton extends StatelessWidget {
 
 void _showCustomRangeDialog(BuildContext context, DragyProvider dragy) {
   final isMetric = dragy.isMetric;
-  final startController = TextEditingController(text: dragy.customRollingStartSpeedUserUnit.toStringAsFixed(0));
-  final endController = TextEditingController(text: dragy.customRollingEndSpeedUserUnit.toStringAsFixed(0));
+  final startController = TextEditingController(
+    text: dragy.customRollingStartSpeedUserUnit.toStringAsFixed(0),
+  );
+  final endController = TextEditingController(
+    text: dragy.customRollingEndSpeedUserUnit.toStringAsFixed(0),
+  );
 
   showDialog(
     context: context,
@@ -1141,24 +1313,34 @@ void _showCustomRangeDialog(BuildContext context, DragyProvider dragy) {
         children: [
           TextField(
             controller: startController,
-            keyboardType: const TextInputType.numberWithOptions(decimal: false, signed: false),
+            keyboardType: const TextInputType.numberWithOptions(
+              decimal: false,
+              signed: false,
+            ),
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
             decoration: const InputDecoration(
               labelText: 'Start Speed',
               labelStyle: TextStyle(color: Colors.white54),
-              enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
+              enabledBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: Colors.white24),
+              ),
             ),
             style: const TextStyle(color: Colors.white),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: endController,
-            keyboardType: const TextInputType.numberWithOptions(decimal: false, signed: false),
+            keyboardType: const TextInputType.numberWithOptions(
+              decimal: false,
+              signed: false,
+            ),
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
             decoration: const InputDecoration(
               labelText: 'End Speed',
               labelStyle: TextStyle(color: Colors.white54),
-              enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
+              enabledBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: Colors.white24),
+              ),
             ),
             style: const TextStyle(color: Colors.white),
           ),
@@ -1176,11 +1358,12 @@ void _showCustomRangeDialog(BuildContext context, DragyProvider dragy) {
             dragy.setCustomRollingRange(start, end);
             Navigator.pop(context);
           },
-          child: const Text('Save', style: TextStyle(color: Colors.greenAccent)),
+          child: const Text(
+            'Save',
+            style: TextStyle(color: Colors.greenAccent),
+          ),
         ),
       ],
     ),
   );
 }
-
-

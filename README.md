@@ -20,7 +20,7 @@ OpenDragy is a high-precision, open-source vehicle performance timer (similar to
 ## 🏎️ Supported Run Types & Targets
 
 ### Drag Mode (From a standstill)
-* **Distances**: 60ft, 1/8 Mile, 1000 ft, 1/4 Mile, 1/2 Mile (includes trap speed calculations)
+* **Distances**: 60ft, 1/8 mile, 1000 ft, 1/4 mile, 1/2 mile (includes trap speed calculations)
 * **Speeds**: 0–60 mph, 0–100 km/h, 0–130 mph, 0–200 km/h
 
 ### Rolling/Interval Mode (Speed-to-Speed)

@@ -50,7 +50,7 @@ class RunDetailScreen extends StatelessWidget {
 
     if (metrics.time18Mile != null) {
       reachedMilestones.add(_ReachedMilestone(
-        label: '1/8 Mile',
+        label: '1/8 mile',
         time: metrics.time18Mile!,
         sortTime: metrics.time18Mile!,
         trapSpeed: metrics.trap18Mile,
@@ -66,7 +66,7 @@ class RunDetailScreen extends StatelessWidget {
     }
     if (metrics.time14Mile != null) {
       reachedMilestones.add(_ReachedMilestone(
-        label: '1/4 Mile',
+        label: '1/4 mile',
         time: metrics.time14Mile!,
         sortTime: metrics.time14Mile!,
         trapSpeed: metrics.trap14Mile,
@@ -74,7 +74,7 @@ class RunDetailScreen extends StatelessWidget {
     }
     if (metrics.time12Mile != null) {
       reachedMilestones.add(_ReachedMilestone(
-        label: '1/2 Mile',
+        label: '1/2 mile',
         time: metrics.time12Mile!,
         sortTime: metrics.time12Mile!,
         trapSpeed: metrics.trap12Mile,
