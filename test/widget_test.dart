@@ -454,7 +454,12 @@ void main() {
         targetStartSpeed: 48.28032,
         targetEndSpeed: 80.4672,
         targetSpeedUnit: 'mph',
-        history: [],
+        history: const [
+          DataPoint(elapsedTime: -0.01, speedKmh: 47.28032, gForce: 0.0, altitude: 100.0),
+          DataPoint(elapsedTime: 0.0, speedKmh: 48.28032, gForce: 0.0, altitude: 100.0),
+          DataPoint(elapsedTime: 2.15, speedKmh: 80.4672, gForce: 0.0, altitude: 100.0),
+          DataPoint(elapsedTime: 2.16, speedKmh: 81.4672, gForce: 0.0, altitude: 100.0),
+        ],
       ),
     );
 

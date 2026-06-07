@@ -280,9 +280,6 @@ double? getCompletedTimeForCategory(RaceMetrics metrics, String categoryId) {
           (metrics.targetStartSpeed! - start!).abs() < 0.1 &&
           (metrics.targetEndSpeed! - end!).abs() < 0.1 &&
           metrics.targetSpeedUnit == unit) {
-        if (metrics.history.isEmpty) {
-          return metrics.elapsedTime > 0 ? metrics.elapsedTime : null;
-        }
         final startTime = _findSpeedCrossingTime(metrics.history, start, 0.0);
         if (startTime == null) return null;
         final endTime = _findSpeedCrossingTime(metrics.history, end, startTime);
