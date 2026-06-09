@@ -77,15 +77,15 @@ void setup() {
     Serial.println("--- OpenDragy Firmware Boot ---");
 
     Serial.println("Initializing I2C Bus...");
-    int tentatives = 0;
-    int maxTentatives = 10;
-    bool imuPret = false;
+    int attempts = 0;
+    int maxAttempts = 10;
+    bool imuReady = false;
 
-    while (tentatives < maxTentatives && !imuPret) {
-        tentatives++;
+    while (attempts < maxAttempts && !imuReady) {
+        attempts++;
         
-        int delaiAttente = min(tentatives * 100, 500);
-        Serial.printf("Connecting to BMI160: Attempt %d/%d (Backoff: %dms)...\n", tentatives, maxTentatives, delaiAttente);
+        int waitDelay = min(attempts * 100, 500);
+        Serial.printf("Connecting to BMI160: Attempt %d/%d (Backoff: %dms)...\n", attempts, maxAttempts, waitDelay);
         
         Wire.end();
         Wire.begin(1, 2, 100000); 
@@ -96,17 +96,17 @@ void setup() {
         
         if (bmi160.I2cInit(0x69) == BMI160_OK) {
             Serial.println("-> BMI160 detected and initialized successfully (0x69).");
-            imuPret = true;
+            imuReady = true;
         } else if (bmi160.I2cInit(0x68) == BMI160_OK) {
             Serial.println("-> BMI160 detected and initialized successfully (0x68).");
-            imuPret = true;
+            imuReady = true;
         } else {
             Serial.println("-> Connection failed. Retrying bus configuration...");
-            delay(delaiAttente); 
+            delay(waitDelay); 
         }
     }
 
-    if (!imuPret) {
+    if (!imuReady) {
         Serial.println("[CRITICAL ERROR] BMI160 hardware not responding after 10 attempts.");
     }
 
