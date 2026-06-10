@@ -42,6 +42,7 @@ jobs:
 
   build-android:
     name: Build Android App
+    if: false
     runs-on: ubuntu-latest
     env:
       ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
