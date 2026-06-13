@@ -109,6 +109,7 @@ void setup() {
   }
 
   Serial.println("Starting GPS UART1 interface...");
+  UART.setRxBufferSize(1024);
   UART.begin(115200, SERIAL_8N1, 4, 5);
   delay(100);
 

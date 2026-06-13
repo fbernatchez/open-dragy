@@ -1,7 +1,6 @@
 import '../models/race_metrics.dart';
 
 class PhysicsEngine {
-  static const double dt = 0.1; // 10Hz = 0.1s interval
   static const double gAcceleration = 9.80665; // m/s^2
 
   static const double distance60ft = 18.288;
@@ -15,14 +14,12 @@ class PhysicsEngine {
   static const double zeroCrossingThreshold =
       0.5; // km/h threshold for interpolating exact start
 
-  // Sensor Fusion Tolerances
-  // We allow a mismatch of up to ~1.0G equivalent speed delta between GPS and IMU
-  static const double gpsImuToleranceKmh =
-      (1.0 * gAcceleration * dt) * 3.6; // ~3.53 km/h
 
   final List<double> _speedBuffer = [];
   int _stoppedTicks = 0;
   int _rejectedCount = 0;
+  double? _lastGpsTimeSeconds;
+  double? _lastValidDt;
 
   RaceMetrics updateMetrics(
     RaceMetrics current,
@@ -37,7 +34,22 @@ class PhysicsEngine {
     required String? targetSpeedUnit,
     required double intervalStartSpeed,
     required double intervalEndSpeed,
+    double? gpsTimeSeconds,
   }) {
+    // Calculate current dynamic dt
+    double currentDt = _lastValidDt ?? 0.1;
+    if (gpsTimeSeconds != null && _lastGpsTimeSeconds != null) {
+      double delta = gpsTimeSeconds - _lastGpsTimeSeconds!;
+      if (delta < 0) {
+        delta += 86400.0; // handle midnight rollover
+      }
+      if (delta > 0.01 && delta < 2.0) {
+        currentDt = delta;
+        _lastValidDt = delta;
+      }
+    }
+    _lastGpsTimeSeconds = gpsTimeSeconds;
+
     // 0.5 Sensor-Fusion Outlier Rejection
     // Validate the GPS speed jump against the live IMU acceleration.
     double lastSpeed = current.isRunning
@@ -46,10 +58,11 @@ class PhysicsEngine {
 
     if (_speedBuffer.isNotEmpty || current.isRunning) {
       double actualDeltaKmh = newSpeedKmh - lastSpeed;
-      double expectedDeltaKmh = (current.gForce * gAcceleration * dt) * 3.6;
+      double expectedDeltaKmh = (current.gForce * gAcceleration * currentDt) * 3.6;
+      double dynamicToleranceKmh = (1.0 * gAcceleration * currentDt) * 3.6;
 
       if (actualDeltaKmh > 0 &&
-          (actualDeltaKmh - expectedDeltaKmh).abs() > gpsImuToleranceKmh) {
+          (actualDeltaKmh - expectedDeltaKmh).abs() > dynamicToleranceKmh) {
         _rejectedCount++;
         if (_rejectedCount > 2) {
           // 200ms of sustained mismatch
@@ -118,6 +131,7 @@ class PhysicsEngine {
           targetStartSpeed: targetStartSpeed,
           targetEndSpeed: targetEndSpeed,
           targetSpeedUnit: targetSpeedUnit,
+          currentDt: currentDt,
         );
         if (triggered != null) {
           return triggered;
@@ -151,6 +165,7 @@ class PhysicsEngine {
             targetStartSpeed: targetStartSpeed,
             targetEndSpeed: targetEndSpeed,
             targetSpeedUnit: targetSpeedUnit,
+            currentDt: currentDt,
           );
           if (triggered != null) {
             return triggered;
@@ -164,7 +179,7 @@ class PhysicsEngine {
               double fraction = (intervalStartSpeed - prevSpeed) / speedDiff;
               
               // Time offset from the crossing point to the current tick
-              double elapsedOffset = (1.0 - fraction) * dt;
+              double elapsedOffset = (1.0 - fraction) * currentDt;
 
               // Average speed during this fractional step (m/s)
               double avgSpeedMs = ((intervalStartSpeed / 3.6) + (newSpeedKmh / 3.6)) / 2;
@@ -238,7 +253,7 @@ class PhysicsEngine {
           _stoppedTicks = 0;
         }
 
-        return _integrateDrag(current, newSpeedKmh, currentAltitude);
+        return _integrateDrag(current, newSpeedKmh, currentAltitude, currentDt);
       } else {
         // Interval Mode
         // Auto-cancel logic: if speed drops below starting speed - 10 km/h for 2 seconds, cancel the run
@@ -265,6 +280,7 @@ class PhysicsEngine {
           currentAltitude,
           intervalStartSpeed: intervalStartSpeed,
           intervalEndSpeed: intervalEndSpeed,
+          currentDt: currentDt,
         );
       }
     }
@@ -274,17 +290,18 @@ class PhysicsEngine {
     RaceMetrics current,
     double newSpeedKmh,
     double currentAltitude,
+    double currentDt,
   ) {
     final currentSpeedMs = current.speedKmh / 3.6;
     final newSpeedMs = newSpeedKmh / 3.6;
 
     // Trapezoidal integration for distance
     final avgSpeedMs = (currentSpeedMs + newSpeedMs) / 2;
-    final double deltaDistance = avgSpeedMs * dt;
+    final double deltaDistance = avgSpeedMs * currentDt;
     final double newDistance = current.distanceMeters + deltaDistance;
 
     final double smoothedGForce = current.gForce;
-    final newElapsedTime = current.elapsedTime + dt;
+    final newElapsedTime = current.elapsedTime + currentDt;
 
     final newHistory = List<DataPoint>.from(current.history)
       ..add(
@@ -322,7 +339,7 @@ class PhysicsEngine {
       double distDiff = newDistance - current.distanceMeters;
       if (distDiff > 0) {
         double fraction = (distance60ft - current.distanceMeters) / distDiff;
-        t60ft = current.elapsedTime + (dt * fraction);
+        t60ft = current.elapsedTime + (currentDt * fraction);
       } else {
         t60ft = newElapsedTime;
       }
@@ -333,7 +350,7 @@ class PhysicsEngine {
       double speedDiff = newSpeedKmh - current.speedKmh;
       if (speedDiff > 0) {
         double fraction = (96.5606 - current.speedKmh) / speedDiff;
-        t0_60mph = current.elapsedTime + (dt * fraction);
+        t0_60mph = current.elapsedTime + (currentDt * fraction);
       } else {
         t0_60mph = newElapsedTime;
       }
@@ -344,7 +361,7 @@ class PhysicsEngine {
       double speedDiff = newSpeedKmh - current.speedKmh;
       if (speedDiff > 0) {
         double fraction = (100.0 - current.speedKmh) / speedDiff;
-        t0_100kmh = current.elapsedTime + (dt * fraction);
+        t0_100kmh = current.elapsedTime + (currentDt * fraction);
       } else {
         t0_100kmh = newElapsedTime;
       }
@@ -355,7 +372,7 @@ class PhysicsEngine {
       double speedDiff = newSpeedKmh - current.speedKmh;
       if (speedDiff > 0) {
         double fraction = (209.2147 - current.speedKmh) / speedDiff;
-        t0_130mph = current.elapsedTime + (dt * fraction);
+        t0_130mph = current.elapsedTime + (currentDt * fraction);
       } else {
         t0_130mph = newElapsedTime;
       }
@@ -366,7 +383,7 @@ class PhysicsEngine {
       double speedDiff = newSpeedKmh - current.speedKmh;
       if (speedDiff > 0) {
         double fraction = (200.0 - current.speedKmh) / speedDiff;
-        t0_200kmh = current.elapsedTime + (dt * fraction);
+        t0_200kmh = current.elapsedTime + (currentDt * fraction);
       } else {
         t0_200kmh = newElapsedTime;
       }
@@ -377,7 +394,7 @@ class PhysicsEngine {
       double distDiff = newDistance - current.distanceMeters;
       if (distDiff > 0) {
         double fraction = (distance18Mile - current.distanceMeters) / distDiff;
-        t18 = current.elapsedTime + (dt * fraction);
+        t18 = current.elapsedTime + (currentDt * fraction);
         trap18 = current.speedKmh + ((newSpeedKmh - current.speedKmh) * fraction);
       } else {
         t18 = newElapsedTime;
@@ -390,7 +407,7 @@ class PhysicsEngine {
       double distDiff = newDistance - current.distanceMeters;
       if (distDiff > 0) {
         double fraction = (distance1000ft - current.distanceMeters) / distDiff;
-        t1000ft = current.elapsedTime + (dt * fraction);
+        t1000ft = current.elapsedTime + (currentDt * fraction);
         trap1000 = current.speedKmh + ((newSpeedKmh - current.speedKmh) * fraction);
       } else {
         t1000ft = newElapsedTime;
@@ -403,7 +420,7 @@ class PhysicsEngine {
       double distDiff = newDistance - current.distanceMeters;
       if (distDiff > 0) {
         double fraction = (distance14Mile - current.distanceMeters) / distDiff;
-        t14 = current.elapsedTime + (dt * fraction);
+        t14 = current.elapsedTime + (currentDt * fraction);
         trap14 = current.speedKmh + ((newSpeedKmh - current.speedKmh) * fraction);
       } else {
         t14 = newElapsedTime;
@@ -416,7 +433,7 @@ class PhysicsEngine {
       double distDiff = newDistance - current.distanceMeters;
       if (distDiff > 0) {
         double fraction = (distance12Mile - current.distanceMeters) / distDiff;
-        t12 = current.elapsedTime + (dt * fraction);
+        t12 = current.elapsedTime + (currentDt * fraction);
         trap12 = current.speedKmh + ((newSpeedKmh - current.speedKmh) * fraction);
       } else {
         t12 = newElapsedTime;
@@ -429,7 +446,7 @@ class PhysicsEngine {
       double speedDiff = newSpeedKmh - current.speedKmh;
       if (speedDiff > 0) {
         double fraction = (209.2147 - current.speedKmh) / speedDiff;
-        double t130 = current.elapsedTime + (dt * fraction);
+        double t130 = current.elapsedTime + (currentDt * fraction);
         t60_130 = t130 - t0_60mph;
       }
     }
@@ -439,7 +456,7 @@ class PhysicsEngine {
       double speedDiff = newSpeedKmh - current.speedKmh;
       if (speedDiff > 0) {
         double fraction = (200.0 - current.speedKmh) / speedDiff;
-        double t200 = current.elapsedTime + (dt * fraction);
+        double t200 = current.elapsedTime + (currentDt * fraction);
         t100_200 = t200 - t0_100kmh;
       }
     }
@@ -497,17 +514,18 @@ class PhysicsEngine {
     double currentAltitude, {
     required double intervalStartSpeed,
     required double intervalEndSpeed,
+    required double currentDt,
   }) {
     final currentSpeedMs = current.speedKmh / 3.6;
     final newSpeedMs = newSpeedKmh / 3.6;
 
     // Trapezoidal integration for distance
     final avgSpeedMs = (currentSpeedMs + newSpeedMs) / 2;
-    final double deltaDistance = avgSpeedMs * dt;
+    final double deltaDistance = avgSpeedMs * currentDt;
     final double newDistance = current.distanceMeters + deltaDistance;
 
     final double smoothedGForce = current.gForce;
-    final newElapsedTime = current.elapsedTime + dt;
+    final newElapsedTime = current.elapsedTime + currentDt;
 
     final newHistory = List<DataPoint>.from(current.history)
       ..add(
@@ -527,7 +545,7 @@ class PhysicsEngine {
       double speedDiff = newSpeedKmh - current.speedKmh;
       if (speedDiff > 0) {
         double fraction = (intervalEndSpeed - current.speedKmh) / speedDiff;
-        newElapsedTimeCalculated = current.elapsedTime + (dt * fraction);
+        newElapsedTimeCalculated = current.elapsedTime + (currentDt * fraction);
       }
     }
 
@@ -569,6 +587,7 @@ class PhysicsEngine {
     required double? targetStartSpeed,
     required double? targetEndSpeed,
     required String? targetSpeedUnit,
+    required double currentDt,
   }) {
     if (newSpeedKmh > launchCommitThreshold && _speedBuffer.length >= 2) {
       int k = _speedBuffer.length - 1;
@@ -590,10 +609,10 @@ class PhysicsEngine {
             (zeroCrossingThreshold - vStart) / (vEnd - vStart);
 
         // Time offset from the crossing point to the current tick
-        double elapsedOffset = (k - crossingIndex - startFraction) * dt;
+        double elapsedOffset = (k - crossingIndex - startFraction) * currentDt;
 
         // Integrate distance for the first fractional step
-        double firstStepTime = dt * (1.0 - startFraction);
+        double firstStepTime = currentDt * (1.0 - startFraction);
         double avgSpeedMs =
             ((zeroCrossingThreshold / 3.6) + (vEnd / 3.6)) / 2;
         double initialDistance = avgSpeedMs * firstStepTime;
@@ -602,7 +621,7 @@ class PhysicsEngine {
         for (int j = crossingIndex + 1; j < k; j++) {
           double stepAvgSpeedMs =
               ((_speedBuffer[j] / 3.6) + (_speedBuffer[j + 1] / 3.6)) / 2;
-          initialDistance += stepAvgSpeedMs * dt;
+          initialDistance += stepAvgSpeedMs * currentDt;
         }
 
         List<DataPoint> initialHistory = [];
@@ -616,7 +635,7 @@ class PhysicsEngine {
 
         // Points from crossingIndex + 1 to k
         for (int j = crossingIndex + 1; j <= k; j++) {
-          double tJ = firstStepTime + (j - (crossingIndex + 1)) * dt;
+          double tJ = firstStepTime + (j - (crossingIndex + 1)) * currentDt;
           initialHistory.add(DataPoint(
             elapsedTime: tJ,
             speedKmh: _speedBuffer[j],
@@ -652,6 +671,8 @@ class PhysicsEngine {
     _speedBuffer.clear();
     _stoppedTicks = 0;
     _rejectedCount = 0;
+    _lastGpsTimeSeconds = null;
+    _lastValidDt = null;
     return RaceMetrics();
   }
 }

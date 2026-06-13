@@ -18,12 +18,14 @@ void main() {
       expect(gpRmc!.speedKmh, closeTo(22.4 * 1.852, 0.001));
       expect(gpRmc.latitude, closeTo(48.1173, 0.0001));
       expect(gpRmc.longitude, closeTo(11.516667, 0.0001));
+      expect(gpRmc.timeSeconds, closeTo(45319.0, 0.001));
 
       final gnRmc = NmeaParser.parse(withChecksum('\$GNRMC,123519,A,4807.038,N,01131.000,E,22.4,084.4,230394,003.1,W'));
       expect(gnRmc, isNotNull);
       expect(gnRmc!.speedKmh, closeTo(22.4 * 1.852, 0.001));
       expect(gnRmc.latitude, closeTo(48.1173, 0.0001));
       expect(gnRmc.longitude, closeTo(11.516667, 0.0001));
+      expect(gnRmc.timeSeconds, closeTo(45319.0, 0.001));
     });
 
     test('parses GLONASS, Galileo, and BeiDou RMC sentences (speed)', () {

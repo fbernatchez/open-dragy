@@ -5,6 +5,7 @@ class NmeaData {
   final double? altitude;
   final double? latitude;
   final double? longitude;
+  final double? timeSeconds;
 
   NmeaData({
     this.speedKmh,
@@ -13,6 +14,7 @@ class NmeaData {
     this.altitude,
     this.latitude,
     this.longitude,
+    this.timeSeconds,
   });
 }
 
@@ -68,6 +70,18 @@ class NmeaParser {
     }
   }
 
+  static double? _parseUtcTime(String val) {
+    if (val.length < 6) return null;
+    try {
+      final hh = double.parse(val.substring(0, 2));
+      final mm = double.parse(val.substring(2, 4));
+      final ss = double.parse(val.substring(4));
+      return hh * 3600.0 + mm * 60.0 + ss;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Parses NMEA sentence and returns NmeaData.
   /// Handles both $GP and $GN talker prefixes.
   static NmeaData? parse(String sentence) {
@@ -101,7 +115,15 @@ class NmeaParser {
         lon = _parseLongitude(parts[5], parts[6]);
       }
 
-      return NmeaData(speedKmh: speedKmh, latitude: lat, longitude: lon);
+      final timeStr = parts[1];
+      final timeSec = _parseUtcTime(timeStr);
+
+      return NmeaData(
+        speedKmh: speedKmh,
+        latitude: lat,
+        longitude: lon,
+        timeSeconds: timeSec,
+      );
     }
 
     // --- Satellites + HDOP: GGA (Global Positioning System Fix Data) ---

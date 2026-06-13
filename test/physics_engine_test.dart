@@ -723,5 +723,103 @@ void main() {
       expect(time, isNotNull);
       expect(time, closeTo(metrics.elapsedTime, 0.01));
     });
+
+    test('uses dynamic dt from GPS timestamps instead of static 0.1s', () {
+      RaceMetrics metrics = RaceMetrics();
+
+      // Send gradual samples to populate the speed buffer and avoid outlier rejection
+      metrics = engine.updateMetrics(
+        metrics,
+        0.0,
+        100.0,
+        isArmed: true,
+        runMode: 'drag',
+        targetDistance: 0.25,
+        targetDistanceUnit: 'mile',
+        targetStartSpeed: null,
+        targetEndSpeed: null,
+        targetSpeedUnit: null,
+        intervalStartSpeed: 0.0,
+        intervalEndSpeed: 0.0,
+        gpsTimeSeconds: 999.8,
+      );
+
+      metrics = engine.updateMetrics(
+        metrics,
+        0.2,
+        100.0,
+        isArmed: true,
+        runMode: 'drag',
+        targetDistance: 0.25,
+        targetDistanceUnit: 'mile',
+        targetStartSpeed: null,
+        targetEndSpeed: null,
+        targetSpeedUnit: null,
+        intervalStartSpeed: 0.0,
+        intervalEndSpeed: 0.0,
+        gpsTimeSeconds: 999.9,
+      );
+
+      metrics = engine.updateMetrics(
+        metrics,
+        0.6,
+        100.0,
+        isArmed: true,
+        runMode: 'drag',
+        targetDistance: 0.25,
+        targetDistanceUnit: 'mile',
+        targetStartSpeed: null,
+        targetEndSpeed: null,
+        targetSpeedUnit: null,
+        intervalStartSpeed: 0.0,
+        intervalEndSpeed: 0.0,
+        gpsTimeSeconds: 1000.0,
+      );
+
+      // Trigger launch at speed = 4.0 km/h with GPS time = 1000.2s (delta of 0.2s)
+      metrics = engine.updateMetrics(
+        metrics,
+        4.0,
+        100.0,
+        isArmed: true,
+        runMode: 'drag',
+        targetDistance: 0.25,
+        targetDistanceUnit: 'mile',
+        targetStartSpeed: null,
+        targetEndSpeed: null,
+        targetSpeedUnit: null,
+        intervalStartSpeed: 0.0,
+        intervalEndSpeed: 0.0,
+        gpsTimeSeconds: 1000.2,
+      );
+
+      expect(metrics.isRunning, true);
+      // Because crossing was interpolated in a 0.2s step, elapsedTime should reflect currentDt = 0.2s
+      // The crossing is between 0.2 km/h (index 1) and 0.6 km/h (index 2).
+      // startFraction = (0.5 - 0.2) / (0.6 - 0.2) = 0.75
+      // elapsedOffset = (3 - 1 - 0.75) * 0.2 = 1.25 * 0.2 = 0.25s
+      expect(metrics.elapsedTime, closeTo(0.25, 0.001));
+
+      // Next speed update is 6.5 km/h with GPS time = 1000.5s (delta of 0.3s)
+      metrics = engine.updateMetrics(
+        metrics,
+        6.5,
+        100.0,
+        isArmed: true,
+        runMode: 'drag',
+        targetDistance: 0.25,
+        targetDistanceUnit: 'mile',
+        targetStartSpeed: null,
+        targetEndSpeed: null,
+        targetSpeedUnit: null,
+        intervalStartSpeed: 0.0,
+        intervalEndSpeed: 0.0,
+        gpsTimeSeconds: 1000.5,
+      );
+
+      // elapsedTime should increase by currentDt = 0.3s
+      // New elapsedTime = 0.25 + 0.3 = 0.55s
+      expect(metrics.elapsedTime, closeTo(0.55, 0.001));
+    });
   });
 }

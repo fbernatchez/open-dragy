@@ -374,6 +374,7 @@ class DragyProvider extends ChangeNotifier {
             targetSpeedUnit: targetSpeedUnit,
             intervalStartSpeed: intervalStartSpeed,
             intervalEndSpeed: intervalEndSpeed,
+            gpsTimeSeconds: data.timeSeconds,
           );
           final isRunning = _metrics.isRunning;
 
