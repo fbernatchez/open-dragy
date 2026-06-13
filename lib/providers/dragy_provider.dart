@@ -264,7 +264,7 @@ class DragyProvider extends ChangeNotifier {
       final delta =
           DateTime.now().difference(_lastGpsUpdateTime!).inMicroseconds /
           1000000.0;
-      final clampedDelta = delta.clamp(0.0, 0.1);
+      final clampedDelta = delta.clamp(0.0, _physicsEngine.lastValidDt);
       return _metrics.elapsedTime + clampedDelta;
     }
     return _metrics.elapsedTime;

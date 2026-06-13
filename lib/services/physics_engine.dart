@@ -21,6 +21,8 @@ class PhysicsEngine {
   double? _lastGpsTimeSeconds;
   double? _lastValidDt;
 
+  double get lastValidDt => _lastValidDt ?? 0.1;
+
   RaceMetrics updateMetrics(
     RaceMetrics current,
     double newSpeedKmh,
