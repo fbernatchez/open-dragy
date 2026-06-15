@@ -29,10 +29,14 @@ enum RaceDragTarget {
 enum RaceIntervalTarget {
   zeroToSixtyMph('0-60 mph'),
   fiftyToSeventyFiveMph('50-75 mph'),
+  sixtyToOneHundredMph('60-100 mph'),
   sixtyToOneThirtyMph('60-130 mph'),
+  zeroToOneThirtyMph('0-130 mph'),
   zeroToOneHundredKmh('0-100 km/h'),
   eightyToOneTwentyKmh('80-120 km/h'),
+  oneHundredToOneSixtyKmh('100-160 km/h'),
   oneHundredToTwoHundredKmh('100-200 km/h'),
+  zeroToTwoHundredKmh('0-200 km/h'),
   custom('Custom Range...');
 
   final String label;
@@ -104,14 +108,22 @@ class DragyProvider extends ChangeNotifier {
         return 0.0;
       case RaceIntervalTarget.fiftyToSeventyFiveMph:
         return 80.4672;
+      case RaceIntervalTarget.sixtyToOneHundredMph:
+        return 96.5606;
       case RaceIntervalTarget.sixtyToOneThirtyMph:
         return 96.5606;
+      case RaceIntervalTarget.zeroToOneThirtyMph:
+        return 0.0;
       case RaceIntervalTarget.zeroToOneHundredKmh:
         return 0.0;
       case RaceIntervalTarget.eightyToOneTwentyKmh:
         return 80.0;
+      case RaceIntervalTarget.oneHundredToOneSixtyKmh:
+        return 100.0;
       case RaceIntervalTarget.oneHundredToTwoHundredKmh:
         return 100.0;
+      case RaceIntervalTarget.zeroToTwoHundredKmh:
+        return 0.0;
       case RaceIntervalTarget.custom:
         return _isMetric
             ? _customIntervalStartSpeed
@@ -125,13 +137,21 @@ class DragyProvider extends ChangeNotifier {
         return 96.5606;
       case RaceIntervalTarget.fiftyToSeventyFiveMph:
         return 120.7008;
+      case RaceIntervalTarget.sixtyToOneHundredMph:
+        return 160.9344;
       case RaceIntervalTarget.sixtyToOneThirtyMph:
+        return 209.2147;
+      case RaceIntervalTarget.zeroToOneThirtyMph:
         return 209.2147;
       case RaceIntervalTarget.zeroToOneHundredKmh:
         return 100.0;
       case RaceIntervalTarget.eightyToOneTwentyKmh:
         return 120.0;
+      case RaceIntervalTarget.oneHundredToOneSixtyKmh:
+        return 160.0;
       case RaceIntervalTarget.oneHundredToTwoHundredKmh:
+        return 200.0;
+      case RaceIntervalTarget.zeroToTwoHundredKmh:
         return 200.0;
       case RaceIntervalTarget.custom:
         return _isMetric
@@ -217,11 +237,15 @@ class DragyProvider extends ChangeNotifier {
     switch (_activeIntervalTarget) {
       case RaceIntervalTarget.zeroToSixtyMph:
       case RaceIntervalTarget.fiftyToSeventyFiveMph:
+      case RaceIntervalTarget.sixtyToOneHundredMph:
       case RaceIntervalTarget.sixtyToOneThirtyMph:
+      case RaceIntervalTarget.zeroToOneThirtyMph:
         return 'mph';
       case RaceIntervalTarget.zeroToOneHundredKmh:
       case RaceIntervalTarget.eightyToOneTwentyKmh:
+      case RaceIntervalTarget.oneHundredToOneSixtyKmh:
       case RaceIntervalTarget.oneHundredToTwoHundredKmh:
+      case RaceIntervalTarget.zeroToTwoHundredKmh:
         return 'kmh';
       default:
         return _isMetric ? 'kmh' : 'mph';
@@ -604,6 +628,10 @@ class DragyProvider extends ChangeNotifier {
       } else if (_activeIntervalTarget ==
           RaceIntervalTarget.fiftyToSeventyFiveMph) {
         _activeIntervalTarget = RaceIntervalTarget.eightyToOneTwentyKmh;
+      } else if (_activeIntervalTarget == RaceIntervalTarget.zeroToOneThirtyMph) {
+        _activeIntervalTarget = RaceIntervalTarget.zeroToTwoHundredKmh;
+      } else if (_activeIntervalTarget == RaceIntervalTarget.sixtyToOneHundredMph) {
+        _activeIntervalTarget = RaceIntervalTarget.oneHundredToOneSixtyKmh;
       }
     } else {
       if (_activeIntervalTarget ==
@@ -615,6 +643,10 @@ class DragyProvider extends ChangeNotifier {
       } else if (_activeIntervalTarget ==
           RaceIntervalTarget.eightyToOneTwentyKmh) {
         _activeIntervalTarget = RaceIntervalTarget.fiftyToSeventyFiveMph;
+      } else if (_activeIntervalTarget == RaceIntervalTarget.zeroToTwoHundredKmh) {
+        _activeIntervalTarget = RaceIntervalTarget.zeroToOneThirtyMph;
+      } else if (_activeIntervalTarget == RaceIntervalTarget.oneHundredToOneSixtyKmh) {
+        _activeIntervalTarget = RaceIntervalTarget.sixtyToOneHundredMph;
       }
     }
   }

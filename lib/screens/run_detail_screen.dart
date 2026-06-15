@@ -92,11 +92,11 @@ class RunDetailScreen extends StatelessWidget {
       if (!matchesAny) {
         final unit = metrics.targetSpeedUnit ?? (isMetric ? 'kmh' : 'mph');
         final start = unit == 'mph'
-            ? (metrics.targetStartSpeed! * 0.621371).roundToDouble()
-            : metrics.targetStartSpeed!.roundToDouble();
+            ? (metrics.targetStartSpeed! * 0.621371).round()
+            : metrics.targetStartSpeed!.round();
         final end = unit == 'mph'
-            ? (metrics.targetEndSpeed! * 0.621371).roundToDouble()
-            : metrics.targetEndSpeed!.roundToDouble();
+            ? (metrics.targetEndSpeed! * 0.621371).round()
+            : metrics.targetEndSpeed!.round();
         final customId = 'custom_${start}_${end}_$unit';
         final compTime = getCompletedTimeForCategory(metrics, customId);
         if (compTime != null) {
@@ -168,11 +168,11 @@ class RunDetailScreen extends StatelessWidget {
       primaryLabel = "$label Time";
       final unit = metrics.targetSpeedUnit ?? (isMetric ? 'kmh' : 'mph');
       final start = unit == 'mph'
-          ? (metrics.targetStartSpeed! * 0.621371).roundToDouble()
-          : metrics.targetStartSpeed!.roundToDouble();
+          ? (metrics.targetStartSpeed! * 0.621371).round()
+          : metrics.targetStartSpeed!.round();
       final end = unit == 'mph'
-          ? (metrics.targetEndSpeed! * 0.621371).roundToDouble()
-          : metrics.targetEndSpeed!.roundToDouble();
+          ? (metrics.targetEndSpeed! * 0.621371).round()
+          : metrics.targetEndSpeed!.round();
       final customId = 'custom_${start}_${end}_$unit';
       completedTime = getCompletedTimeForCategory(metrics, customId);
     }
@@ -180,8 +180,8 @@ class RunDetailScreen extends StatelessWidget {
     // Fallback if target is not completed or none was set
     if (completedTime == null) {
       final priorityIds = isMetric
-          ? ['1/2mile', '1/4mile', '0-200kmh', '100-200kmh', '1000ft', '1/8mile', '0-100kmh', '0-130mph', '60-130mph', '0-60mph', '60ft']
-          : ['1/2mile', '1/4mile', '0-130mph', '60-130mph', '1000ft', '1/8mile', '0-60mph', '0-200kmh', '100-200kmh', '0-100kmh', '60ft'];
+          ? ['1/2mile', '1/4mile', '0-200kmh', '100-200kmh', '100-160kmh', '1000ft', '1/8mile', '0-100kmh', '0-130mph', '60-130mph', '60-100mph', '0-60mph', '60ft']
+          : ['1/2mile', '1/4mile', '0-130mph', '60-130mph', '60-100mph', '1000ft', '1/8mile', '0-60mph', '0-200kmh', '100-200kmh', '100-160kmh', '0-100kmh', '60ft'];
           
       for (final id in priorityIds) {
         final time = getCompletedTimeForCategory(metrics, id);

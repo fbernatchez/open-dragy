@@ -84,11 +84,11 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
         if (!matchesAny) {
           final unit = run.metrics.targetSpeedUnit ?? (isMetric ? 'kmh' : 'mph');
           final start = unit == 'mph'
-              ? (run.metrics.targetStartSpeed! * 0.621371).roundToDouble()
-              : run.metrics.targetStartSpeed!.roundToDouble();
+              ? (run.metrics.targetStartSpeed! * 0.621371).round()
+              : run.metrics.targetStartSpeed!.round();
           final end = unit == 'mph'
-              ? (run.metrics.targetEndSpeed! * 0.621371).roundToDouble()
-              : run.metrics.targetEndSpeed!.roundToDouble();
+              ? (run.metrics.targetEndSpeed! * 0.621371).round()
+              : run.metrics.targetEndSpeed!.round();
           final customId = 'custom_${start}_${end}_$unit';
           if (!seenIds.contains(customId)) {
             seenIds.add(customId);
@@ -119,7 +119,9 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
       '1000ft',
       '1/4mile',
       '1/2mile',
+      '60-100mph',
       '60-130mph',
+      '100-160kmh',
       '100-200kmh',
       '0-130mph',
       '0-200kmh',
@@ -519,11 +521,11 @@ class RunHistoryCard extends StatelessWidget {
         if (!isOfficial) {
           final unit = metrics.targetSpeedUnit ?? (isMetric ? 'kmh' : 'mph');
           final start = unit == 'mph'
-              ? (metrics.targetStartSpeed! * 0.621371).roundToDouble()
-              : metrics.targetStartSpeed!.roundToDouble();
+              ? (metrics.targetStartSpeed! * 0.621371).round()
+              : metrics.targetStartSpeed!.round();
           final end = unit == 'mph'
-              ? (metrics.targetEndSpeed! * 0.621371).roundToDouble()
-              : metrics.targetEndSpeed!.roundToDouble();
+              ? (metrics.targetEndSpeed! * 0.621371).round()
+              : metrics.targetEndSpeed!.round();
           final customId = 'custom_${start}_${end}_$unit';
           compTime = getCompletedTimeForCategory(metrics, customId);
         }

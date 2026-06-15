@@ -718,8 +718,8 @@ void main() {
       }
       expect(metrics.isRunning, false);
 
-      // Look up via custom category ID (values in user units, e.g. 0.0 to 50.0 mph)
-      final time = getCompletedTimeForCategory(metrics, 'custom_0.0_50.0_mph');
+      // Look up via custom category ID (values in user units, e.g. 0 to 50 mph)
+      final time = getCompletedTimeForCategory(metrics, 'custom_0_50_mph');
       expect(time, isNotNull);
       expect(time, closeTo(metrics.elapsedTime, 0.01));
     });
@@ -820,6 +820,83 @@ void main() {
       // elapsedTime should increase by currentDt = 0.3s
       // New elapsedTime = 0.25 + 0.3 = 0.55s
       expect(metrics.elapsedTime, closeTo(0.55, 0.001));
+    });
+
+    test('standing-start interval run 0-200 km/h sets precalculated fields', () {
+      RaceMetrics metrics = RaceMetrics();
+      // Arm and trigger standing start for 0-200 km/h
+      metrics = engine.updateMetrics(
+        metrics,
+        0.0,
+        100.0,
+        isArmed: true,
+        runMode: 'interval',
+        targetDistance: null,
+        targetDistanceUnit: null,
+        targetStartSpeed: 0.0,
+        targetEndSpeed: 200.0,
+        targetSpeedUnit: 'kmh',
+        intervalStartSpeed: 0.0,
+        intervalEndSpeed: 200.0,
+      );
+      expect(metrics.isRunning, false);
+
+      // Accelerate slightly below launchCommitThreshold (to avoid outlier rejection)
+      metrics = engine.updateMetrics(
+        metrics,
+        2.5,
+        100.0,
+        isArmed: true,
+        runMode: 'interval',
+        targetDistance: null,
+        targetDistanceUnit: null,
+        targetStartSpeed: 0.0,
+        targetEndSpeed: 200.0,
+        targetSpeedUnit: 'kmh',
+        intervalStartSpeed: 0.0,
+        intervalEndSpeed: 200.0,
+      );
+      expect(metrics.isRunning, false);
+
+      // Accelerate above launchCommitThreshold (3.0 km/h) -> Trigger!
+      metrics = engine.updateMetrics(
+        metrics,
+        5.0,
+        100.0,
+        isArmed: true,
+        runMode: 'interval',
+        targetDistance: null,
+        targetDistanceUnit: null,
+        targetStartSpeed: 0.0,
+        targetEndSpeed: 200.0,
+        targetSpeedUnit: 'kmh',
+        intervalStartSpeed: 0.0,
+        intervalEndSpeed: 200.0,
+      );
+      expect(metrics.isRunning, true);
+
+      // Accelerate to 200.0 km/h
+      double speed = 5.0;
+      while (metrics.isRunning) {
+        speed += 3.0;
+        metrics = engine.updateMetrics(
+          metrics,
+          speed,
+          100.0,
+          isArmed: true,
+          runMode: 'interval',
+          targetDistance: null,
+          targetDistanceUnit: null,
+          targetStartSpeed: 0.0,
+          targetEndSpeed: 200.0,
+          targetSpeedUnit: 'kmh',
+          intervalStartSpeed: 0.0,
+          intervalEndSpeed: 200.0,
+        );
+      }
+      expect(metrics.isRunning, false);
+      expect(metrics.time0to200kmh, isNotNull, reason: 'time0to200kmh is null! targetStartSpeed: ${metrics.targetStartSpeed}, targetEndSpeed: ${metrics.targetEndSpeed}, targetSpeedUnit: ${metrics.targetSpeedUnit}, elapsedTime: ${metrics.elapsedTime}, speedKmh: ${metrics.speedKmh}, isRunning: ${metrics.isRunning}');
+      expect(metrics.time0to200kmh, closeTo(metrics.elapsedTime, 0.01));
     });
   });
 }

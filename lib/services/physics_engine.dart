@@ -553,6 +553,10 @@ class PhysicsEngine {
 
     double? t60_130 = current.time60to130mph;
     double? t100_200 = current.time100to200kmh;
+    double? t0_60mph = current.time0to60mph;
+    double? t0_100kmh = current.time0to100kmh;
+    double? t0_130mph = current.time0to130mph;
+    double? t0_200kmh = current.time0to200kmh;
     
     if (current.targetStartSpeed != null && current.targetEndSpeed != null) {
       if ((current.targetStartSpeed! - 96.56).abs() < 1.0 &&
@@ -563,6 +567,20 @@ class PhysicsEngine {
                  (current.targetEndSpeed! - 200.0).abs() < 0.1 &&
                  current.targetSpeedUnit == 'kmh') {
         t100_200 = newElapsedTimeCalculated;
+      } else if (current.targetStartSpeed == 0.0) {
+        if ((current.targetEndSpeed! - 96.56).abs() < 1.0 &&
+            current.targetSpeedUnit == 'mph') {
+          t0_60mph = newElapsedTimeCalculated;
+        } else if ((current.targetEndSpeed! - 100.0).abs() < 0.1 &&
+                   current.targetSpeedUnit == 'kmh') {
+          t0_100kmh = newElapsedTimeCalculated;
+        } else if ((current.targetEndSpeed! - 209.21).abs() < 1.0 &&
+                   current.targetSpeedUnit == 'mph') {
+          t0_130mph = newElapsedTimeCalculated;
+        } else if ((current.targetEndSpeed! - 200.0).abs() < 0.1 &&
+                   current.targetSpeedUnit == 'kmh') {
+          t0_200kmh = newElapsedTimeCalculated;
+        }
       }
     }
 
@@ -573,6 +591,10 @@ class PhysicsEngine {
       gForce: smoothedGForce,
       time60to130mph: t60_130,
       time100to200kmh: t100_200,
+      time0to60mph: t0_60mph,
+      time0to100kmh: t0_100kmh,
+      time0to130mph: t0_130mph,
+      time0to200kmh: t0_200kmh,
       startAltitude: current.startAltitude,
       isRunning: !targetAchieved,
       history: newHistory,

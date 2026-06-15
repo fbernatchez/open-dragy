@@ -68,23 +68,41 @@ class _DashboardScreenState extends State<DashboardScreen> {
           case RaceIntervalTarget.zeroToOneHundredKmh:
             completedTime = metrics.time0to100kmh;
             break;
+          case RaceIntervalTarget.zeroToTwoHundredKmh:
+            completedTime = metrics.time0to200kmh;
+            break;
+          case RaceIntervalTarget.zeroToOneThirtyMph:
+            completedTime = metrics.time0to130mph;
+            break;
           case RaceIntervalTarget.fiftyToSeventyFiveMph:
             completedTime = getCompletedTimeForCategory(
               metrics,
-              'custom_50.0_75.0_mph',
+              'custom_50_75_mph',
             );
             break;
           case RaceIntervalTarget.eightyToOneTwentyKmh:
             completedTime = getCompletedTimeForCategory(
               metrics,
-              'custom_80.0_120.0_kmh',
+              'custom_80_120_kmh',
+            );
+            break;
+          case RaceIntervalTarget.oneHundredToOneSixtyKmh:
+            completedTime = getCompletedTimeForCategory(
+              metrics,
+              'custom_100_160_kmh',
+            );
+            break;
+          case RaceIntervalTarget.sixtyToOneHundredMph:
+            completedTime = getCompletedTimeForCategory(
+              metrics,
+              'custom_60_100_mph',
             );
             break;
           case RaceIntervalTarget.custom:
             final unit = isMetric ? 'kmh' : 'mph';
             completedTime = getCompletedTimeForCategory(
               metrics,
-              'custom_${dragy.customIntervalStartSpeed}_${dragy.customIntervalEndSpeed}_$unit',
+              'custom_${dragy.customIntervalStartSpeed.round()}_${dragy.customIntervalEndSpeed.round()}_$unit',
             );
             break;
         }
@@ -171,7 +189,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             continue;
           }
         }
-        
+
         reachedMilestones.add(
           _ReachedMilestone(
             label: test.displayName,
@@ -180,12 +198,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
             trapSpeed: test.id == '1/8mile'
                 ? metrics.trap18Mile
                 : (test.id == '1000ft'
-                    ? metrics.trap1000ft
-                    : (test.id == '1/4mile'
-                        ? metrics.trap14Mile
-                        : (test.id == '1/2mile'
-                            ? metrics.trap12Mile
-                            : null))),
+                      ? metrics.trap1000ft
+                      : (test.id == '1/4mile'
+                            ? metrics.trap14Mile
+                            : (test.id == '1/2mile'
+                                  ? metrics.trap12Mile
+                                  : null))),
           ),
         );
       }
@@ -193,7 +211,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final completed = getCompletedTests(metrics);
       if (completed.isNotEmpty) {
         final test = completed.first;
-        final time = getCompletedTimeForCategory(metrics, test.id) ?? metrics.elapsedTime;
+        final time =
+            getCompletedTimeForCategory(metrics, test.id) ??
+            metrics.elapsedTime;
         reachedMilestones.add(
           _ReachedMilestone(
             label: test.displayName,
@@ -202,10 +222,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         );
       } else if (!metrics.isRunning &&
-                 metrics.history.isNotEmpty &&
-                 metrics.elapsedTime > 0 &&
-                 metrics.targetStartSpeed != null &&
-                 metrics.targetEndSpeed != null) {
+          metrics.history.isNotEmpty &&
+          metrics.elapsedTime > 0 &&
+          metrics.targetStartSpeed != null &&
+          metrics.targetEndSpeed != null) {
         final label = getDisplayLabelForTarget(
           startSpeed: metrics.targetStartSpeed,
           endSpeed: metrics.targetEndSpeed,
@@ -688,8 +708,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                                 ),
                                                 DropdownMenuItem(
                                                   value: RaceIntervalTarget
+                                                      .zeroToTwoHundredKmh,
+                                                  child: Text('0-200 km/h'),
+                                                ),
+                                                DropdownMenuItem(
+                                                  value: RaceIntervalTarget
                                                       .eightyToOneTwentyKmh,
                                                   child: Text('80-120 km/h'),
+                                                ),
+                                                DropdownMenuItem(
+                                                  value: RaceIntervalTarget
+                                                      .oneHundredToOneSixtyKmh,
+                                                  child: Text('100-160 km/h'),
                                                 ),
                                                 DropdownMenuItem(
                                                   value: RaceIntervalTarget
@@ -712,8 +742,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                                 ),
                                                 DropdownMenuItem(
                                                   value: RaceIntervalTarget
+                                                      .zeroToOneThirtyMph,
+                                                  child: Text('0-130 mph'),
+                                                ),
+                                                DropdownMenuItem(
+                                                  value: RaceIntervalTarget
                                                       .fiftyToSeventyFiveMph,
                                                   child: Text('50-75 mph'),
+                                                ),
+                                                DropdownMenuItem(
+                                                  value: RaceIntervalTarget
+                                                      .sixtyToOneHundredMph,
+                                                  child: Text('60-100 mph'),
                                                 ),
                                                 DropdownMenuItem(
                                                   value: RaceIntervalTarget
