@@ -74,6 +74,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
           case RaceIntervalTarget.zeroToOneThirtyMph:
             completedTime = metrics.time0to130mph;
             break;
+          case RaceIntervalTarget.zeroToOneSixtyKmh:
+            completedTime = getCompletedTimeForCategory(
+              metrics,
+              'custom_0_160_kmh',
+            );
+            break;
+          case RaceIntervalTarget.zeroToOneHundredMph:
+            completedTime = getCompletedTimeForCategory(
+              metrics,
+              'custom_0_100_mph',
+            );
+            break;
           case RaceIntervalTarget.fiftyToSeventyFiveMph:
             completedTime = getCompletedTimeForCategory(
               metrics,
@@ -708,6 +720,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                                 ),
                                                 DropdownMenuItem(
                                                   value: RaceIntervalTarget
+                                                      .zeroToOneSixtyKmh,
+                                                  child: Text('0-160 km/h'),
+                                                ),
+                                                DropdownMenuItem(
+                                                  value: RaceIntervalTarget
                                                       .zeroToTwoHundredKmh,
                                                   child: Text('0-200 km/h'),
                                                 ),
@@ -739,6 +756,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                                   value: RaceIntervalTarget
                                                       .zeroToSixtyMph,
                                                   child: Text('0-60 mph'),
+                                                ),
+                                                DropdownMenuItem(
+                                                  value: RaceIntervalTarget
+                                                      .zeroToOneHundredMph,
+                                                  child: Text('0-100 mph'),
                                                 ),
                                                 DropdownMenuItem(
                                                   value: RaceIntervalTarget

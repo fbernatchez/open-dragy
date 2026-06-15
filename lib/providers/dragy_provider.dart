@@ -28,11 +28,13 @@ enum RaceDragTarget {
 
 enum RaceIntervalTarget {
   zeroToSixtyMph('0-60 mph'),
+  zeroToOneHundredMph('0-100 mph'),
   fiftyToSeventyFiveMph('50-75 mph'),
   sixtyToOneHundredMph('60-100 mph'),
   sixtyToOneThirtyMph('60-130 mph'),
   zeroToOneThirtyMph('0-130 mph'),
   zeroToOneHundredKmh('0-100 km/h'),
+  zeroToOneSixtyKmh('0-160 km/h'),
   eightyToOneTwentyKmh('80-120 km/h'),
   oneHundredToOneSixtyKmh('100-160 km/h'),
   oneHundredToTwoHundredKmh('100-200 km/h'),
@@ -106,6 +108,8 @@ class DragyProvider extends ChangeNotifier {
     switch (_activeIntervalTarget) {
       case RaceIntervalTarget.zeroToSixtyMph:
         return 0.0;
+      case RaceIntervalTarget.zeroToOneHundredMph:
+        return 0.0;
       case RaceIntervalTarget.fiftyToSeventyFiveMph:
         return 80.4672;
       case RaceIntervalTarget.sixtyToOneHundredMph:
@@ -115,6 +119,8 @@ class DragyProvider extends ChangeNotifier {
       case RaceIntervalTarget.zeroToOneThirtyMph:
         return 0.0;
       case RaceIntervalTarget.zeroToOneHundredKmh:
+        return 0.0;
+      case RaceIntervalTarget.zeroToOneSixtyKmh:
         return 0.0;
       case RaceIntervalTarget.eightyToOneTwentyKmh:
         return 80.0;
@@ -135,6 +141,8 @@ class DragyProvider extends ChangeNotifier {
     switch (_activeIntervalTarget) {
       case RaceIntervalTarget.zeroToSixtyMph:
         return 96.5606;
+      case RaceIntervalTarget.zeroToOneHundredMph:
+        return 160.9344;
       case RaceIntervalTarget.fiftyToSeventyFiveMph:
         return 120.7008;
       case RaceIntervalTarget.sixtyToOneHundredMph:
@@ -145,6 +153,8 @@ class DragyProvider extends ChangeNotifier {
         return 209.2147;
       case RaceIntervalTarget.zeroToOneHundredKmh:
         return 100.0;
+      case RaceIntervalTarget.zeroToOneSixtyKmh:
+        return 160.0;
       case RaceIntervalTarget.eightyToOneTwentyKmh:
         return 120.0;
       case RaceIntervalTarget.oneHundredToOneSixtyKmh:
@@ -236,12 +246,14 @@ class DragyProvider extends ChangeNotifier {
     }
     switch (_activeIntervalTarget) {
       case RaceIntervalTarget.zeroToSixtyMph:
+      case RaceIntervalTarget.zeroToOneHundredMph:
       case RaceIntervalTarget.fiftyToSeventyFiveMph:
       case RaceIntervalTarget.sixtyToOneHundredMph:
       case RaceIntervalTarget.sixtyToOneThirtyMph:
       case RaceIntervalTarget.zeroToOneThirtyMph:
         return 'mph';
       case RaceIntervalTarget.zeroToOneHundredKmh:
+      case RaceIntervalTarget.zeroToOneSixtyKmh:
       case RaceIntervalTarget.eightyToOneTwentyKmh:
       case RaceIntervalTarget.oneHundredToOneSixtyKmh:
       case RaceIntervalTarget.oneHundredToTwoHundredKmh:
@@ -632,6 +644,8 @@ class DragyProvider extends ChangeNotifier {
         _activeIntervalTarget = RaceIntervalTarget.zeroToTwoHundredKmh;
       } else if (_activeIntervalTarget == RaceIntervalTarget.sixtyToOneHundredMph) {
         _activeIntervalTarget = RaceIntervalTarget.oneHundredToOneSixtyKmh;
+      } else if (_activeIntervalTarget == RaceIntervalTarget.zeroToOneHundredMph) {
+        _activeIntervalTarget = RaceIntervalTarget.zeroToOneSixtyKmh;
       }
     } else {
       if (_activeIntervalTarget ==
@@ -647,6 +661,8 @@ class DragyProvider extends ChangeNotifier {
         _activeIntervalTarget = RaceIntervalTarget.zeroToOneThirtyMph;
       } else if (_activeIntervalTarget == RaceIntervalTarget.oneHundredToOneSixtyKmh) {
         _activeIntervalTarget = RaceIntervalTarget.sixtyToOneHundredMph;
+      } else if (_activeIntervalTarget == RaceIntervalTarget.zeroToOneSixtyKmh) {
+        _activeIntervalTarget = RaceIntervalTarget.zeroToOneHundredMph;
       }
     }
   }

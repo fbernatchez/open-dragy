@@ -40,7 +40,7 @@ class MockDragyProvider extends ChangeNotifier implements DragyProvider {
   double? longitude;
 
   @override
-  String appVersion = '1.0.2-beta.3';
+  String appVersion = '1.0.2-beta.4';
 
   @override
   BluetoothDevice? connectedDevice;
@@ -560,7 +560,7 @@ void main() {
     expect(mockProvider.tempInCelsius, false);
 
     // Verify version info is displayed
-    expect(find.text('1.0.2-beta.3'), findsOneWidget);
+    expect(find.text('1.0.2-beta.4'), findsOneWidget);
   });
 
   testWidgets('GarageScreen displays empty state and lists vehicles', (WidgetTester tester) async {
@@ -626,11 +626,15 @@ void main() {
 
     // Verify options present
     expect(find.text('0-60 mph').last, findsOneWidget);
+    expect(find.text('0-100 mph').last, findsOneWidget);
+    expect(find.text('0-130 mph').last, findsOneWidget);
     expect(find.text('50-75 mph').last, findsOneWidget);
+    expect(find.text('60-100 mph').last, findsOneWidget);
     expect(find.text('60-130 mph').last, findsOneWidget);
     expect(find.text('Custom Range...').last, findsOneWidget);
     // Verify metric options are NOT present
     expect(find.text('0-100 km/h'), findsNothing);
+    expect(find.text('0-160 km/h'), findsNothing);
     expect(find.text('80-120 km/h'), findsNothing);
     expect(find.text('100-200 km/h'), findsNothing);
 
@@ -654,11 +658,14 @@ void main() {
 
     // Verify options present
     expect(find.text('0-100 km/h').last, findsOneWidget);
+    expect(find.text('0-160 km/h').last, findsOneWidget);
+    expect(find.text('0-200 km/h').last, findsOneWidget);
     expect(find.text('80-120 km/h').last, findsOneWidget);
     expect(find.text('100-200 km/h').last, findsOneWidget);
     expect(find.text('Custom Range...').last, findsOneWidget);
     // Verify imperial options are NOT present
     expect(find.text('0-60 mph'), findsNothing);
+    expect(find.text('0-100 mph'), findsNothing);
     expect(find.text('50-75 mph'), findsNothing);
     expect(find.text('60-130 mph'), findsNothing);
   });

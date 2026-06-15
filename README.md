@@ -25,8 +25,8 @@ OpenDragy is a high-precision, open-source vehicle performance timer (similar to
 
 ### Interval Mode (Speed-to-Speed)
 * **Standard Ranges**:
-  * **Imperial**: 0–60 mph, 50–75 mph, 60–100 mph, 60–130 mph, 0–130 mph
-  * **Metric**: 0–100 km/h, 80–120 km/h, 100–160 km/h, 100–200 km/h, 0–200 km/h
+  * **Imperial**: 0–60 mph, 0–100 mph, 50–75 mph, 60–100 mph, 60–130 mph, 0–130 mph
+  * **Metric**: 0–100 km/h, 0–160 km/h, 80–120 km/h, 100–160 km/h, 100–200 km/h, 0–200 km/h
 * **Custom Ranges**: Define your own starting and ending speeds (e.g., 100–150 km/h, 80–120 km/h) in both Metric and Imperial units.
 
 ---

@@ -724,6 +724,146 @@ void main() {
       expect(time, closeTo(metrics.elapsedTime, 0.01));
     });
 
+    test('getCompletedTimeForCategory calculates custom interval category for 0-160 kmh and 0-100 mph', () {
+      RaceMetrics metricsMph = RaceMetrics();
+      // Arm, trigger, and complete custom 0-100 mph run (160.9344 km/h)
+      metricsMph = engine.updateMetrics(
+        metricsMph,
+        0.0,
+        100.0,
+        isArmed: true,
+        runMode: 'interval',
+        targetDistance: null,
+        targetDistanceUnit: null,
+        targetStartSpeed: 0.0,
+        targetEndSpeed: 160.9344,
+        targetSpeedUnit: 'mph',
+        intervalStartSpeed: 0.0,
+        intervalEndSpeed: 160.9344,
+      );
+      metricsMph = engine.updateMetrics(
+        metricsMph,
+        3.0,
+        100.0,
+        isArmed: true,
+        runMode: 'interval',
+        targetDistance: null,
+        targetDistanceUnit: null,
+        targetStartSpeed: 0.0,
+        targetEndSpeed: 160.9344,
+        targetSpeedUnit: 'mph',
+        intervalStartSpeed: 0.0,
+        intervalEndSpeed: 160.9344,
+      );
+      metricsMph = engine.updateMetrics(
+        metricsMph,
+        5.0,
+        100.0,
+        isArmed: true,
+        runMode: 'interval',
+        targetDistance: null,
+        targetDistanceUnit: null,
+        targetStartSpeed: 0.0,
+        targetEndSpeed: 160.9344,
+        targetSpeedUnit: 'mph',
+        intervalStartSpeed: 0.0,
+        intervalEndSpeed: 160.9344,
+      );
+      expect(metricsMph.isRunning, true);
+
+      double speedKmhMph = 5.0;
+      while (metricsMph.isRunning) {
+        speedKmhMph += 3.0;
+        metricsMph = engine.updateMetrics(
+          metricsMph,
+          speedKmhMph,
+          100.0,
+          isArmed: true,
+          runMode: 'interval',
+          targetDistance: null,
+          targetDistanceUnit: null,
+          targetStartSpeed: 0.0,
+          targetEndSpeed: 160.9344,
+          targetSpeedUnit: 'mph',
+          intervalStartSpeed: 0.0,
+          intervalEndSpeed: 160.9344,
+        );
+      }
+      expect(metricsMph.isRunning, false);
+      final timeMph = getCompletedTimeForCategory(metricsMph, 'custom_0_100_mph');
+      expect(timeMph, isNotNull);
+      expect(timeMph, closeTo(metricsMph.elapsedTime, 0.01));
+
+      RaceMetrics metricsKmh = RaceMetrics();
+      // Arm, trigger, and complete custom 0-160 km/h run (160.0 km/h)
+      metricsKmh = engine.updateMetrics(
+        metricsKmh,
+        0.0,
+        100.0,
+        isArmed: true,
+        runMode: 'interval',
+        targetDistance: null,
+        targetDistanceUnit: null,
+        targetStartSpeed: 0.0,
+        targetEndSpeed: 160.0,
+        targetSpeedUnit: 'kmh',
+        intervalStartSpeed: 0.0,
+        intervalEndSpeed: 160.0,
+      );
+      metricsKmh = engine.updateMetrics(
+        metricsKmh,
+        3.0,
+        100.0,
+        isArmed: true,
+        runMode: 'interval',
+        targetDistance: null,
+        targetDistanceUnit: null,
+        targetStartSpeed: 0.0,
+        targetEndSpeed: 160.0,
+        targetSpeedUnit: 'kmh',
+        intervalStartSpeed: 0.0,
+        intervalEndSpeed: 160.0,
+      );
+      metricsKmh = engine.updateMetrics(
+        metricsKmh,
+        5.0,
+        100.0,
+        isArmed: true,
+        runMode: 'interval',
+        targetDistance: null,
+        targetDistanceUnit: null,
+        targetStartSpeed: 0.0,
+        targetEndSpeed: 160.0,
+        targetSpeedUnit: 'kmh',
+        intervalStartSpeed: 0.0,
+        intervalEndSpeed: 160.0,
+      );
+      expect(metricsKmh.isRunning, true);
+
+      double speedKmh = 5.0;
+      while (metricsKmh.isRunning) {
+        speedKmh += 3.0;
+        metricsKmh = engine.updateMetrics(
+          metricsKmh,
+          speedKmh,
+          100.0,
+          isArmed: true,
+          runMode: 'interval',
+          targetDistance: null,
+          targetDistanceUnit: null,
+          targetStartSpeed: 0.0,
+          targetEndSpeed: 160.0,
+          targetSpeedUnit: 'kmh',
+          intervalStartSpeed: 0.0,
+          intervalEndSpeed: 160.0,
+        );
+      }
+      expect(metricsKmh.isRunning, false);
+      final timeKmh = getCompletedTimeForCategory(metricsKmh, 'custom_0_160_kmh');
+      expect(timeKmh, isNotNull);
+      expect(timeKmh, closeTo(metricsKmh.elapsedTime, 0.01));
+    });
+
     test('uses dynamic dt from GPS timestamps instead of static 0.1s', () {
       RaceMetrics metrics = RaceMetrics();
 
