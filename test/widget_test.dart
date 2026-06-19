@@ -40,7 +40,7 @@ class MockDragyProvider extends ChangeNotifier implements DragyProvider {
   double? longitude;
 
   @override
-  String appVersion = '1.0.2';
+  String appVersion = '1.0.3-beta.1';
 
   @override
   BluetoothDevice? connectedDevice;
@@ -205,6 +205,9 @@ class MockDragyProvider extends ChangeNotifier implements DragyProvider {
   bool tempInCelsius = true;
 
   @override
+  bool showRollout = false;
+
+  @override
   void setMetric(bool isMetric) {
     this.isMetric = isMetric;
     notifyListeners();
@@ -213,6 +216,12 @@ class MockDragyProvider extends ChangeNotifier implements DragyProvider {
   @override
   void setTempInCelsius(bool value) {
     tempInCelsius = value;
+    notifyListeners();
+  }
+
+  @override
+  void setShowRollout(bool value) {
+    showRollout = value;
     notifyListeners();
   }
 
@@ -560,7 +569,7 @@ void main() {
     expect(mockProvider.tempInCelsius, false);
 
     // Verify version info is displayed
-    expect(find.text('1.0.2'), findsOneWidget);
+    expect(find.text('1.0.3-beta.1'), findsOneWidget);
   });
 
   testWidgets('GarageScreen displays empty state and lists vehicles', (WidgetTester tester) async {

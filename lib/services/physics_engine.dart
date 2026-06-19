@@ -328,6 +328,16 @@ class PhysicsEngine {
     double? t12 = current.time12Mile;
     double? trap12 = current.trap12Mile;
 
+    // Rollout triggers
+    double? rollout1ft = current.rolloutTime1ft;
+    double? t60ftRollout = current.time60ftRollout;
+    double? t0_60mphRollout = current.time0to60mphRollout;
+    double? t0_100kmhRollout = current.time0to100kmhRollout;
+    double? t18Rollout = current.time18MileRollout;
+    double? t1000Rollout = current.time1000ftRollout;
+    double? t14Rollout = current.time14MileRollout;
+    double? t12Rollout = current.time12MileRollout;
+
     // Speed intervals
     double? t60_130 = current.time60to130mph;
     double? t100_200 = current.time100to200kmh;
@@ -335,6 +345,17 @@ class PhysicsEngine {
     double? t0_200kmh = current.time0to200kmh;
 
     final double startAltitude = current.startAltitude ?? currentAltitude;
+
+    // 1 ft (0.3048 meters) for rollout trigger point
+    if (rollout1ft == null && newDistance >= 0.3048) {
+      double distDiff = newDistance - current.distanceMeters;
+      if (distDiff > 0) {
+        double fraction = (0.3048 - current.distanceMeters) / distDiff;
+        rollout1ft = current.elapsedTime + (currentDt * fraction);
+      } else {
+        rollout1ft = newElapsedTime;
+      }
+    }
 
     // 60 ft (18.288 meters)
     if (t60ft == null && newDistance >= distance60ft) {
@@ -345,6 +366,19 @@ class PhysicsEngine {
       } else {
         t60ft = newElapsedTime;
       }
+    }
+
+    // 60 ft Rollout (target: 60ft + 1ft = 18.288 + 0.3048 = 18.5928 meters)
+    if (t60ftRollout == null && rollout1ft != null && newDistance >= (distance60ft + 0.3048)) {
+      double distDiff = newDistance - current.distanceMeters;
+      double absTime;
+      if (distDiff > 0) {
+        double fraction = ((distance60ft + 0.3048) - current.distanceMeters) / distDiff;
+        absTime = current.elapsedTime + (currentDt * fraction);
+      } else {
+        absTime = newElapsedTime;
+      }
+      t60ftRollout = absTime - rollout1ft;
     }
 
     // 0-60 mph (96.5606 km/h)
@@ -358,6 +392,11 @@ class PhysicsEngine {
       }
     }
 
+    // 0-60 mph Rollout
+    if (t0_60mphRollout == null && t0_60mph != null && rollout1ft != null) {
+      t0_60mphRollout = t0_60mph - rollout1ft;
+    }
+
     // 0-100 km/h
     if (t0_100kmh == null && newSpeedKmh >= 100.0) {
       double speedDiff = newSpeedKmh - current.speedKmh;
@@ -367,6 +406,11 @@ class PhysicsEngine {
       } else {
         t0_100kmh = newElapsedTime;
       }
+    }
+
+    // 0-100 km/h Rollout
+    if (t0_100kmhRollout == null && t0_100kmh != null && rollout1ft != null) {
+      t0_100kmhRollout = t0_100kmh - rollout1ft;
     }
 
     // 0-130 mph (209.2147 km/h)
@@ -404,6 +448,19 @@ class PhysicsEngine {
       }
     }
 
+    // 1/8 mile Rollout (target: distance18Mile + 0.3048)
+    if (t18Rollout == null && rollout1ft != null && newDistance >= (distance18Mile + 0.3048)) {
+      double distDiff = newDistance - current.distanceMeters;
+      double absTime;
+      if (distDiff > 0) {
+        double fraction = ((distance18Mile + 0.3048) - current.distanceMeters) / distDiff;
+        absTime = current.elapsedTime + (currentDt * fraction);
+      } else {
+        absTime = newElapsedTime;
+      }
+      t18Rollout = absTime - rollout1ft;
+    }
+
     // 1000 ft (304.8 meters)
     if (t1000ft == null && newDistance >= distance1000ft) {
       double distDiff = newDistance - current.distanceMeters;
@@ -415,6 +472,19 @@ class PhysicsEngine {
         t1000ft = newElapsedTime;
         trap1000 = newSpeedKmh;
       }
+    }
+
+    // 1000 ft Rollout (target: distance1000ft + 0.3048)
+    if (t1000Rollout == null && rollout1ft != null && newDistance >= (distance1000ft + 0.3048)) {
+      double distDiff = newDistance - current.distanceMeters;
+      double absTime;
+      if (distDiff > 0) {
+        double fraction = ((distance1000ft + 0.3048) - current.distanceMeters) / distDiff;
+        absTime = current.elapsedTime + (currentDt * fraction);
+      } else {
+        absTime = newElapsedTime;
+      }
+      t1000Rollout = absTime - rollout1ft;
     }
 
     // 1/4 mile (402.336 meters)
@@ -430,6 +500,19 @@ class PhysicsEngine {
       }
     }
 
+    // 1/4 mile Rollout (target: distance14Mile + 0.3048)
+    if (t14Rollout == null && rollout1ft != null && newDistance >= (distance14Mile + 0.3048)) {
+      double distDiff = newDistance - current.distanceMeters;
+      double absTime;
+      if (distDiff > 0) {
+        double fraction = ((distance14Mile + 0.3048) - current.distanceMeters) / distDiff;
+        absTime = current.elapsedTime + (currentDt * fraction);
+      } else {
+        absTime = newElapsedTime;
+      }
+      t14Rollout = absTime - rollout1ft;
+    }
+
     // 1/2 mile (804.672 meters)
     if (t12 == null && newDistance >= distance12Mile) {
       double distDiff = newDistance - current.distanceMeters;
@@ -441,6 +524,19 @@ class PhysicsEngine {
         t12 = newElapsedTime;
         trap12 = newSpeedKmh;
       }
+    }
+
+    // 1/2 mile Rollout (target: distance12Mile + 0.3048)
+    if (t12Rollout == null && rollout1ft != null && newDistance >= (distance12Mile + 0.3048)) {
+      double distDiff = newDistance - current.distanceMeters;
+      double absTime;
+      if (distDiff > 0) {
+        double fraction = ((distance12Mile + 0.3048) - current.distanceMeters) / distDiff;
+        absTime = current.elapsedTime + (currentDt * fraction);
+      } else {
+        absTime = newElapsedTime;
+      }
+      t12Rollout = absTime - rollout1ft;
     }
 
     // 60-130 mph interval (96.5606 to 209.2147 km/h)
@@ -500,6 +596,14 @@ class PhysicsEngine {
       trap14Mile: trap14,
       time12Mile: t12,
       trap12Mile: trap12,
+      rolloutTime1ft: rollout1ft,
+      time60ftRollout: t60ftRollout,
+      time0to60mphRollout: t0_60mphRollout,
+      time0to100kmhRollout: t0_100kmhRollout,
+      time18MileRollout: t18Rollout,
+      time1000ftRollout: t1000Rollout,
+      time14MileRollout: t14Rollout,
+      time12MileRollout: t12Rollout,
       time60to130mph: t60_130,
       time100to200kmh: t100_200,
       time0to130mph: t0_130mph,

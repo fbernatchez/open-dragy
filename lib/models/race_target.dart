@@ -137,32 +137,65 @@ const List<OfficialTest> officialTests = [
 ];
 
 // Helper to retrieve precalculated fields from RaceMetrics
-double? _getPrecalculatedTime(RaceMetrics m, String id) {
-  switch (id) {
-    case '60ft':
-      return m.time60ft;
-    case '0-60mph':
-      return m.time0to60mph;
-    case '0-100kmh':
-      return m.time0to100kmh;
-    case '1/8mile':
-      return m.time18Mile;
-    case '1000ft':
-      return m.time1000ft;
-    case '1/4mile':
-      return m.time14Mile;
-    case '1/2mile':
-      return m.time12Mile;
-    case '0-130mph':
-      return m.time0to130mph;
-    case '0-200kmh':
-      return m.time0to200kmh;
-    case '60-130mph':
-      return m.time60to130mph;
-    case '100-200kmh':
-      return m.time100to200kmh;
-    default:
-      return null;
+double? _getPrecalculatedTime(RaceMetrics m, String id, {bool showRollout = false}) {
+  if (showRollout) {
+    switch (id) {
+      case '60ft':
+        return m.time60ftRollout;
+      case '0-60mph':
+        return m.time0to60mphRollout;
+      case '0-100kmh':
+        return m.time0to100kmhRollout;
+      case '1/8mile':
+        return m.time18MileRollout;
+      case '1000ft':
+        return m.time1000ftRollout;
+      case '1/4mile':
+        return m.time14MileRollout;
+      case '1/2mile':
+        return m.time12MileRollout;
+      case '0-130mph':
+        return (m.time0to130mph != null && m.rolloutTime1ft != null)
+            ? m.time0to130mph! - m.rolloutTime1ft!
+            : null;
+      case '0-200kmh':
+        return (m.time0to200kmh != null && m.rolloutTime1ft != null)
+            ? m.time0to200kmh! - m.rolloutTime1ft!
+            : null;
+      case '60-130mph':
+        return m.time60to130mph;
+      case '100-200kmh':
+        return m.time100to200kmh;
+      default:
+        return null;
+    }
+  } else {
+    switch (id) {
+      case '60ft':
+        return m.time60ft;
+      case '0-60mph':
+        return m.time0to60mph;
+      case '0-100kmh':
+        return m.time0to100kmh;
+      case '1/8mile':
+        return m.time18Mile;
+      case '1000ft':
+        return m.time1000ft;
+      case '1/4mile':
+        return m.time14Mile;
+      case '1/2mile':
+        return m.time12Mile;
+      case '0-130mph':
+        return m.time0to130mph;
+      case '0-200kmh':
+        return m.time0to200kmh;
+      case '60-130mph':
+        return m.time60to130mph;
+      case '100-200kmh':
+        return m.time100to200kmh;
+      default:
+        return null;
+    }
   }
 }
 
@@ -231,8 +264,28 @@ double? _findSpeedCrossingTime(
 }
 
 // Calculate run times dynamically from history points
-double? _calculateTimeFromHistory(RaceMetrics metrics, OfficialTest test) {
+double? _calculateTimeFromHistory(RaceMetrics metrics, OfficialTest test, {bool showRollout = false}) {
   if (metrics.history.isEmpty) return null;
+
+  if (showRollout) {
+    if (test.distance != null && test.distanceUnit != null) {
+      final rolloutTime1ft = _findDistanceCrossingTime(metrics.history, 0.3048);
+      if (rolloutTime1ft == null) return null;
+      final targetMeters = _convertToMeters(test.distance!, test.distanceUnit!);
+      final targetPlus1ftTime = _findDistanceCrossingTime(metrics.history, targetMeters + 0.3048);
+      if (targetPlus1ftTime == null) return null;
+      return targetPlus1ftTime - rolloutTime1ft;
+    } else if (test.endSpeed != null) {
+      final start = test.startSpeed ?? 0.0;
+      if (start == 0.0) {
+        final rolloutTime1ft = _findDistanceCrossingTime(metrics.history, 0.3048);
+        if (rolloutTime1ft == null) return null;
+        final speedTime = _findSpeedCrossingTime(metrics.history, test.endSpeed!, 0.0);
+        if (speedTime == null) return null;
+        return speedTime - rolloutTime1ft;
+      }
+    }
+  }
 
   if (test.distance != null && test.distanceUnit != null) {
     final targetMeters = _convertToMeters(test.distance!, test.distanceUnit!);
@@ -256,11 +309,11 @@ double? _calculateTimeFromHistory(RaceMetrics metrics, OfficialTest test) {
   return null;
 }
 
-List<OfficialTest> getCompletedTests(RaceMetrics metrics) {
+List<OfficialTest> getCompletedTests(RaceMetrics metrics, {bool showRollout = false}) {
   final List<OfficialTest> completed = [];
 
   for (final test in officialTests) {
-    final time = getCompletedTimeForCategory(metrics, test.id);
+    final time = getCompletedTimeForCategory(metrics, test.id, showRollout: showRollout);
     if (time != null) {
       completed.add(test);
     }
@@ -269,7 +322,7 @@ List<OfficialTest> getCompletedTests(RaceMetrics metrics) {
   return completed;
 }
 
-double? getCompletedTimeForCategory(RaceMetrics metrics, String categoryId) {
+double? getCompletedTimeForCategory(RaceMetrics metrics, String categoryId, {bool showRollout = false}) {
   // 1. Check if it matches an official test definition
   for (final test in officialTests) {
     if (test.id == categoryId) {
@@ -282,11 +335,11 @@ double? getCompletedTimeForCategory(RaceMetrics metrics, String categoryId) {
       }
 
       // Fast path: Check standard precalculated fields
-      final precalculated = _getPrecalculatedTime(metrics, test.id);
+      final precalculated = _getPrecalculatedTime(metrics, test.id, showRollout: showRollout);
       if (precalculated != null) return precalculated;
 
       // Fallback: Calculate dynamically from history coordinates
-      return _calculateTimeFromHistory(metrics, test);
+      return _calculateTimeFromHistory(metrics, test, showRollout: showRollout);
     }
   }
 
@@ -322,7 +375,14 @@ double? getCompletedTimeForCategory(RaceMetrics metrics, String categoryId) {
             startTime,
           );
           if (endTime == null) return null;
-          return endTime - startTime;
+          double duration = endTime - startTime;
+          if (showRollout && startKmh == 0.0) {
+            final rolloutTime1ft = metrics.rolloutTime1ft ?? _findDistanceCrossingTime(metrics.history, 0.3048);
+            if (rolloutTime1ft != null) {
+              duration -= rolloutTime1ft;
+            }
+          }
+          return duration;
         }
       }
     }

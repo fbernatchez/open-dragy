@@ -30,13 +30,14 @@ class RunDetailScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final dragy = Provider.of<DragyProvider>(context);
     final isMetric = dragy.isMetric;
+    final showRollout = dragy.showRollout;
     final metrics = run.metrics;
 
     // Collect reached milestones sorted by completion time ascending
     final List<_ReachedMilestone> reachedMilestones = [];
 
     // 1. Official completed tests
-    final completedTests = getCompletedTests(metrics);
+    final completedTests = getCompletedTests(metrics, showRollout: showRollout);
     for (final test in completedTests) {
       // Filter out speed targets of the opposite unit system to match user's preference
       if (test.speedUnit != null) {
@@ -46,7 +47,7 @@ class RunDetailScreen extends StatelessWidget {
         }
       }
 
-      final time = getCompletedTimeForCategory(metrics, test.id);
+      final time = getCompletedTimeForCategory(metrics, test.id, showRollout: showRollout);
       if (time != null) {
         double sortTime = time;
         if (test.startSpeed != null && test.startSpeed! > 0.0) {
@@ -98,7 +99,7 @@ class RunDetailScreen extends StatelessWidget {
             ? (metrics.targetEndSpeed! * 0.621371).round()
             : metrics.targetEndSpeed!.round();
         final customId = 'custom_${start}_${end}_$unit';
-        final compTime = getCompletedTimeForCategory(metrics, customId);
+        final compTime = getCompletedTimeForCategory(metrics, customId, showRollout: showRollout);
         if (compTime != null) {
           final label = getDisplayLabelForTarget(
             startSpeed: metrics.targetStartSpeed,
@@ -151,7 +152,7 @@ class RunDetailScreen extends StatelessWidget {
 
     double? completedTime;
     if (targetTest != null) {
-      completedTime = getCompletedTimeForCategory(metrics, targetTest.id);
+      completedTime = getCompletedTimeForCategory(metrics, targetTest.id, showRollout: showRollout);
       if (completedTime != null) {
         primaryLabel = "${targetTest.displayName} Time";
       }
@@ -174,7 +175,7 @@ class RunDetailScreen extends StatelessWidget {
           ? (metrics.targetEndSpeed! * 0.621371).round()
           : metrics.targetEndSpeed!.round();
       final customId = 'custom_${start}_${end}_$unit';
-      completedTime = getCompletedTimeForCategory(metrics, customId);
+      completedTime = getCompletedTimeForCategory(metrics, customId, showRollout: showRollout);
     }
 
     // Fallback if target is not completed or none was set
@@ -184,7 +185,7 @@ class RunDetailScreen extends StatelessWidget {
           : ['1/2mile', '1/4mile', '0-130mph', '60-130mph', '60-100mph', '1000ft', '1/8mile', '0-60mph', '0-200kmh', '100-200kmh', '100-160kmh', '0-100kmh', '60ft'];
           
       for (final id in priorityIds) {
-        final time = getCompletedTimeForCategory(metrics, id);
+        final time = getCompletedTimeForCategory(metrics, id, showRollout: showRollout);
         if (time != null) {
           completedTime = time;
           final test = officialTests.firstWhere((t) => t.id == id);
@@ -276,7 +277,7 @@ class RunDetailScreen extends StatelessWidget {
               ),
             ),
             Text(
-              primaryLabel,
+              showRollout ? "$primaryLabel (1ft rollout)" : primaryLabel,
               style: GoogleFonts.roboto(
                 color: const Color(0xFFFFBF00), // Neon Amber
                 fontSize: 16,

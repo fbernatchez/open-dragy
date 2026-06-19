@@ -44,6 +44,15 @@ class SettingsScreen extends StatelessWidget {
             value: tempInCelsius,
             onChanged: (v) => dragy.setTempInCelsius(v),
           ),
+          _SettingsToggle(
+            icon: Icons.timer_outlined,
+            title: '1ft Rollout (NHRA Style)',
+            subtitle: dragy.showRollout
+                ? 'Subtracts time to travel first 1ft'
+                : 'Timing starts from absolute zero crossing',
+            value: dragy.showRollout,
+            onChanged: (v) => dragy.setShowRollout(v),
+          ),
 
           _SectionHeader(label: 'About'),
           Container(

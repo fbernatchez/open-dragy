@@ -87,6 +87,9 @@ class DragyProvider extends ChangeNotifier {
   bool _tempInCelsius = true;
   bool get tempInCelsius => _tempInCelsius;
 
+  bool _showRollout = false;
+  bool get showRollout => _showRollout;
+
   // --- Arming & Run Modes ---
   bool _isArmed = false;
   bool get isArmed => _isArmed;
@@ -673,6 +676,14 @@ class DragyProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setShowRollout(bool value) {
+    if (_showRollout != value) {
+      _showRollout = value;
+      _saveSettings();
+      notifyListeners();
+    }
+  }
+
   void toggleArm() {
     if (_metrics.isRunning) {
       _isArmed = false;
@@ -724,6 +735,7 @@ class DragyProvider extends ChangeNotifier {
     final data = await _settingsService.load();
     _isMetric = data['isMetric'] as bool? ?? false;
     _tempInCelsius = data['tempInCelsius'] as bool? ?? true;
+    _showRollout = data['showRollout'] as bool? ?? false;
     _runMode = data['runMode'] as String? ?? 'drag';
 
     final dragTargetName = data['activeDragTarget'] as String?;
@@ -750,6 +762,7 @@ class DragyProvider extends ChangeNotifier {
     await _settingsService.save({
       'isMetric': _isMetric,
       'tempInCelsius': _tempInCelsius,
+      'showRollout': _showRollout,
       'runMode': _runMode,
       'activeDragTarget': _activeDragTarget.name,
       'activeIntervalTarget': _activeIntervalTarget.name,

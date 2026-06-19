@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../providers/dragy_provider.dart';
 import '../models/saved_run.dart';
-import '../models/race_metrics.dart';
 import '../models/race_target.dart';
 import 'run_detail_screen.dart';
 
@@ -39,14 +38,16 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
     final minute = dt.minute.toString().padLeft(2, '0');
     final ampm = dt.hour >= 12 ? 'PM' : 'AM';
     return '$month $day, $year at $hour:$minute $ampm';
-  }  List<HistoryCategory> _getCategories(List<SavedRun> runs, bool isMetric) {
+  }
+
+  List<HistoryCategory> _getCategories(List<SavedRun> runs, bool isMetric, bool showRollout) {
     final Set<String> seenIds = {};
     final List<HistoryCategory> categories = [
       const HistoryCategory(id: 'all', displayName: 'All Runs', isOfficial: true)
     ];
 
     for (final run in runs) {
-      final completed = getCompletedTests(run.metrics);
+      final completed = getCompletedTests(run.metrics, showRollout: showRollout);
       for (final test in completed) {
         if (test.speedUnit != null) {
           final isTestMetric = test.speedUnit == SpeedUnit.kmh;
@@ -157,11 +158,11 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
     return [allCategory, ...others];
   }
 
-  double? _getPB(String categoryId, List<SavedRun> runs) {
+  double? _getPB(String categoryId, List<SavedRun> runs, bool showRollout) {
     if (categoryId == 'all') return null;
     double? best;
     for (final run in runs) {
-      final val = getCompletedTimeForCategory(run.metrics, categoryId);
+      final val = getCompletedTimeForCategory(run.metrics, categoryId, showRollout: showRollout);
       if (val != null) {
         if (best == null || val < best) {
           best = val;
@@ -174,10 +175,11 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
   List<SavedRun> _getFilteredRuns(
     String categoryId,
     List<SavedRun> runs,
+    bool showRollout,
   ) {
     if (categoryId == 'all') return runs;
     return runs.where((run) {
-      final time = getCompletedTimeForCategory(run.metrics, categoryId);
+      final time = getCompletedTimeForCategory(run.metrics, categoryId, showRollout: showRollout);
       return time != null;
     }).toList();
   }
@@ -204,12 +206,13 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
     final dragy = Provider.of<DragyProvider>(context);
     final runs = dragy.savedRuns;
     final isMetric = dragy.isMetric;
+    final showRollout = dragy.showRollout;
 
-    final categories = _getCategories(runs, isMetric);
+    final categories = _getCategories(runs, isMetric, showRollout);
     if (!categories.any((c) => c.id == _selectedCategory)) {
       _selectedCategory = 'all';
     }
-    final filteredRuns = _getFilteredRuns(_selectedCategory, runs);
+    final filteredRuns = _getFilteredRuns(_selectedCategory, runs, showRollout);
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -265,7 +268,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                       final category = categories[idx];
                       final isSelected = _selectedCategory == category.id;
                       final label = category.displayName;
-                      final pb = _getPB(category.id, runs);
+                      final pb = _getPB(category.id, runs, showRollout);
 
                       String pbText = '-.--s';
                       if (category.id == 'all') {
@@ -453,49 +456,63 @@ class RunHistoryCard extends StatelessWidget {
     String primaryLabel = "0-60";
     String primaryTime = "-.--s";
 
+    final showRolloutSetting = dragy.showRollout;
+
     if (selectedCategory != 'all') {
       primaryLabel = _RunHistoryScreenState.getCategoryDisplayName(selectedCategory);
-      final displayTime = getCompletedTimeForCategory(metrics, selectedCategory);
+      final displayTime = getCompletedTimeForCategory(metrics, selectedCategory, showRollout: showRolloutSetting);
       if (displayTime != null) {
         primaryTime = "${displayTime.toStringAsFixed(2)}s";
       }
     } else {
-      if (metrics.time12Mile != null) {
+      final t12 = getCompletedTimeForCategory(metrics, '1/2mile', showRollout: showRolloutSetting);
+      final t14 = getCompletedTimeForCategory(metrics, '1/4mile', showRollout: showRolloutSetting);
+      final t0_200kmh = getCompletedTimeForCategory(metrics, '0-200kmh', showRollout: showRolloutSetting);
+      final t0_130mph = getCompletedTimeForCategory(metrics, '0-130mph', showRollout: showRolloutSetting);
+      final t100_200 = getCompletedTimeForCategory(metrics, '100-200kmh', showRollout: showRolloutSetting);
+      final t60_130 = getCompletedTimeForCategory(metrics, '60-130mph', showRollout: showRolloutSetting);
+      final t1000 = getCompletedTimeForCategory(metrics, '1000ft', showRollout: showRolloutSetting);
+      final t18 = getCompletedTimeForCategory(metrics, '1/8mile', showRollout: showRolloutSetting);
+      final t0_100kmh = getCompletedTimeForCategory(metrics, '0-100kmh', showRollout: showRolloutSetting);
+      final t0_60mph = getCompletedTimeForCategory(metrics, '0-60mph', showRollout: showRolloutSetting);
+      final t60 = getCompletedTimeForCategory(metrics, '60ft', showRollout: showRolloutSetting);
+
+      if (t12 != null) {
         primaryLabel = "1/2 Mile";
-        primaryTime = "${metrics.time12Mile!.toStringAsFixed(2)}s";
-      } else if (metrics.time14Mile != null) {
+        primaryTime = "${t12.toStringAsFixed(2)}s";
+      } else if (t14 != null) {
         primaryLabel = "1/4 Mile";
-        primaryTime = "${metrics.time14Mile!.toStringAsFixed(2)}s";
-      } else if (isMetric && metrics.time0to200kmh != null) {
+        primaryTime = "${t14.toStringAsFixed(2)}s";
+      } else if (isMetric && t0_200kmh != null) {
         primaryLabel = "0-200 km/h";
-        primaryTime = "${metrics.time0to200kmh!.toStringAsFixed(2)}s";
-      } else if (!isMetric && metrics.time0to130mph != null) {
+        primaryTime = "${t0_200kmh.toStringAsFixed(2)}s";
+      } else if (!isMetric && t0_130mph != null) {
         primaryLabel = "0-130 mph";
-        primaryTime = "${metrics.time0to130mph!.toStringAsFixed(2)}s";
-      } else if (isMetric && metrics.time100to200kmh != null) {
+        primaryTime = "${t0_130mph.toStringAsFixed(2)}s";
+      } else if (isMetric && t100_200 != null) {
         primaryLabel = "100-200 km/h";
-        primaryTime = "${metrics.time100to200kmh!.toStringAsFixed(2)}s";
-      } else if (!isMetric && metrics.time60to130mph != null) {
+        primaryTime = "${t100_200.toStringAsFixed(2)}s";
+      } else if (!isMetric && t60_130 != null) {
         primaryLabel = "60-130 mph";
-        primaryTime = "${metrics.time60to130mph!.toStringAsFixed(2)}s";
-      } else if (metrics.time100to200kmh != null) {
+        primaryTime = "${t60_130.toStringAsFixed(2)}s";
+      } else if (t100_200 != null) {
         primaryLabel = "100-200 km/h";
-        primaryTime = "${metrics.time100to200kmh!.toStringAsFixed(2)}s";
-      } else if (metrics.time60to130mph != null) {
+        primaryTime = "${t100_200.toStringAsFixed(2)}s";
+      } else if (t60_130 != null) {
         primaryLabel = "60-130 mph";
-        primaryTime = "${metrics.time60to130mph!.toStringAsFixed(2)}s";
-      } else if (metrics.time0to200kmh != null) {
+        primaryTime = "${t60_130.toStringAsFixed(2)}s";
+      } else if (t0_200kmh != null) {
         primaryLabel = "0-200 km/h";
-        primaryTime = "${metrics.time0to200kmh!.toStringAsFixed(2)}s";
-      } else if (metrics.time0to130mph != null) {
+        primaryTime = "${t0_200kmh.toStringAsFixed(2)}s";
+      } else if (t0_130mph != null) {
         primaryLabel = "0-130 mph";
-        primaryTime = "${metrics.time0to130mph!.toStringAsFixed(2)}s";
-      } else if (metrics.time1000ft != null) {
+        primaryTime = "${t0_130mph.toStringAsFixed(2)}s";
+      } else if (t1000 != null) {
         primaryLabel = "1000ft";
-        primaryTime = "${metrics.time1000ft!.toStringAsFixed(2)}s";
-      } else if (metrics.time18Mile != null) {
+        primaryTime = "${t1000.toStringAsFixed(2)}s";
+      } else if (t18 != null) {
         primaryLabel = "1/8 Mile";
-        primaryTime = "${metrics.time18Mile!.toStringAsFixed(2)}s";
+        primaryTime = "${t18.toStringAsFixed(2)}s";
       } else if (metrics.runMode == 'interval' &&
                  metrics.targetStartSpeed != null &&
                  metrics.targetEndSpeed != null) {
@@ -513,7 +530,7 @@ class RunHistoryCard extends StatelessWidget {
               test.endSpeed != null &&
               (metrics.targetEndSpeed! - test.endSpeed!).abs() < 0.1 &&
               metrics.targetSpeedUnit == test.speedUnit?.name) {
-            compTime = getCompletedTimeForCategory(metrics, test.id);
+            compTime = getCompletedTimeForCategory(metrics, test.id, showRollout: showRolloutSetting);
             isOfficial = true;
             break;
           }
@@ -527,24 +544,24 @@ class RunHistoryCard extends StatelessWidget {
               ? (metrics.targetEndSpeed! * 0.621371).round()
               : metrics.targetEndSpeed!.round();
           final customId = 'custom_${start}_${end}_$unit';
-          compTime = getCompletedTimeForCategory(metrics, customId);
+          compTime = getCompletedTimeForCategory(metrics, customId, showRollout: showRolloutSetting);
         }
         primaryTime = compTime != null ? "${compTime.toStringAsFixed(2)}s" : "-.--s";
-      } else if (isMetric && metrics.time0to100kmh != null) {
+      } else if (isMetric && t0_100kmh != null) {
         primaryLabel = "0-100 km/h";
-        primaryTime = "${metrics.time0to100kmh!.toStringAsFixed(2)}s";
-      } else if (!isMetric && metrics.time0to60mph != null) {
+        primaryTime = "${t0_100kmh.toStringAsFixed(2)}s";
+      } else if (!isMetric && t0_60mph != null) {
         primaryLabel = "0-60 mph";
-        primaryTime = "${metrics.time0to60mph!.toStringAsFixed(2)}s";
-      } else if (metrics.time0to100kmh != null) {
+        primaryTime = "${t0_60mph.toStringAsFixed(2)}s";
+      } else if (t0_100kmh != null) {
         primaryLabel = "0-100 km/h";
-        primaryTime = "${metrics.time0to100kmh!.toStringAsFixed(2)}s";
-      } else if (metrics.time0to60mph != null) {
+        primaryTime = "${t0_100kmh.toStringAsFixed(2)}s";
+      } else if (t0_60mph != null) {
         primaryLabel = "0-60 mph";
-        primaryTime = "${metrics.time0to60mph!.toStringAsFixed(2)}s";
-      } else if (metrics.time60ft != null) {
+        primaryTime = "${t0_60mph.toStringAsFixed(2)}s";
+      } else if (t60 != null) {
         primaryLabel = "60ft";
-        primaryTime = "${metrics.time60ft!.toStringAsFixed(2)}s";
+        primaryTime = "${t60.toStringAsFixed(2)}s";
       }
     }
 
