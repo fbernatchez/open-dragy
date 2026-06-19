@@ -277,7 +277,9 @@ class RunDetailScreen extends StatelessWidget {
               ),
             ),
             Text(
-              showRollout ? "$primaryLabel (1ft rollout)" : primaryLabel,
+              (showRollout && (metrics.runMode == 'drag' || metrics.targetStartSpeed == 0.0))
+                  ? "$primaryLabel (1ft rollout)"
+                  : primaryLabel,
               style: GoogleFonts.roboto(
                 color: const Color(0xFFFFBF00), // Neon Amber
                 fontSize: 16,
