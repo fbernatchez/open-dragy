@@ -1038,5 +1038,85 @@ void main() {
       expect(metrics.time0to200kmh, isNotNull, reason: 'time0to200kmh is null! targetStartSpeed: ${metrics.targetStartSpeed}, targetEndSpeed: ${metrics.targetEndSpeed}, targetSpeedUnit: ${metrics.targetSpeedUnit}, elapsedTime: ${metrics.elapsedTime}, speedKmh: ${metrics.speedKmh}, isRunning: ${metrics.isRunning}');
       expect(metrics.time0to200kmh, closeTo(metrics.elapsedTime, 0.01));
     });
+
+    test('rollout calculation and fallback logic', () {
+      // 1. Simulate a run with rollout data
+      RaceMetrics metricsWithRollout = RaceMetrics(
+        runMode: 'drag',
+        time0to60mph: 4.5,
+        rolloutTime1ft: 0.3,
+        time0to60mphRollout: 4.2,
+      );
+
+      // When rollout is enabled, retrieve rollout time
+      expect(
+        getCompletedTimeForCategory(metricsWithRollout, '0-60mph', showRollout: true),
+        4.2,
+      );
+
+      // When rollout is disabled, retrieve standard time
+      expect(
+        getCompletedTimeForCategory(metricsWithRollout, '0-60mph', showRollout: false),
+        4.5,
+      );
+
+      // 2. Simulate an old run without rollout data (rolloutTime1ft is null)
+      RaceMetrics metricsOldRun = RaceMetrics(
+        runMode: 'drag',
+        time0to60mph: 4.5,
+        rolloutTime1ft: null,
+        time0to60mphRollout: null,
+      );
+
+      expect(
+        getCompletedTimeForCategory(metricsOldRun, '0-60mph', showRollout: true),
+        4.5,
+      );
+
+      // 3. Custom category with rollout
+      RaceMetrics customMetrics = RaceMetrics(
+        runMode: 'interval',
+        targetStartSpeed: 0.0,
+        targetEndSpeed: 80.4672, // 50 mph
+        targetSpeedUnit: 'mph',
+        rolloutTime1ft: 0.3,
+        history: [
+          const DataPoint(elapsedTime: 0.0, speedKmh: 0.0, gForce: 0.0),
+          const DataPoint(elapsedTime: 1.0, speedKmh: 40.0, gForce: 0.0),
+          const DataPoint(elapsedTime: 2.0, speedKmh: 85.0, gForce: 0.0),
+        ],
+      );
+
+      // Without rollout
+      expect(
+        getCompletedTimeForCategory(customMetrics, 'custom_0_50_mph', showRollout: false),
+        closeTo(1.89, 0.01), // crossing speed is around 1.89s
+      );
+
+      // With rollout (should subtract rolloutTime1ft)
+      expect(
+        getCompletedTimeForCategory(customMetrics, 'custom_0_50_mph', showRollout: true),
+        closeTo(1.89 - 0.3, 0.01),
+      );
+
+      // Custom category old run (without rolloutTime1ft)
+      RaceMetrics customMetricsOld = RaceMetrics(
+        runMode: 'interval',
+        targetStartSpeed: 0.0,
+        targetEndSpeed: 80.4672,
+        targetSpeedUnit: 'mph',
+        rolloutTime1ft: null,
+        history: [
+          const DataPoint(elapsedTime: 0.0, speedKmh: 0.0, gForce: 0.0),
+          const DataPoint(elapsedTime: 1.0, speedKmh: 40.0, gForce: 0.0),
+          const DataPoint(elapsedTime: 2.0, speedKmh: 85.0, gForce: 0.0),
+        ],
+      );
+
+      expect(
+        getCompletedTimeForCategory(customMetricsOld, 'custom_0_50_mph', showRollout: true),
+        closeTo(1.89, 0.01),
+      );
+    });
   });
 }

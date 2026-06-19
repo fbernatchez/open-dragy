@@ -30,7 +30,7 @@ class RunDetailScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final dragy = Provider.of<DragyProvider>(context);
     final isMetric = dragy.isMetric;
-    final showRollout = dragy.showRollout;
+    final showRollout = dragy.showRollout && run.metrics.rolloutTime1ft != null;
     final metrics = run.metrics;
 
     // Collect reached milestones sorted by completion time ascending

@@ -264,28 +264,8 @@ double? _findSpeedCrossingTime(
 }
 
 // Calculate run times dynamically from history points
-double? _calculateTimeFromHistory(RaceMetrics metrics, OfficialTest test, {bool showRollout = false}) {
+double? _calculateTimeFromHistory(RaceMetrics metrics, OfficialTest test) {
   if (metrics.history.isEmpty) return null;
-
-  if (showRollout) {
-    if (test.distance != null && test.distanceUnit != null) {
-      final rolloutTime1ft = _findDistanceCrossingTime(metrics.history, 0.3048);
-      if (rolloutTime1ft == null) return null;
-      final targetMeters = _convertToMeters(test.distance!, test.distanceUnit!);
-      final targetPlus1ftTime = _findDistanceCrossingTime(metrics.history, targetMeters + 0.3048);
-      if (targetPlus1ftTime == null) return null;
-      return targetPlus1ftTime - rolloutTime1ft;
-    } else if (test.endSpeed != null) {
-      final start = test.startSpeed ?? 0.0;
-      if (start == 0.0) {
-        final rolloutTime1ft = _findDistanceCrossingTime(metrics.history, 0.3048);
-        if (rolloutTime1ft == null) return null;
-        final speedTime = _findSpeedCrossingTime(metrics.history, test.endSpeed!, 0.0);
-        if (speedTime == null) return null;
-        return speedTime - rolloutTime1ft;
-      }
-    }
-  }
 
   if (test.distance != null && test.distanceUnit != null) {
     final targetMeters = _convertToMeters(test.distance!, test.distanceUnit!);
@@ -323,6 +303,8 @@ List<OfficialTest> getCompletedTests(RaceMetrics metrics, {bool showRollout = fa
 }
 
 double? getCompletedTimeForCategory(RaceMetrics metrics, String categoryId, {bool showRollout = false}) {
+  final useRollout = showRollout && metrics.rolloutTime1ft != null;
+
   // 1. Check if it matches an official test definition
   for (final test in officialTests) {
     if (test.id == categoryId) {
@@ -335,11 +317,11 @@ double? getCompletedTimeForCategory(RaceMetrics metrics, String categoryId, {boo
       }
 
       // Fast path: Check standard precalculated fields
-      final precalculated = _getPrecalculatedTime(metrics, test.id, showRollout: showRollout);
+      final precalculated = _getPrecalculatedTime(metrics, test.id, showRollout: useRollout);
       if (precalculated != null) return precalculated;
 
-      // Fallback: Calculate dynamically from history coordinates
-      return _calculateTimeFromHistory(metrics, test, showRollout: showRollout);
+      // Fallback: Calculate dynamically from history coordinates (always standard non-rollout)
+      return _calculateTimeFromHistory(metrics, test);
     }
   }
 
@@ -376,11 +358,8 @@ double? getCompletedTimeForCategory(RaceMetrics metrics, String categoryId, {boo
           );
           if (endTime == null) return null;
           double duration = endTime - startTime;
-          if (showRollout && startKmh == 0.0) {
-            final rolloutTime1ft = metrics.rolloutTime1ft ?? _findDistanceCrossingTime(metrics.history, 0.3048);
-            if (rolloutTime1ft != null) {
-              duration -= rolloutTime1ft;
-            }
+          if (showRollout && startKmh == 0.0 && metrics.rolloutTime1ft != null) {
+            duration -= metrics.rolloutTime1ft!;
           }
           return duration;
         }
