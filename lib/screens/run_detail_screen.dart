@@ -867,13 +867,45 @@ class _TelemetryChartState extends State<TelemetryChart> {
     return output;
   }
 
-  List<double> _compensateGForceLatency(List<DataPoint> history, double latencySeconds) {
+  double _getSpeedAtTime(List<DataPoint> history, double targetTime) {
+    if (targetTime <= history.first.elapsedTime) return history.first.speedKmh;
+    if (targetTime >= history.last.elapsedTime) return history.last.speedKmh;
+    
+    int low = 0;
+    int high = history.length - 1;
+    while (low < high - 1) {
+      int mid = (low + high) ~/ 2;
+      if (history[mid].elapsedTime < targetTime) {
+        low = mid;
+      } else {
+        high = mid;
+      }
+    }
+    final double t0 = history[low].elapsedTime;
+    final double t1 = history[high].elapsedTime;
+    final double v0 = history[low].speedKmh;
+    final double v1 = history[high].speedKmh;
+    if (t1 == t0) return v0;
+    return v0 + (v1 - v0) * ((targetTime - t0) / (t1 - t0));
+  }
+
+  List<double> _compensateGForceLatency(List<DataPoint> history, double latencySeconds, bool applyZeroStartLogic) {
     if (history.isEmpty) return [];
+    
+    double? vReal;
+    if (applyZeroStartLogic) {
+      vReal = _getSpeedAtTime(history, history.first.elapsedTime + latencySeconds);
+    }
+
     final List<double> output = [];
     for (int i = 0; i < history.length; i++) {
       final double targetTime = history[i].elapsedTime - latencySeconds;
       if (targetTime <= history.first.elapsedTime) {
-        output.add(history.first.gForce);
+        if (applyZeroStartLogic && vReal != null && vReal > 0) {
+          output.add(history.first.gForce * (history[i].speedKmh / vReal));
+        } else {
+          output.add(history.first.gForce);
+        }
       } else if (targetTime >= history.last.elapsedTime) {
         output.add(history.last.gForce);
       } else {
@@ -951,8 +983,10 @@ class _TelemetryChartState extends State<TelemetryChart> {
     final times = history.map((p) => p.elapsedTime).toList();
     final speeds = history.map((p) => isMetric ? p.speedKmh : p.speedKmh * 0.621371).toList();
     
+    bool applyZeroStartLogic = (widget.run.metrics.targetStartSpeed ?? 0) == 0;
+
     // Compensate for the ~200ms GPS latency by shifting G-force data points forward in time.
-    final compensatedGForces = _compensateGForceLatency(history, 0.20);
+    final compensatedGForces = _compensateGForceLatency(history, 0.20, applyZeroStartLogic);
     final gForces = _smoothList(compensatedGForces, 7);
 
     final double startAltitude = widget.run.metrics.startAltitude ?? 0.0;
