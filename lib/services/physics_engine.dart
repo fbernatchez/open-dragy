@@ -4,6 +4,7 @@ class PhysicsEngine {
   static const double gAcceleration = 9.80665; // m/s^2
 
   static const double distance60ft = 18.288;
+  static const double distance330ft = 100.584;
   static const double distance18Mile = 201.168;
   static const double distance1000ft = 304.8;
   static const double distance14Mile = 402.336;
@@ -317,6 +318,7 @@ class PhysicsEngine {
 
     // Metrics triggers
     double? t60ft = current.time60ft;
+    double? t330ft = current.time330ft;
     double? t0_60mph = current.time0to60mph;
     double? t0_100kmh = current.time0to100kmh;
     double? t18 = current.time18Mile;
@@ -331,6 +333,7 @@ class PhysicsEngine {
     // Rollout triggers
     double? rollout1ft = current.rolloutTime1ft;
     double? t60ftRollout = current.time60ftRollout;
+    double? t330ftRollout = current.time330ftRollout;
     double? t0_60mphRollout = current.time0to60mphRollout;
     double? t0_100kmhRollout = current.time0to100kmhRollout;
     double? t18Rollout = current.time18MileRollout;
@@ -379,6 +382,30 @@ class PhysicsEngine {
         absTime = newElapsedTime;
       }
       t60ftRollout = absTime - rollout1ft;
+    }
+
+    // 330 ft (100.584 meters)
+    if (t330ft == null && newDistance >= distance330ft) {
+      double distDiff = newDistance - current.distanceMeters;
+      if (distDiff > 0) {
+        double fraction = (distance330ft - current.distanceMeters) / distDiff;
+        t330ft = current.elapsedTime + (currentDt * fraction);
+      } else {
+        t330ft = newElapsedTime;
+      }
+    }
+
+    // 330 ft Rollout (target: distance330ft + 0.3048)
+    if (t330ftRollout == null && rollout1ft != null && newDistance >= (distance330ft + 0.3048)) {
+      double distDiff = newDistance - current.distanceMeters;
+      double absTime;
+      if (distDiff > 0) {
+        double fraction = ((distance330ft + 0.3048) - current.distanceMeters) / distDiff;
+        absTime = current.elapsedTime + (currentDt * fraction);
+      } else {
+        absTime = newElapsedTime;
+      }
+      t330ftRollout = absTime - rollout1ft;
     }
 
     // 0-60 mph (96.5606 km/h)
@@ -586,6 +613,7 @@ class PhysicsEngine {
       elapsedTime: newElapsedTime,
       gForce: smoothedGForce,
       time60ft: t60ft,
+      time330ft: t330ft,
       time0to60mph: t0_60mph,
       time0to100kmh: t0_100kmh,
       time18Mile: t18,
@@ -598,6 +626,7 @@ class PhysicsEngine {
       trap12Mile: trap12,
       rolloutTime1ft: rollout1ft,
       time60ftRollout: t60ftRollout,
+      time330ftRollout: t330ftRollout,
       time0to60mphRollout: t0_60mphRollout,
       time0to100kmhRollout: t0_100kmhRollout,
       time18MileRollout: t18Rollout,

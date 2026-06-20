@@ -17,6 +17,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 enum RaceDragTarget {
   sixtyFeet('60ft'),
+  threeHundredThirtyFeet('330ft'),
   eighthMile('1/8 mile'),
   thousandFeet('1000ft'),
   quarterMile('1/4 mile'),
@@ -201,6 +202,8 @@ class DragyProvider extends ChangeNotifier {
     switch (_activeDragTarget) {
       case RaceDragTarget.sixtyFeet:
         return 60.0;
+      case RaceDragTarget.threeHundredThirtyFeet:
+        return 330.0;
       case RaceDragTarget.eighthMile:
         return 0.125;
       case RaceDragTarget.thousandFeet:
@@ -216,6 +219,8 @@ class DragyProvider extends ChangeNotifier {
     if (_runMode != 'drag') return null;
     switch (_activeDragTarget) {
       case RaceDragTarget.sixtyFeet:
+        return 'feet';
+      case RaceDragTarget.threeHundredThirtyFeet:
         return 'feet';
       case RaceDragTarget.eighthMile:
         return 'mile';

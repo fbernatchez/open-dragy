@@ -114,6 +114,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
 
     const order = [
       '60ft',
+      '330ft',
       '0-60mph',
       '0-100kmh',
       '1/8mile',
@@ -475,6 +476,7 @@ class RunHistoryCard extends StatelessWidget {
       final t18 = getCompletedTimeForCategory(metrics, '1/8mile', showRollout: showRolloutSetting);
       final t0_100kmh = getCompletedTimeForCategory(metrics, '0-100kmh', showRollout: showRolloutSetting);
       final t0_60mph = getCompletedTimeForCategory(metrics, '0-60mph', showRollout: showRolloutSetting);
+      final t330 = getCompletedTimeForCategory(metrics, '330ft', showRollout: showRolloutSetting);
       final t60 = getCompletedTimeForCategory(metrics, '60ft', showRollout: showRolloutSetting);
 
       if (t12 != null) {
@@ -513,6 +515,9 @@ class RunHistoryCard extends StatelessWidget {
       } else if (t18 != null) {
         primaryLabel = "1/8 Mile";
         primaryTime = "${t18.toStringAsFixed(2)}s";
+      } else if (t330 != null) {
+        primaryLabel = "330ft";
+        primaryTime = "${t330.toStringAsFixed(2)}s";
       } else if (metrics.runMode == 'interval' &&
                  metrics.targetStartSpeed != null &&
                  metrics.targetEndSpeed != null) {

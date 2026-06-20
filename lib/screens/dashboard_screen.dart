@@ -127,6 +127,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           completedTime = metrics.time1000ft;
         } else if (metrics.time18Mile != null) {
           completedTime = metrics.time18Mile;
+        } else if (metrics.time330ft != null) {
+          completedTime = metrics.time330ft;
         } else if (metrics.time0to60mph != null ||
             metrics.time0to100kmh != null) {
           if (isMetric && metrics.time0to100kmh != null) {
@@ -658,6 +660,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                       DropdownMenuItem(
                                         value: RaceDragTarget.sixtyFeet,
                                         child: Text('60 ft'),
+                                      ),
+                                      DropdownMenuItem(
+                                        value: RaceDragTarget.threeHundredThirtyFeet,
+                                        child: Text('330 ft'),
                                       ),
                                       DropdownMenuItem(
                                         value: RaceDragTarget.eighthMile,

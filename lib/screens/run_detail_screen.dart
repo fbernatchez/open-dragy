@@ -182,8 +182,8 @@ class RunDetailScreen extends StatelessWidget {
     // Fallback if target is not completed or none was set
     if (completedTime == null) {
       final priorityIds = isMetric
-          ? ['1/2mile', '1/4mile', '0-200kmh', '100-200kmh', '100-160kmh', '1000ft', '1/8mile', '0-100kmh', '0-130mph', '60-130mph', '60-100mph', '0-60mph', '60ft']
-          : ['1/2mile', '1/4mile', '0-130mph', '60-130mph', '60-100mph', '1000ft', '1/8mile', '0-60mph', '0-200kmh', '100-200kmh', '100-160kmh', '0-100kmh', '60ft'];
+          ? ['1/2mile', '1/4mile', '0-200kmh', '100-200kmh', '100-160kmh', '1000ft', '1/8mile', '330ft', '0-100kmh', '0-130mph', '60-130mph', '60-100mph', '0-60mph', '60ft']
+          : ['1/2mile', '1/4mile', '0-130mph', '60-130mph', '60-100mph', '1000ft', '1/8mile', '330ft', '0-60mph', '0-200kmh', '100-200kmh', '100-160kmh', '0-100kmh', '60ft'];
           
       for (final id in priorityIds) {
         final time = getCompletedTimeForCategory(metrics, id, showRollout: showRollout);

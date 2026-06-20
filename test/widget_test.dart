@@ -111,6 +111,7 @@ class MockDragyProvider extends ChangeNotifier implements DragyProvider {
     if (runMode != 'drag') return null;
     switch (activeDragTarget) {
       case RaceDragTarget.sixtyFeet: return 60.0;
+      case RaceDragTarget.threeHundredThirtyFeet: return 330.0;
       case RaceDragTarget.eighthMile: return 0.125;
       case RaceDragTarget.thousandFeet: return 1000.0;
       case RaceDragTarget.quarterMile: return 0.25;
@@ -123,6 +124,7 @@ class MockDragyProvider extends ChangeNotifier implements DragyProvider {
     if (runMode != 'drag') return null;
     switch (activeDragTarget) {
       case RaceDragTarget.sixtyFeet: return 'feet';
+      case RaceDragTarget.threeHundredThirtyFeet: return 'feet';
       case RaceDragTarget.eighthMile: return 'mile';
       case RaceDragTarget.thousandFeet: return 'feet';
       case RaceDragTarget.quarterMile: return 'mile';

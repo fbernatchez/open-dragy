@@ -68,6 +68,12 @@ const List<OfficialTest> officialTests = [
     distanceUnit: DistanceUnit.feet,
   ),
   OfficialTest(
+    id: '330ft',
+    displayName: '330ft',
+    distance: 330.0,
+    distanceUnit: DistanceUnit.feet,
+  ),
+  OfficialTest(
     id: '0-60mph',
     displayName: '0-60 mph',
     startSpeed: 0.0,
@@ -142,6 +148,8 @@ double? _getPrecalculatedTime(RaceMetrics m, String id, {bool showRollout = fals
     switch (id) {
       case '60ft':
         return m.time60ftRollout;
+      case '330ft':
+        return m.time330ftRollout;
       case '0-60mph':
         return m.time0to60mphRollout;
       case '0-100kmh':
@@ -173,6 +181,8 @@ double? _getPrecalculatedTime(RaceMetrics m, String id, {bool showRollout = fals
     switch (id) {
       case '60ft':
         return m.time60ft;
+      case '330ft':
+        return m.time330ft;
       case '0-60mph':
         return m.time0to60mph;
       case '0-100kmh':
