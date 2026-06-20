@@ -694,6 +694,7 @@ void main() {
         history: const [
           DataPoint(elapsedTime: 0.0, speedKmh: 0.0, gForce: 0.0, altitude: 100.0),
           DataPoint(elapsedTime: 2.0, speedKmh: 50.0, gForce: 0.8, altitude: 101.0),
+          DataPoint(elapsedTime: 2.20, speedKmh: 52.0, gForce: 0.8, altitude: 101.1),
           DataPoint(elapsedTime: 5.0, speedKmh: 100.0, gForce: 0.5, altitude: 102.0),
           DataPoint(elapsedTime: 10.0, speedKmh: 150.0, gForce: 0.3, altitude: 103.0),
         ],

@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../providers/dragy_provider.dart';
 import '../models/saved_run.dart';
 import '../models/race_target.dart';
+import '../models/race_metrics.dart';
 
 class RunDetailScreen extends StatelessWidget {
   final SavedRun run;
@@ -866,6 +867,42 @@ class _TelemetryChartState extends State<TelemetryChart> {
     return output;
   }
 
+  List<double> _compensateGForceLatency(List<DataPoint> history, double latencySeconds) {
+    if (history.isEmpty) return [];
+    final List<double> output = [];
+    for (int i = 0; i < history.length; i++) {
+      final double targetTime = history[i].elapsedTime - latencySeconds;
+      if (targetTime <= history.first.elapsedTime) {
+        output.add(history.first.gForce);
+      } else if (targetTime >= history.last.elapsedTime) {
+        output.add(history.last.gForce);
+      } else {
+        // Binary search to find the correct interval for interpolation
+        int low = 0;
+        int high = history.length - 1;
+        while (low < high - 1) {
+          int mid = (low + high) ~/ 2;
+          if (history[mid].elapsedTime < targetTime) {
+            low = mid;
+          } else {
+            high = mid;
+          }
+        }
+        final double t0 = history[low].elapsedTime;
+        final double t1 = history[high].elapsedTime;
+        final double g0 = history[low].gForce;
+        final double g1 = history[high].gForce;
+        if (t1 == t0) {
+          output.add(g0);
+        } else {
+          final double pct = (targetTime - t0) / (t1 - t0);
+          output.add(g0 + (g1 - g0) * pct);
+        }
+      }
+    }
+    return output;
+  }
+
   void _handleTouch(Offset localPosition, double width) {
     final history = widget.run.metrics.history;
     if (history.isEmpty) return;
@@ -914,8 +951,9 @@ class _TelemetryChartState extends State<TelemetryChart> {
     final times = history.map((p) => p.elapsedTime).toList();
     final speeds = history.map((p) => isMetric ? p.speedKmh : p.speedKmh * 0.621371).toList();
     
-    final rawGForces = history.map((p) => p.gForce).toList();
-    final gForces = _smoothList(rawGForces, 7);
+    // Compensate for the ~200ms GPS latency by shifting G-force data points forward in time.
+    final compensatedGForces = _compensateGForceLatency(history, 0.20);
+    final gForces = _smoothList(compensatedGForces, 7);
 
     final double startAltitude = widget.run.metrics.startAltitude ?? 0.0;
     final rawElevations = history.map((p) {
