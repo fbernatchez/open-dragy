@@ -544,10 +544,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 // between the top of the screen and the bottom widgets
                 Expanded(
                   child: Center(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
+                    child: SingleChildScrollView(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
                         children: [
                           const SizedBox(height: 12),
                           // Dragy Logo Text
@@ -952,6 +953,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                   ),
                 ),
+              ),
 
                 // Bottom Elements
                 if (isConnected)
