@@ -16,7 +16,7 @@ class PhysicsEngine {
       0.5; // km/h threshold for interpolating exact start
 
 
-  final List<double> _speedBuffer = [];
+  final List<DataPoint> _preRunBuffer = [];
   int _stoppedTicks = 0;
   int _rejectedCount = 0;
   double? _lastGpsTimeSeconds;
@@ -53,15 +53,39 @@ class PhysicsEngine {
     }
     _lastGpsTimeSeconds = gpsTimeSeconds;
 
+    // 0. Maintain Rolling Buffer (50 ticks) for 200ms G-Force latency shifting
+    _preRunBuffer.add(DataPoint(
+      elapsedTime: current.isRunning ? current.elapsedTime : 0.0,
+      speedKmh: newSpeedKmh,
+      gForce: current.gForce,
+      altitude: currentAltitude,
+    ));
+    if (_preRunBuffer.length > 50) {
+      _preRunBuffer.removeAt(0);
+    }
+
+    int delayTicks = 2; // 200ms at 10Hz
+    double shiftedGForce = current.gForce;
+    if (_preRunBuffer.length > delayTicks) {
+      shiftedGForce = _preRunBuffer[_preRunBuffer.length - 1 - delayTicks].gForce;
+    }
+
+    // Smooth G-Force slightly
+    double smoothedGForce = shiftedGForce;
+    if (current.history.isNotEmpty) {
+      smoothedGForce =
+          (current.history.last.gForce * 0.7) + (shiftedGForce * 0.3);
+    }
+
     // 0.5 Sensor-Fusion Outlier Rejection
-    // Validate the GPS speed jump against the live IMU acceleration.
+    // Validate the GPS speed jump against the delayed IMU acceleration.
     double lastSpeed = current.isRunning
         ? current.speedKmh
-        : (_speedBuffer.isNotEmpty ? _speedBuffer.last : 0.0);
+        : (_preRunBuffer.length > 1 ? _preRunBuffer[_preRunBuffer.length - 2].speedKmh : 0.0);
 
-    if (_speedBuffer.isNotEmpty || current.isRunning) {
+    if (_preRunBuffer.isNotEmpty || current.isRunning) {
       double actualDeltaKmh = newSpeedKmh - lastSpeed;
-      double expectedDeltaKmh = (current.gForce * gAcceleration * currentDt) * 3.6;
+      double expectedDeltaKmh = (shiftedGForce * gAcceleration * currentDt) * 3.6;
       double dynamicToleranceKmh = (1.0 * gAcceleration * currentDt) * 3.6;
 
       if (actualDeltaKmh > 0 &&
@@ -71,7 +95,7 @@ class PhysicsEngine {
           // 200ms of sustained mismatch
           _rejectedCount = 0;
           if (!current.isRunning) {
-            _speedBuffer.clear(); // Accept new reality (e.g., GPS reconnect)
+            // Accept new reality (e.g., GPS reconnect) but do not clear buffer to maintain latency
           }
         } else {
           return current; // Ignore this likely GPS multipath glitch
@@ -86,7 +110,6 @@ class PhysicsEngine {
     // If not armed and not running, just return current with updated speed and altitude
     // without triggering or integrating, preserving completed run statistics
     if (!isArmed && !current.isRunning) {
-      _speedBuffer.clear();
       _stoppedTicks = 0;
       double displaySpeed = newSpeedKmh < 2.0 ? 0.0 : newSpeedKmh;
       return current.copyWith(
@@ -99,11 +122,6 @@ class PhysicsEngine {
     }
 
     if (!current.isRunning) {
-      // We are armed, waiting for trigger
-      _speedBuffer.add(newSpeedKmh);
-      if (_speedBuffer.length > 50) {
-        _speedBuffer.removeAt(0);
-      }
 
       if (runMode == 'drag') {
         // Armed state
@@ -174,8 +192,8 @@ class PhysicsEngine {
             return triggered;
           }
         } else {
-          if (_speedBuffer.length >= 2) {
-            double prevSpeed = _speedBuffer[_speedBuffer.length - 2];
+          if (_preRunBuffer.length >= 2) {
+            double prevSpeed = _preRunBuffer[_preRunBuffer.length - 2].speedKmh;
             if (prevSpeed <= intervalStartSpeed && newSpeedKmh > intervalStartSpeed) {
               // Trigger! Calculate the exact start crossing point.
               double speedDiff = newSpeedKmh - prevSpeed;
@@ -193,7 +211,7 @@ class PhysicsEngine {
                 elapsedTime: elapsedOffset,
                 distanceMeters: initialDistance,
                 speedKmh: newSpeedKmh,
-                gForce: current.gForce,
+                gForce: smoothedGForce,
                 startAltitude: currentAltitude,
                 runMode: 'interval',
                 targetDistance: targetDistance,
@@ -211,13 +229,13 @@ class PhysicsEngine {
                   DataPoint(
                     elapsedTime: elapsedOffset,
                     speedKmh: newSpeedKmh,
-                    gForce: current.gForce,
+                    gForce: smoothedGForce,
                     altitude: currentAltitude,
                   ),
                 ],
               );
 
-              _speedBuffer.clear();
+              // Do not clear _preRunBuffer to maintain latency history
               return simulated;
             }
           }
@@ -256,7 +274,7 @@ class PhysicsEngine {
           _stoppedTicks = 0;
         }
 
-        return _integrateDrag(current, newSpeedKmh, currentAltitude, currentDt);
+        return _integrateDrag(current, newSpeedKmh, currentAltitude, currentDt, smoothedGForce);
       } else {
         // Interval Mode
         // Auto-cancel logic: if speed drops below starting speed - 10 km/h for 2 seconds, cancel the run
@@ -281,6 +299,7 @@ class PhysicsEngine {
           current,
           newSpeedKmh,
           currentAltitude,
+          smoothedGForce,
           intervalStartSpeed: intervalStartSpeed,
           intervalEndSpeed: intervalEndSpeed,
           currentDt: currentDt,
@@ -294,6 +313,7 @@ class PhysicsEngine {
     double newSpeedKmh,
     double currentAltitude,
     double currentDt,
+    double smoothedGForce,
   ) {
     final currentSpeedMs = current.speedKmh / 3.6;
     final newSpeedMs = newSpeedKmh / 3.6;
@@ -303,7 +323,6 @@ class PhysicsEngine {
     final double deltaDistance = avgSpeedMs * currentDt;
     final double newDistance = current.distanceMeters + deltaDistance;
 
-    final double smoothedGForce = current.gForce;
     final newElapsedTime = current.elapsedTime + currentDt;
 
     final newHistory = List<DataPoint>.from(current.history)
@@ -646,7 +665,8 @@ class PhysicsEngine {
   RaceMetrics _integrateInterval(
     RaceMetrics current,
     double newSpeedKmh,
-    double currentAltitude, {
+    double currentAltitude,
+    double smoothedGForce, {
     required double intervalStartSpeed,
     required double intervalEndSpeed,
     required double currentDt,
@@ -659,7 +679,6 @@ class PhysicsEngine {
     final double deltaDistance = avgSpeedMs * currentDt;
     final double newDistance = current.distanceMeters + deltaDistance;
 
-    final double smoothedGForce = current.gForce;
     final newElapsedTime = current.elapsedTime + currentDt;
 
     final newHistory = List<DataPoint>.from(current.history)
@@ -746,22 +765,22 @@ class PhysicsEngine {
     required String? targetSpeedUnit,
     required double currentDt,
   }) {
-    if (newSpeedKmh > launchCommitThreshold && _speedBuffer.length >= 2) {
-      int k = _speedBuffer.length - 1;
+    if (newSpeedKmh > launchCommitThreshold && _preRunBuffer.length >= 2) {
+      int k = _preRunBuffer.length - 1;
       int crossingIndex = -1;
 
       // Scan backwards to find the most recent zero-crossing transition
       for (int j = k - 1; j >= 0; j--) {
-        if (_speedBuffer[j] <= zeroCrossingThreshold &&
-            _speedBuffer[j + 1] > zeroCrossingThreshold) {
+        if (_preRunBuffer[j].speedKmh <= zeroCrossingThreshold &&
+            _preRunBuffer[j + 1].speedKmh > zeroCrossingThreshold) {
           crossingIndex = j;
           break;
         }
       }
 
       if (crossingIndex != -1) {
-        double vStart = _speedBuffer[crossingIndex];
-        double vEnd = _speedBuffer[crossingIndex + 1];
+        double vStart = _preRunBuffer[crossingIndex].speedKmh;
+        double vEnd = _preRunBuffer[crossingIndex + 1].speedKmh;
         double startFraction =
             (zeroCrossingThreshold - vStart) / (vEnd - vStart);
 
@@ -777,17 +796,20 @@ class PhysicsEngine {
         // Integrate distance for all subsequent steps
         for (int j = crossingIndex + 1; j < k; j++) {
           double stepAvgSpeedMs =
-              ((_speedBuffer[j] / 3.6) + (_speedBuffer[j + 1] / 3.6)) / 2;
+              ((_preRunBuffer[j].speedKmh / 3.6) + (_preRunBuffer[j + 1].speedKmh / 3.6)) / 2;
           initialDistance += stepAvgSpeedMs * currentDt;
         }
+
+        int delayTicks = 2;
+        int getShiftedIndex(int idx) => (idx - delayTicks).clamp(0, _preRunBuffer.length - 1);
 
         List<DataPoint> initialHistory = [];
         // Zero crossing point
         initialHistory.add(DataPoint(
           elapsedTime: 0.0,
-          speedKmh: zeroCrossingThreshold,
-          gForce: current.gForce,
-          altitude: currentAltitude,
+          speedKmh: 0.0, // Start exactly at 0 to match physical reality
+          gForce: _preRunBuffer[getShiftedIndex(crossingIndex)].gForce,
+          altitude: _preRunBuffer[crossingIndex].altitude ?? currentAltitude,
         ));
 
         // Points from crossingIndex + 1 to k
@@ -795,9 +817,9 @@ class PhysicsEngine {
           double tJ = firstStepTime + (j - (crossingIndex + 1)) * currentDt;
           initialHistory.add(DataPoint(
             elapsedTime: tJ,
-            speedKmh: _speedBuffer[j],
-            gForce: current.gForce,
-            altitude: currentAltitude,
+            speedKmh: _preRunBuffer[j].speedKmh,
+            gForce: _preRunBuffer[getShiftedIndex(j)].gForce,
+            altitude: _preRunBuffer[j].altitude ?? currentAltitude,
           ));
         }
 
@@ -817,7 +839,7 @@ class PhysicsEngine {
           history: initialHistory,
         );
 
-        _speedBuffer.clear();
+        // Buffer is kept for ongoing history
         return simulated;
       }
     }
@@ -825,7 +847,7 @@ class PhysicsEngine {
   }
 
   RaceMetrics reset() {
-    _speedBuffer.clear();
+    _preRunBuffer.clear();
     _stoppedTicks = 0;
     _rejectedCount = 0;
     _lastGpsTimeSeconds = null;
