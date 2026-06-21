@@ -146,6 +146,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
       }
 
       if (completedTime != null) {
+        if (dragy.showRollout &&
+            metrics.rolloutTime1ft != null &&
+            (dragy.runMode == 'drag' || dragy.targetStartSpeed == 0.0)) {
+          completedTime = (completedTime - metrics.rolloutTime1ft!).clamp(0.0, double.infinity);
+        }
         mainTime = "${completedTime.toStringAsFixed(2)}s";
         fontSize = 80.0;
         textColor = Colors.white;
@@ -195,7 +200,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final List<_ReachedMilestone> reachedMilestones = [];
 
     if (dragy.runMode == 'drag') {
-      final completed = getCompletedTests(metrics);
+      final completed = getCompletedTests(metrics, showRollout: dragy.showRollout);
       for (final test in completed) {
         if (test.speedUnit != null) {
           final isTestMetric = test.speedUnit == SpeedUnit.kmh;
@@ -207,26 +212,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
         reachedMilestones.add(
           _ReachedMilestone(
             label: test.displayName,
-            time: getCompletedTimeForCategory(metrics, test.id)!,
-            sortTime: getCompletedTimeForCategory(metrics, test.id)!,
-            trapSpeed: test.id == '1/8mile'
-                ? metrics.trap18Mile
-                : (test.id == '1000ft'
-                      ? metrics.trap1000ft
-                      : (test.id == '1/4mile'
-                            ? metrics.trap14Mile
-                            : (test.id == '1/2mile'
-                                  ? metrics.trap12Mile
-                                  : null))),
+            time: getCompletedTimeForCategory(metrics, test.id, showRollout: dragy.showRollout)!,
+            sortTime: getCompletedTimeForCategory(metrics, test.id, showRollout: dragy.showRollout)!,
+            trapSpeed: getTrapSpeedForCategory(metrics, test.id, showRollout: dragy.showRollout),
           ),
         );
       }
     } else {
-      final completed = getCompletedTests(metrics);
+      final completed = getCompletedTests(metrics, showRollout: dragy.showRollout);
       if (completed.isNotEmpty) {
         final test = completed.first;
         final time =
-            getCompletedTimeForCategory(metrics, test.id) ??
+            getCompletedTimeForCategory(metrics, test.id, showRollout: dragy.showRollout) ??
             metrics.elapsedTime;
         reachedMilestones.add(
           _ReachedMilestone(

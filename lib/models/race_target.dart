@@ -380,6 +380,38 @@ double? getCompletedTimeForCategory(RaceMetrics metrics, String categoryId, {boo
   return null;
 }
 
+double? getTrapSpeedForCategory(RaceMetrics metrics, String categoryId, {bool showRollout = false}) {
+  if (showRollout) {
+    double targetMeters = 0.0;
+    switch (categoryId) {
+      case '1/8mile': targetMeters = 0.125 * 1609.344; break;
+      case '1000ft': targetMeters = 1000.0 * 0.3048; break;
+      case '1/4mile': targetMeters = 0.25 * 1609.344; break;
+      case '1/2mile': targetMeters = 0.5 * 1609.344; break;
+    }
+    
+    if (targetMeters > 0) {
+      double minus66Meters = targetMeters - 20.1168; // 66 feet in meters
+      if (minus66Meters > 0) {
+        double? timeTarget = _findDistanceCrossingTime(metrics.history, targetMeters);
+        double? timeMinus66 = _findDistanceCrossingTime(metrics.history, minus66Meters);
+        if (timeTarget != null && timeMinus66 != null && timeTarget > timeMinus66) {
+          return (20.1168 / (timeTarget - timeMinus66)) * 3.6;
+        }
+      }
+    }
+  }
+
+  // Fallback to instantaneous trap speed
+  switch (categoryId) {
+    case '1/8mile': return metrics.trap18Mile;
+    case '1000ft': return metrics.trap1000ft;
+    case '1/4mile': return metrics.trap14Mile;
+    case '1/2mile': return metrics.trap12Mile;
+    default: return null;
+  }
+}
+
 String getDisplayLabelForTarget({
   double? distance,
   String? distanceUnit,

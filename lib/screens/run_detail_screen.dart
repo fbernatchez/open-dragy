@@ -63,15 +63,7 @@ class RunDetailScreen extends StatelessWidget {
           label: test.displayName,
           time: time,
           sortTime: sortTime,
-          trapSpeed: test.id == '1/8mile'
-              ? metrics.trap18Mile
-              : (test.id == '1000ft'
-                  ? metrics.trap1000ft
-                  : (test.id == '1/4mile'
-                      ? metrics.trap14Mile
-                      : (test.id == '1/2mile'
-                          ? metrics.trap12Mile
-                          : null))),
+          trapSpeed: getTrapSpeedForCategory(metrics, test.id, showRollout: showRollout),
         ));
       }
     }

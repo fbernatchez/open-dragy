@@ -304,14 +304,24 @@ class DragyProvider extends ChangeNotifier {
   DateTime? _lastGpsUpdateTime;
 
   double get liveElapsedTime {
+    double baseTime = _metrics.elapsedTime;
     if (_metrics.isRunning && _lastGpsUpdateTime != null) {
       final delta =
           DateTime.now().difference(_lastGpsUpdateTime!).inMicroseconds /
           1000000.0;
       final clampedDelta = delta.clamp(0.0, _physicsEngine.lastValidDt);
-      return _metrics.elapsedTime + clampedDelta;
+      baseTime += clampedDelta;
     }
-    return _metrics.elapsedTime;
+
+    if (_showRollout && (_runMode == 'drag' || targetStartSpeed == 0.0)) {
+      if (_metrics.rolloutTime1ft != null) {
+        return max(0.0, baseTime - _metrics.rolloutTime1ft!);
+      } else {
+        return 0.0;
+      }
+    }
+
+    return baseTime;
   }
 
   StreamSubscription? _nmeaSubscription;
