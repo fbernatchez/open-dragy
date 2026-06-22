@@ -1,6 +1,6 @@
 # 🏁 OpenDragy
 
-OpenDragy is a high-precision, open-source vehicle performance timer (similar to Dragy) that measures acceleration, speed intervals, and distances. It combines custom **ESP32 firmware** reading a 10Hz GPS and a BMI160 accelerometer with a sleek, dark-themed **Flutter companion app** over Bluetooth Low Energy (BLE).
+OpenDragy is a high-precision, open-source vehicle performance timer (similar to Dragy) that measures acceleration, speed intervals, and distances. It combines custom **ESP32-S3 firmware** reading a 10Hz GPS and a BMI160 accelerometer with a sleek, dark-themed **Flutter companion app** over Bluetooth Low Energy (BLE).
 
 ---
 
@@ -34,17 +34,17 @@ OpenDragy is a high-precision, open-source vehicle performance timer (similar to
 
 ## 🛠️ Hardware Setup
 
-The hardware unit runs on an **ESP32** microcontroller that interfaces with a high-speed GPS module and a 6-axis IMU sensor.
+The hardware unit runs on an **ESP32-S3** microcontroller that interfaces with a high-speed GPS module and a 6-axis IMU sensor.
 
 ### 📋 Bill of Materials (BOM)
-1. **ESP32 Development Board** (NodeMCU or similar)
-2. **u-blox M10 GPS Module** (supporting 10Hz refresh rates and configured at 115200 baud)
-3. **BMI160 Accelerometer/Gyroscope IMU** (connected via I2C)
+1. **ESP32-S3 Mini Development Board** (or similar ESP32-S3 board)
+2. **QUESCAN G10A-F30 UBX M10 GPS Module** (supporting 10-25Hz refresh rates and configured at 115200 baud)
+3. **BMI160 Accelerometer/Gyroscope IMU Module** (connected via I2C)
 
 ### 🔌 Pin Connections
-Connect the components to your ESP32 board using the following pin mapping defined in the firmware:
+Connect the components to your ESP32-S3 board using the following pin mapping defined in the firmware:
 
-| Component | Component Pin | ESP32 Pin | Notes |
+| Component | Component Pin | ESP32-S3 Pin | Notes |
 | :--- | :--- | :--- | :--- |
 | **BMI160 IMU** | VCC | 3.3V | Power supply |
 | | GND | GND | Ground |
@@ -52,22 +52,22 @@ Connect the components to your ESP32 board using the following pin mapping defin
 | | SCL | **GPIO 2** | I2C Clock line |
 | **u-blox GPS** | VCC | 3.3V or 5V | Power supply (depending on module) |
 | | GND | GND | Ground |
-| | TX | **GPIO 4** | Connects to ESP32 RX (UART1) |
-| | RX | **GPIO 5** | Connects to ESP32 TX (UART1) |
+| | TX | **GPIO 4** | Connects to ESP32-S3 RX (UART1) |
+| | RX | **GPIO 5** | Connects to ESP32-S3 TX (UART1) |
 
 ---
 
 ## 💾 Firmware Installation
 
-The ESP32 firmware is located in [OpenDragy.ino](file:///d:/Projets/open_dragy/OpenDragy.ino).
+The ESP32-S3 firmware is located in [OpenDragy.ino](file:///d:/Projets/open_dragy/OpenDragy.ino).
 
 1. Install the Arduino IDE or VS Code with the PlatformIO extension.
 2. Install the **ESP32 board support package** if using Arduino IDE.
 3. Install the library dependencies:
    * **DFRobot_BMI160** library (for interfacing with the IMU)
-   * **BLE** stack (built-in for ESP32)
+   * **BLE** stack (built-in for ESP32/ESP32-S3)
 4. Open [OpenDragy.ino](file:///d:/Projets/open_dragy/OpenDragy.ino).
-5. Compile and flash the code to your ESP32.
+5. Compile and flash the code to your ESP32-S3.
 6. The device will boot and start broadcasting a BLE service named `OpenDragy`.
 
 > [!IMPORTANT]

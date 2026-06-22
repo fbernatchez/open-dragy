@@ -40,7 +40,7 @@ Configure the GPS measurement rate to 10 Hz (10 samples per second).
 ---
 
 ## 3. NMEA Message Filtering
-Disable bulky and unnecessary NMEA sentences to free up the ESP32 UART buffer and optimize Bluetooth stream bandwidth.
+Disable bulky and unnecessary NMEA sentences to free up the ESP32-S3 UART buffer and optimize Bluetooth stream bandwidth.
 
 * **Section:** `Advanced configuration` -> `CFG-MSGOUT-`
 
