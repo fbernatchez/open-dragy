@@ -172,17 +172,18 @@ class RunDetailScreen extends StatelessWidget {
 
     // Fallback if target is not completed or none was set
     if (completedTime == null) {
-      final priorityIds = isMetric
-          ? ['1/2mile', '1/4mile', '0-200kmh', '100-200kmh', '100-160kmh', '1000ft', '1/8mile', '330ft', '0-100kmh', '0-130mph', '60-130mph', '60-100mph', '0-60mph', '60ft']
-          : ['1/2mile', '1/4mile', '0-130mph', '60-130mph', '60-100mph', '1000ft', '1/8mile', '330ft', '0-60mph', '0-200kmh', '100-200kmh', '100-160kmh', '0-100kmh', '60ft'];
-          
-      for (final id in priorityIds) {
-        final time = getCompletedTimeForCategory(metrics, id, useNhraRules: useNhraRules);
-        if (time != null) {
-          completedTime = time;
-          final test = officialTests.firstWhere((t) => t.id == id);
+      final completed = getCompletedTests(metrics, useNhraRules: useNhraRules);
+      double maxTime = -1.0;
+      for (final test in completed) {
+        if (test.speedUnit != null) {
+          final isTestMetric = test.speedUnit == SpeedUnit.kmh;
+          if (isTestMetric != isMetric) continue;
+        }
+        final t = getCompletedTimeForCategory(metrics, test.id, useNhraRules: useNhraRules);
+        if (t != null && t > maxTime) {
+          maxTime = t;
+          completedTime = t;
           primaryLabel = "${test.displayName} Time";
-          break;
         }
       }
     }

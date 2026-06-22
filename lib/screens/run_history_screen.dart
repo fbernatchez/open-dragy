@@ -112,32 +112,13 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
       }
     }
 
-    const order = [
-      '60ft',
-      '330ft',
-      '0-60mph',
-      '0-100kmh',
-      '1/8mile',
-      '1000ft',
-      '1/4mile',
-      '1/2mile',
-      '60-100mph',
-      '60-130mph',
-      '100-160kmh',
-      '100-200kmh',
-      '0-130mph',
-      '0-200kmh',
-      '50-75mph',
-      '80-120kmh',
-    ];
-
     final allCategory = categories.first;
     final others = categories.sublist(1);
 
     others.sort((a, b) {
       if (a.isOfficial && b.isOfficial) {
-        final idxA = order.indexOf(a.id);
-        final idxB = order.indexOf(b.id);
+        final idxA = officialTests.indexWhere((t) => t.id == a.id);
+        final idxB = officialTests.indexWhere((t) => t.id == b.id);
         if (idxA != -1 && idxB != -1) {
           return idxA.compareTo(idxB);
         } else if (idxA != -1) {
@@ -466,59 +447,24 @@ class RunHistoryCard extends StatelessWidget {
         primaryTime = "${displayTime.toStringAsFixed(2)}s";
       }
     } else {
-      final t12 = getCompletedTimeForCategory(metrics, '1/2mile', useNhraRules: useNhraRulesSetting);
-      final t14 = getCompletedTimeForCategory(metrics, '1/4mile', useNhraRules: useNhraRulesSetting);
-      final t0_200kmh = getCompletedTimeForCategory(metrics, '0-200kmh', useNhraRules: useNhraRulesSetting);
-      final t0_130mph = getCompletedTimeForCategory(metrics, '0-130mph', useNhraRules: useNhraRulesSetting);
-      final t100_200 = getCompletedTimeForCategory(metrics, '100-200kmh', useNhraRules: useNhraRulesSetting);
-      final t60_130 = getCompletedTimeForCategory(metrics, '60-130mph', useNhraRules: useNhraRulesSetting);
-      final t1000 = getCompletedTimeForCategory(metrics, '1000ft', useNhraRules: useNhraRulesSetting);
-      final t18 = getCompletedTimeForCategory(metrics, '1/8mile', useNhraRules: useNhraRulesSetting);
-      final t0_100kmh = getCompletedTimeForCategory(metrics, '0-100kmh', useNhraRules: useNhraRulesSetting);
-      final t0_60mph = getCompletedTimeForCategory(metrics, '0-60mph', useNhraRules: useNhraRulesSetting);
-      final t330 = getCompletedTimeForCategory(metrics, '330ft', useNhraRules: useNhraRulesSetting);
-      final t60 = getCompletedTimeForCategory(metrics, '60ft', useNhraRules: useNhraRulesSetting);
+      final completed = getCompletedTests(metrics, useNhraRules: useNhraRulesSetting);
+      double maxTime = -1.0;
 
-      if (t12 != null) {
-        primaryLabel = "1/2 Mile";
-        primaryTime = "${t12.toStringAsFixed(2)}s";
-      } else if (t14 != null) {
-        primaryLabel = "1/4 Mile";
-        primaryTime = "${t14.toStringAsFixed(2)}s";
-      } else if (isMetric && t0_200kmh != null) {
-        primaryLabel = "0-200 km/h";
-        primaryTime = "${t0_200kmh.toStringAsFixed(2)}s";
-      } else if (!isMetric && t0_130mph != null) {
-        primaryLabel = "0-130 mph";
-        primaryTime = "${t0_130mph.toStringAsFixed(2)}s";
-      } else if (isMetric && t100_200 != null) {
-        primaryLabel = "100-200 km/h";
-        primaryTime = "${t100_200.toStringAsFixed(2)}s";
-      } else if (!isMetric && t60_130 != null) {
-        primaryLabel = "60-130 mph";
-        primaryTime = "${t60_130.toStringAsFixed(2)}s";
-      } else if (t100_200 != null) {
-        primaryLabel = "100-200 km/h";
-        primaryTime = "${t100_200.toStringAsFixed(2)}s";
-      } else if (t60_130 != null) {
-        primaryLabel = "60-130 mph";
-        primaryTime = "${t60_130.toStringAsFixed(2)}s";
-      } else if (t0_200kmh != null) {
-        primaryLabel = "0-200 km/h";
-        primaryTime = "${t0_200kmh.toStringAsFixed(2)}s";
-      } else if (t0_130mph != null) {
-        primaryLabel = "0-130 mph";
-        primaryTime = "${t0_130mph.toStringAsFixed(2)}s";
-      } else if (t1000 != null) {
-        primaryLabel = "1000ft";
-        primaryTime = "${t1000.toStringAsFixed(2)}s";
-      } else if (t18 != null) {
-        primaryLabel = "1/8 Mile";
-        primaryTime = "${t18.toStringAsFixed(2)}s";
-      } else if (t330 != null) {
-        primaryLabel = "330ft";
-        primaryTime = "${t330.toStringAsFixed(2)}s";
-      } else if (metrics.runMode == 'interval' &&
+      for (final test in completed) {
+        if (test.speedUnit != null) {
+          final isTestMetric = test.speedUnit == SpeedUnit.kmh;
+          if (isTestMetric != isMetric) continue;
+        }
+        
+        final t = getCompletedTimeForCategory(metrics, test.id, useNhraRules: useNhraRulesSetting);
+        if (t != null && t > maxTime) {
+          maxTime = t;
+          primaryLabel = test.displayName;
+          primaryTime = "${t.toStringAsFixed(2)}s";
+        }
+      }
+
+      if (maxTime < 0 && metrics.runMode == 'interval' &&
                  metrics.targetStartSpeed != null &&
                  metrics.targetEndSpeed != null) {
         primaryLabel = getDisplayLabelForTarget(
@@ -527,46 +473,16 @@ class RunHistoryCard extends StatelessWidget {
           speedUnit: metrics.targetSpeedUnit,
           runMode: 'interval',
         );
-        double? compTime;
-        bool isOfficial = false;
-        for (final test in officialTests) {
-          if (test.startSpeed != null &&
-              (metrics.targetStartSpeed! - test.startSpeed!).abs() < 0.1 &&
-              test.endSpeed != null &&
-              (metrics.targetEndSpeed! - test.endSpeed!).abs() < 0.1 &&
-              metrics.targetSpeedUnit == test.speedUnit?.name) {
-            compTime = getCompletedTimeForCategory(metrics, test.id, useNhraRules: useNhraRulesSetting);
-            isOfficial = true;
-            break;
-          }
-        }
-        if (!isOfficial) {
-          final unit = metrics.targetSpeedUnit ?? (isMetric ? 'kmh' : 'mph');
-          final start = unit == 'mph'
-              ? (metrics.targetStartSpeed! * 0.621371).round()
-              : metrics.targetStartSpeed!.round();
-          final end = unit == 'mph'
-              ? (metrics.targetEndSpeed! * 0.621371).round()
-              : metrics.targetEndSpeed!.round();
-          final customId = 'custom_${start}_${end}_$unit';
-          compTime = getCompletedTimeForCategory(metrics, customId, useNhraRules: useNhraRulesSetting);
-        }
+        final unit = metrics.targetSpeedUnit ?? (isMetric ? 'kmh' : 'mph');
+        final start = unit == 'mph'
+            ? (metrics.targetStartSpeed! * 0.621371).round()
+            : metrics.targetStartSpeed!.round();
+        final end = unit == 'mph'
+            ? (metrics.targetEndSpeed! * 0.621371).round()
+            : metrics.targetEndSpeed!.round();
+        final customId = 'custom_${start}_${end}_$unit';
+        final compTime = getCompletedTimeForCategory(metrics, customId, useNhraRules: useNhraRulesSetting);
         primaryTime = compTime != null ? "${compTime.toStringAsFixed(2)}s" : "-.--s";
-      } else if (isMetric && t0_100kmh != null) {
-        primaryLabel = "0-100 km/h";
-        primaryTime = "${t0_100kmh.toStringAsFixed(2)}s";
-      } else if (!isMetric && t0_60mph != null) {
-        primaryLabel = "0-60 mph";
-        primaryTime = "${t0_60mph.toStringAsFixed(2)}s";
-      } else if (t0_100kmh != null) {
-        primaryLabel = "0-100 km/h";
-        primaryTime = "${t0_100kmh.toStringAsFixed(2)}s";
-      } else if (t0_60mph != null) {
-        primaryLabel = "0-60 mph";
-        primaryTime = "${t0_60mph.toStringAsFixed(2)}s";
-      } else if (t60 != null) {
-        primaryLabel = "60ft";
-        primaryTime = "${t60.toStringAsFixed(2)}s";
       }
     }
 
