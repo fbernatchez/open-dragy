@@ -67,7 +67,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         for (final test in completed) {
           if (test.speedUnit != null) {
             final isTestMetric = test.speedUnit == SpeedUnit.kmh;
-            if (isTestMetric != isMetric && test.id.startsWith('0-')) {
+            if (isTestMetric != isMetric) {
               continue;
             }
           }
@@ -133,7 +133,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       for (final test in completed) {
         if (test.speedUnit != null) {
           final isTestMetric = test.speedUnit == SpeedUnit.kmh;
-          if (isTestMetric != isMetric && test.id.startsWith('0-')) {
+          if (isTestMetric != isMetric) {
             continue;
           }
         }
@@ -580,8 +580,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                       fontWeight: FontWeight.w500,
                                     ),
                                     onChanged: (val) {
-                                      if (val != null)
+                                      if (val != null) {
                                         dragy.setActiveDragTarget(val);
+                                      }
                                     },
                                     items: const [
                                       DropdownMenuItem(
@@ -641,8 +642,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                           fontWeight: FontWeight.w500,
                                         ),
                                         onChanged: (val) {
-                                          if (val != null)
+                                          if (val != null) {
                                             dragy.setActiveIntervalTarget(val);
+                                          }
                                         },
                                         items: dragy.isMetric
                                             ? const [

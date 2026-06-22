@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -6,7 +6,6 @@ import 'package:google_fonts/google_fonts.dart';
 import '../providers/dragy_provider.dart';
 import '../models/saved_run.dart';
 import '../models/race_target.dart';
-import '../models/race_metrics.dart';
 
 class RunDetailScreen extends StatelessWidget {
   final SavedRun run;

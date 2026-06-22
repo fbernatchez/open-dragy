@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../providers/dragy_provider.dart';
@@ -206,7 +206,7 @@ class _SettingsToggle extends StatelessWidget {
         ),
         value: value,
         onChanged: onChanged,
-        activeColor: const Color(0xFF42A5F5),
+        activeThumbColor: const Color(0xFF42A5F5),
         activeTrackColor: const Color(0xFF1565C0),
         inactiveThumbColor: Colors.white38,
         inactiveTrackColor: Colors.white12,

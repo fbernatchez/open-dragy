@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../providers/dragy_provider.dart';
@@ -51,7 +51,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
       for (final test in completed) {
         if (test.speedUnit != null) {
           final isTestMetric = test.speedUnit == SpeedUnit.kmh;
-          if (isTestMetric != isMetric && test.id.startsWith('0-')) {
+          if (isTestMetric != isMetric) {
             continue;
           }
         }
@@ -440,7 +440,7 @@ class RunHistoryCard extends StatelessWidget {
   final String selectedCategory;
   final VoidCallback onDelete;
 
-  const RunHistoryCard({
+  const RunHistoryCard({super.key, 
     required this.run,
     required this.formattedDate,
     required this.selectedCategory,
