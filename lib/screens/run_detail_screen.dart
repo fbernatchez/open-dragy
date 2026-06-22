@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -31,14 +31,14 @@ class RunDetailScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final dragy = Provider.of<DragyProvider>(context);
     final isMetric = dragy.isMetric;
-    final showRollout = dragy.showRollout && run.metrics.rolloutTime1ft != null;
+    final useNhraRules = dragy.useNhraRules && run.metrics.rolloutTime1ft != null;
     final metrics = run.metrics;
 
     // Collect reached milestones sorted by completion time ascending
     final List<_ReachedMilestone> reachedMilestones = [];
 
     // 1. Official completed tests
-    final completedTests = getCompletedTests(metrics, showRollout: showRollout);
+    final completedTests = getCompletedTests(metrics, useNhraRules: useNhraRules);
     for (final test in completedTests) {
       // Filter out speed targets of the opposite unit system to match user's preference
       if (test.speedUnit != null) {
@@ -48,7 +48,7 @@ class RunDetailScreen extends StatelessWidget {
         }
       }
 
-      final time = getCompletedTimeForCategory(metrics, test.id, showRollout: showRollout);
+      final time = getCompletedTimeForCategory(metrics, test.id, useNhraRules: useNhraRules);
       if (time != null) {
         double sortTime = time;
         if (test.startSpeed != null && test.startSpeed! > 0.0) {
@@ -63,7 +63,7 @@ class RunDetailScreen extends StatelessWidget {
           label: test.displayName,
           time: time,
           sortTime: sortTime,
-          trapSpeed: getTrapSpeedForCategory(metrics, test.id, showRollout: showRollout),
+          trapSpeed: getTrapSpeedForCategory(metrics, test.id, useNhraRules: useNhraRules),
         ));
       }
     }
@@ -92,7 +92,7 @@ class RunDetailScreen extends StatelessWidget {
             ? (metrics.targetEndSpeed! * 0.621371).round()
             : metrics.targetEndSpeed!.round();
         final customId = 'custom_${start}_${end}_$unit';
-        final compTime = getCompletedTimeForCategory(metrics, customId, showRollout: showRollout);
+        final compTime = getCompletedTimeForCategory(metrics, customId, useNhraRules: useNhraRules);
         if (compTime != null) {
           final label = getDisplayLabelForTarget(
             startSpeed: metrics.targetStartSpeed,
@@ -145,7 +145,7 @@ class RunDetailScreen extends StatelessWidget {
 
     double? completedTime;
     if (targetTest != null) {
-      completedTime = getCompletedTimeForCategory(metrics, targetTest.id, showRollout: showRollout);
+      completedTime = getCompletedTimeForCategory(metrics, targetTest.id, useNhraRules: useNhraRules);
       if (completedTime != null) {
         primaryLabel = "${targetTest.displayName} Time";
       }
@@ -168,7 +168,7 @@ class RunDetailScreen extends StatelessWidget {
           ? (metrics.targetEndSpeed! * 0.621371).round()
           : metrics.targetEndSpeed!.round();
       final customId = 'custom_${start}_${end}_$unit';
-      completedTime = getCompletedTimeForCategory(metrics, customId, showRollout: showRollout);
+      completedTime = getCompletedTimeForCategory(metrics, customId, useNhraRules: useNhraRules);
     }
 
     // Fallback if target is not completed or none was set
@@ -178,7 +178,7 @@ class RunDetailScreen extends StatelessWidget {
           : ['1/2mile', '1/4mile', '0-130mph', '60-130mph', '60-100mph', '1000ft', '1/8mile', '330ft', '0-60mph', '0-200kmh', '100-200kmh', '100-160kmh', '0-100kmh', '60ft'];
           
       for (final id in priorityIds) {
-        final time = getCompletedTimeForCategory(metrics, id, showRollout: showRollout);
+        final time = getCompletedTimeForCategory(metrics, id, useNhraRules: useNhraRules);
         if (time != null) {
           completedTime = time;
           final test = officialTests.firstWhere((t) => t.id == id);
@@ -270,8 +270,8 @@ class RunDetailScreen extends StatelessWidget {
               ),
             ),
             Text(
-              (showRollout && (metrics.runMode == 'drag' || metrics.targetStartSpeed == 0.0))
-                  ? "$primaryLabel (1ft rollout)"
+              (useNhraRules && (metrics.runMode == 'drag' || metrics.targetStartSpeed == 0.0))
+                  ? "$primaryLabel (NHRA rules)"
                   : primaryLabel,
               style: GoogleFonts.roboto(
                 color: const Color(0xFFFFBF00), // Neon Amber
@@ -1372,3 +1372,4 @@ class TelemetryChartPainter extends CustomPainter {
         oldDelegate.elevations != elevations;
   }
 }
+

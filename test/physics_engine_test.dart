@@ -1,4 +1,4 @@
-import 'package:flutter_test/flutter_test.dart';
+﻿import 'package:flutter_test/flutter_test.dart';
 import 'package:open_dragy/services/physics_engine.dart';
 import 'package:open_dragy/models/race_metrics.dart';
 import 'package:open_dragy/models/race_target.dart';
@@ -1050,13 +1050,13 @@ void main() {
 
       // When rollout is enabled, retrieve rollout time
       expect(
-        getCompletedTimeForCategory(metricsWithRollout, '0-60mph', showRollout: true),
+        getCompletedTimeForCategory(metricsWithRollout, '0-60mph', useNhraRules: true),
         4.2,
       );
 
       // When rollout is disabled, retrieve standard time
       expect(
-        getCompletedTimeForCategory(metricsWithRollout, '0-60mph', showRollout: false),
+        getCompletedTimeForCategory(metricsWithRollout, '0-60mph', useNhraRules: false),
         4.5,
       );
 
@@ -1069,7 +1069,7 @@ void main() {
       );
 
       expect(
-        getCompletedTimeForCategory(metricsOldRun, '0-60mph', showRollout: true),
+        getCompletedTimeForCategory(metricsOldRun, '0-60mph', useNhraRules: true),
         4.5,
       );
 
@@ -1089,13 +1089,13 @@ void main() {
 
       // Without rollout
       expect(
-        getCompletedTimeForCategory(customMetrics, 'custom_0_50_mph', showRollout: false),
+        getCompletedTimeForCategory(customMetrics, 'custom_0_50_mph', useNhraRules: false),
         closeTo(1.89, 0.01), // crossing speed is around 1.89s
       );
 
       // With rollout (should subtract rolloutTime1ft)
       expect(
-        getCompletedTimeForCategory(customMetrics, 'custom_0_50_mph', showRollout: true),
+        getCompletedTimeForCategory(customMetrics, 'custom_0_50_mph', useNhraRules: true),
         closeTo(1.89 - 0.3, 0.01),
       );
 
@@ -1114,9 +1114,10 @@ void main() {
       );
 
       expect(
-        getCompletedTimeForCategory(customMetricsOld, 'custom_0_50_mph', showRollout: true),
+        getCompletedTimeForCategory(customMetricsOld, 'custom_0_50_mph', useNhraRules: true),
         closeTo(1.89, 0.01),
       );
     });
   });
 }
+

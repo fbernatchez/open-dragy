@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../providers/dragy_provider.dart';
@@ -46,12 +46,12 @@ class SettingsScreen extends StatelessWidget {
           ),
           _SettingsToggle(
             icon: Icons.timer_outlined,
-            title: '1ft Rollout (NHRA Style)',
-            subtitle: dragy.showRollout
-                ? 'Subtracts time to travel first 1ft'
-                : 'Timing starts from absolute zero crossing',
-            value: dragy.showRollout,
-            onChanged: (v) => dragy.setShowRollout(v),
+            title: 'NHRA Rules',
+            subtitle: dragy.useNhraRules
+                ? 'Applies 1ft rollout and 66ft trap speed'
+                : 'Standard timing without NHRA rules',
+            value: dragy.useNhraRules,
+            onChanged: (v) => dragy.setUseNhraRules(v),
           ),
 
           _SectionHeader(label: 'About'),
@@ -217,3 +217,4 @@ class _SettingsToggle extends StatelessWidget {
     );
   }
 }
+

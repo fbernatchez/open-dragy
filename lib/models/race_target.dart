@@ -1,4 +1,4 @@
-import 'race_metrics.dart';
+﻿import 'race_metrics.dart';
 
 enum DistanceUnit {
   feet,
@@ -143,8 +143,8 @@ const List<OfficialTest> officialTests = [
 ];
 
 // Helper to retrieve precalculated fields from RaceMetrics
-double? _getPrecalculatedTime(RaceMetrics m, String id, {bool showRollout = false}) {
-  if (showRollout) {
+double? _getPrecalculatedTime(RaceMetrics m, String id, {bool useNhraRules = false}) {
+  if (useNhraRules) {
     switch (id) {
       case '60ft':
         return m.time60ftRollout;
@@ -299,11 +299,11 @@ double? _calculateTimeFromHistory(RaceMetrics metrics, OfficialTest test) {
   return null;
 }
 
-List<OfficialTest> getCompletedTests(RaceMetrics metrics, {bool showRollout = false}) {
+List<OfficialTest> getCompletedTests(RaceMetrics metrics, {bool useNhraRules = false}) {
   final List<OfficialTest> completed = [];
 
   for (final test in officialTests) {
-    final time = getCompletedTimeForCategory(metrics, test.id, showRollout: showRollout);
+    final time = getCompletedTimeForCategory(metrics, test.id, useNhraRules: useNhraRules);
     if (time != null) {
       completed.add(test);
     }
@@ -312,8 +312,8 @@ List<OfficialTest> getCompletedTests(RaceMetrics metrics, {bool showRollout = fa
   return completed;
 }
 
-double? getCompletedTimeForCategory(RaceMetrics metrics, String categoryId, {bool showRollout = false}) {
-  final useRollout = showRollout && metrics.rolloutTime1ft != null;
+double? getCompletedTimeForCategory(RaceMetrics metrics, String categoryId, {bool useNhraRules = false}) {
+  final useRollout = useNhraRules && metrics.rolloutTime1ft != null;
 
   // 1. Check if it matches an official test definition
   for (final test in officialTests) {
@@ -327,7 +327,7 @@ double? getCompletedTimeForCategory(RaceMetrics metrics, String categoryId, {boo
       }
 
       // Fast path: Check standard precalculated fields
-      final precalculated = _getPrecalculatedTime(metrics, test.id, showRollout: useRollout);
+      final precalculated = _getPrecalculatedTime(metrics, test.id, useNhraRules: useRollout);
       if (precalculated != null) return precalculated;
 
       // Fallback: Calculate dynamically from history coordinates (always standard non-rollout)
@@ -368,7 +368,7 @@ double? getCompletedTimeForCategory(RaceMetrics metrics, String categoryId, {boo
           );
           if (endTime == null) return null;
           double duration = endTime - startTime;
-          if (showRollout && startKmh == 0.0 && metrics.rolloutTime1ft != null) {
+          if (useNhraRules && startKmh == 0.0 && metrics.rolloutTime1ft != null) {
             duration -= metrics.rolloutTime1ft!;
           }
           return duration;
@@ -380,8 +380,8 @@ double? getCompletedTimeForCategory(RaceMetrics metrics, String categoryId, {boo
   return null;
 }
 
-double? getTrapSpeedForCategory(RaceMetrics metrics, String categoryId, {bool showRollout = false}) {
-  if (showRollout) {
+double? getTrapSpeedForCategory(RaceMetrics metrics, String categoryId, {bool useNhraRules = false}) {
+  if (useNhraRules) {
     double targetMeters = 0.0;
     switch (categoryId) {
       case '1/8mile': targetMeters = 0.125 * 1609.344; break;
@@ -450,3 +450,4 @@ String getDisplayLabelForTarget({
     return 'Interval';
   }
 }
+

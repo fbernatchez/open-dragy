@@ -28,22 +28,23 @@ enum RaceDragTarget {
 }
 
 enum RaceIntervalTarget {
-  zeroToSixtyMph('0-60 mph'),
-  zeroToOneHundredMph('0-100 mph'),
-  fiftyToSeventyFiveMph('50-75 mph'),
-  sixtyToOneHundredMph('60-100 mph'),
-  sixtyToOneThirtyMph('60-130 mph'),
-  zeroToOneThirtyMph('0-130 mph'),
-  zeroToOneHundredKmh('0-100 km/h'),
-  zeroToOneSixtyKmh('0-160 km/h'),
-  eightyToOneTwentyKmh('80-120 km/h'),
-  oneHundredToOneSixtyKmh('100-160 km/h'),
-  oneHundredToTwoHundredKmh('100-200 km/h'),
-  zeroToTwoHundredKmh('0-200 km/h'),
-  custom('Custom Range...');
+  zeroToSixtyMph('0-60 mph', '0-60mph'),
+  zeroToOneHundredMph('0-100 mph', 'custom_0_100_mph'),
+  fiftyToSeventyFiveMph('50-75 mph', 'custom_50_75_mph'),
+  sixtyToOneHundredMph('60-100 mph', 'custom_60_100_mph'),
+  sixtyToOneThirtyMph('60-130 mph', '60-130mph'),
+  zeroToOneThirtyMph('0-130 mph', '0-130mph'),
+  zeroToOneHundredKmh('0-100 km/h', '0-100kmh'),
+  zeroToOneSixtyKmh('0-160 km/h', 'custom_0_160_kmh'),
+  eightyToOneTwentyKmh('80-120 km/h', 'custom_80_120_kmh'),
+  oneHundredToOneSixtyKmh('100-160 km/h', 'custom_100_160_kmh'),
+  oneHundredToTwoHundredKmh('100-200 km/h', '100-200kmh'),
+  zeroToTwoHundredKmh('0-200 km/h', '0-200kmh'),
+  custom('Custom Range...', 'custom');
 
   final String label;
-  const RaceIntervalTarget(this.label);
+  final String id;
+  const RaceIntervalTarget(this.label, this.id);
 }
 
 class DragyProvider extends ChangeNotifier {
@@ -88,8 +89,8 @@ class DragyProvider extends ChangeNotifier {
   bool _tempInCelsius = true;
   bool get tempInCelsius => _tempInCelsius;
 
-  bool _showRollout = false;
-  bool get showRollout => _showRollout;
+  bool _useNhraRules = true;
+  bool get useNhraRules => _useNhraRules;
 
   // --- Arming & Run Modes ---
   bool _isArmed = false;
@@ -313,7 +314,7 @@ class DragyProvider extends ChangeNotifier {
       baseTime += clampedDelta;
     }
 
-    if (_showRollout && (_runMode == 'drag' || targetStartSpeed == 0.0)) {
+    if (_useNhraRules && (_runMode == 'drag' || targetStartSpeed == 0.0)) {
       if (_metrics.rolloutTime1ft != null) {
         return max(0.0, baseTime - _metrics.rolloutTime1ft!);
       } else {
@@ -691,9 +692,9 @@ class DragyProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void setShowRollout(bool value) {
-    if (_showRollout != value) {
-      _showRollout = value;
+  void setUseNhraRules(bool value) {
+    if (_useNhraRules != value) {
+      _useNhraRules = value;
       _saveSettings();
       notifyListeners();
     }
@@ -750,7 +751,7 @@ class DragyProvider extends ChangeNotifier {
     final data = await _settingsService.load();
     _isMetric = data['isMetric'] as bool? ?? false;
     _tempInCelsius = data['tempInCelsius'] as bool? ?? true;
-    _showRollout = data['showRollout'] as bool? ?? false;
+    _useNhraRules = data['useNhraRules'] as bool? ?? true;
     _runMode = data['runMode'] as String? ?? 'drag';
 
     final dragTargetName = data['activeDragTarget'] as String?;
@@ -777,7 +778,7 @@ class DragyProvider extends ChangeNotifier {
     await _settingsService.save({
       'isMetric': _isMetric,
       'tempInCelsius': _tempInCelsius,
-      'showRollout': _showRollout,
+      'useNhraRules': _useNhraRules,
       'runMode': _runMode,
       'activeDragTarget': _activeDragTarget.name,
       'activeIntervalTarget': _activeIntervalTarget.name,
@@ -842,3 +843,4 @@ class DragyProvider extends ChangeNotifier {
     super.dispose();
   }
 }
+

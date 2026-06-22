@@ -55,102 +55,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
     } else {
       double? completedTime;
       if (dragy.runMode == 'interval') {
-        switch (dragy.activeIntervalTarget) {
-          case RaceIntervalTarget.sixtyToOneThirtyMph:
-            completedTime = metrics.time60to130mph;
-            break;
-          case RaceIntervalTarget.oneHundredToTwoHundredKmh:
-            completedTime = metrics.time100to200kmh;
-            break;
-          case RaceIntervalTarget.zeroToSixtyMph:
-            completedTime = metrics.time0to60mph;
-            break;
-          case RaceIntervalTarget.zeroToOneHundredKmh:
-            completedTime = metrics.time0to100kmh;
-            break;
-          case RaceIntervalTarget.zeroToTwoHundredKmh:
-            completedTime = metrics.time0to200kmh;
-            break;
-          case RaceIntervalTarget.zeroToOneThirtyMph:
-            completedTime = metrics.time0to130mph;
-            break;
-          case RaceIntervalTarget.zeroToOneSixtyKmh:
-            completedTime = getCompletedTimeForCategory(
-              metrics,
-              'custom_0_160_kmh',
-            );
-            break;
-          case RaceIntervalTarget.zeroToOneHundredMph:
-            completedTime = getCompletedTimeForCategory(
-              metrics,
-              'custom_0_100_mph',
-            );
-            break;
-          case RaceIntervalTarget.fiftyToSeventyFiveMph:
-            completedTime = getCompletedTimeForCategory(
-              metrics,
-              'custom_50_75_mph',
-            );
-            break;
-          case RaceIntervalTarget.eightyToOneTwentyKmh:
-            completedTime = getCompletedTimeForCategory(
-              metrics,
-              'custom_80_120_kmh',
-            );
-            break;
-          case RaceIntervalTarget.oneHundredToOneSixtyKmh:
-            completedTime = getCompletedTimeForCategory(
-              metrics,
-              'custom_100_160_kmh',
-            );
-            break;
-          case RaceIntervalTarget.sixtyToOneHundredMph:
-            completedTime = getCompletedTimeForCategory(
-              metrics,
-              'custom_60_100_mph',
-            );
-            break;
-          case RaceIntervalTarget.custom:
-            final unit = isMetric ? 'kmh' : 'mph';
-            completedTime = getCompletedTimeForCategory(
-              metrics,
-              'custom_${dragy.customIntervalStartSpeed.round()}_${dragy.customIntervalEndSpeed.round()}_$unit',
-            );
-            break;
+        String intervalId = dragy.activeIntervalTarget.id;
+        if (dragy.activeIntervalTarget == RaceIntervalTarget.custom) {
+          final unit = isMetric ? 'kmh' : 'mph';
+          intervalId = 'custom_${dragy.customIntervalStartSpeed.round()}_${dragy.customIntervalEndSpeed.round()}_$unit';
         }
+        completedTime = getCompletedTimeForCategory(metrics, intervalId, useNhraRules: dragy.useNhraRules);
       } else {
-        if (metrics.time12Mile != null) {
-          completedTime = metrics.time12Mile;
-        } else if (metrics.time14Mile != null) {
-          completedTime = metrics.time14Mile;
-        } else if (metrics.time1000ft != null) {
-          completedTime = metrics.time1000ft;
-        } else if (metrics.time18Mile != null) {
-          completedTime = metrics.time18Mile;
-        } else if (metrics.time330ft != null) {
-          completedTime = metrics.time330ft;
-        } else if (metrics.time0to60mph != null ||
-            metrics.time0to100kmh != null) {
-          if (isMetric && metrics.time0to100kmh != null) {
-            completedTime = metrics.time0to100kmh;
-          } else if (!isMetric && metrics.time0to60mph != null) {
-            completedTime = metrics.time0to60mph;
-          } else if (metrics.time0to100kmh != null) {
-            completedTime = metrics.time0to100kmh;
-          } else if (metrics.time0to60mph != null) {
-            completedTime = metrics.time0to60mph;
+        final completed = getCompletedTests(metrics, useNhraRules: dragy.useNhraRules);
+        double maxTime = -1.0;
+        for (final test in completed) {
+          if (test.speedUnit != null) {
+            final isTestMetric = test.speedUnit == SpeedUnit.kmh;
+            if (isTestMetric != isMetric && test.id.startsWith('0-')) {
+              continue;
+            }
           }
-        } else if (metrics.time60ft != null) {
-          completedTime = metrics.time60ft;
+          final t = getCompletedTimeForCategory(metrics, test.id, useNhraRules: dragy.useNhraRules);
+          if (t != null && t > maxTime) {
+            maxTime = t;
+            completedTime = t;
+          }
         }
       }
 
       if (completedTime != null) {
-        if (dragy.showRollout &&
-            metrics.rolloutTime1ft != null &&
-            (dragy.runMode == 'drag' || dragy.targetStartSpeed == 0.0)) {
-          completedTime = (completedTime - metrics.rolloutTime1ft!).clamp(0.0, double.infinity);
-        }
         mainTime = "${completedTime.toStringAsFixed(2)}s";
         fontSize = 80.0;
         textColor = Colors.white;
@@ -200,7 +129,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final List<_ReachedMilestone> reachedMilestones = [];
 
     if (dragy.runMode == 'drag') {
-      final completed = getCompletedTests(metrics, showRollout: dragy.showRollout);
+      final completed = getCompletedTests(metrics, useNhraRules: dragy.useNhraRules);
       for (final test in completed) {
         if (test.speedUnit != null) {
           final isTestMetric = test.speedUnit == SpeedUnit.kmh;
@@ -212,18 +141,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
         reachedMilestones.add(
           _ReachedMilestone(
             label: test.displayName,
-            time: getCompletedTimeForCategory(metrics, test.id, showRollout: dragy.showRollout)!,
-            sortTime: getCompletedTimeForCategory(metrics, test.id, showRollout: dragy.showRollout)!,
-            trapSpeed: getTrapSpeedForCategory(metrics, test.id, showRollout: dragy.showRollout),
+            time: getCompletedTimeForCategory(metrics, test.id, useNhraRules: dragy.useNhraRules)!,
+            sortTime: getCompletedTimeForCategory(metrics, test.id, useNhraRules: dragy.useNhraRules)!,
+            trapSpeed: getTrapSpeedForCategory(metrics, test.id, useNhraRules: dragy.useNhraRules),
           ),
         );
       }
     } else {
-      final completed = getCompletedTests(metrics, showRollout: dragy.showRollout);
+      final completed = getCompletedTests(metrics, useNhraRules: dragy.useNhraRules);
       if (completed.isNotEmpty) {
         final test = completed.first;
         final time =
-            getCompletedTimeForCategory(metrics, test.id, showRollout: dragy.showRollout) ??
+            getCompletedTimeForCategory(metrics, test.id, useNhraRules: dragy.useNhraRules) ??
             metrics.elapsedTime;
         reachedMilestones.add(
           _ReachedMilestone(
@@ -1351,3 +1280,4 @@ void _showCustomRangeDialog(BuildContext context, DragyProvider dragy) {
     ),
   );
 }
+

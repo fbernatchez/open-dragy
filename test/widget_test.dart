@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
@@ -207,7 +207,7 @@ class MockDragyProvider extends ChangeNotifier implements DragyProvider {
   bool tempInCelsius = true;
 
   @override
-  bool showRollout = false;
+  bool useNhraRules = false;
 
   @override
   void setMetric(bool isMetric) {
@@ -222,8 +222,8 @@ class MockDragyProvider extends ChangeNotifier implements DragyProvider {
   }
 
   @override
-  void setShowRollout(bool value) {
-    showRollout = value;
+  void setUseNhraRules(bool value) {
+    useNhraRules = value;
     notifyListeners();
   }
 
@@ -817,3 +817,4 @@ void main() {
     expect(savedMap['customIntervalEndSpeed'] is int, true);
   });
 }
+

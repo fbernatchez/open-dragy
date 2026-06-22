@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../providers/dragy_provider.dart';
@@ -40,14 +40,14 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
     return '$month $day, $year at $hour:$minute $ampm';
   }
 
-  List<HistoryCategory> _getCategories(List<SavedRun> runs, bool isMetric, bool showRollout) {
+  List<HistoryCategory> _getCategories(List<SavedRun> runs, bool isMetric, bool useNhraRules) {
     final Set<String> seenIds = {};
     final List<HistoryCategory> categories = [
       const HistoryCategory(id: 'all', displayName: 'All Runs', isOfficial: true)
     ];
 
     for (final run in runs) {
-      final completed = getCompletedTests(run.metrics, showRollout: showRollout);
+      final completed = getCompletedTests(run.metrics, useNhraRules: useNhraRules);
       for (final test in completed) {
         if (test.speedUnit != null) {
           final isTestMetric = test.speedUnit == SpeedUnit.kmh;
@@ -159,11 +159,11 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
     return [allCategory, ...others];
   }
 
-  double? _getPB(String categoryId, List<SavedRun> runs, bool showRollout) {
+  double? _getPB(String categoryId, List<SavedRun> runs, bool useNhraRules) {
     if (categoryId == 'all') return null;
     double? best;
     for (final run in runs) {
-      final val = getCompletedTimeForCategory(run.metrics, categoryId, showRollout: showRollout);
+      final val = getCompletedTimeForCategory(run.metrics, categoryId, useNhraRules: useNhraRules);
       if (val != null) {
         if (best == null || val < best) {
           best = val;
@@ -176,11 +176,11 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
   List<SavedRun> _getFilteredRuns(
     String categoryId,
     List<SavedRun> runs,
-    bool showRollout,
+    bool useNhraRules,
   ) {
     if (categoryId == 'all') return runs;
     return runs.where((run) {
-      final time = getCompletedTimeForCategory(run.metrics, categoryId, showRollout: showRollout);
+      final time = getCompletedTimeForCategory(run.metrics, categoryId, useNhraRules: useNhraRules);
       return time != null;
     }).toList();
   }
@@ -207,13 +207,13 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
     final dragy = Provider.of<DragyProvider>(context);
     final runs = dragy.savedRuns;
     final isMetric = dragy.isMetric;
-    final showRollout = dragy.showRollout;
+    final useNhraRules = dragy.useNhraRules;
 
-    final categories = _getCategories(runs, isMetric, showRollout);
+    final categories = _getCategories(runs, isMetric, useNhraRules);
     if (!categories.any((c) => c.id == _selectedCategory)) {
       _selectedCategory = 'all';
     }
-    final filteredRuns = _getFilteredRuns(_selectedCategory, runs, showRollout);
+    final filteredRuns = _getFilteredRuns(_selectedCategory, runs, useNhraRules);
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -269,7 +269,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                       final category = categories[idx];
                       final isSelected = _selectedCategory == category.id;
                       final label = category.displayName;
-                      final pb = _getPB(category.id, runs, showRollout);
+                      final pb = _getPB(category.id, runs, useNhraRules);
 
                       String pbText = '-.--s';
                       if (category.id == 'all') {
@@ -457,27 +457,27 @@ class RunHistoryCard extends StatelessWidget {
     String primaryLabel = "0-60";
     String primaryTime = "-.--s";
 
-    final showRolloutSetting = dragy.showRollout;
+    final useNhraRulesSetting = dragy.useNhraRules;
 
     if (selectedCategory != 'all') {
       primaryLabel = _RunHistoryScreenState.getCategoryDisplayName(selectedCategory);
-      final displayTime = getCompletedTimeForCategory(metrics, selectedCategory, showRollout: showRolloutSetting);
+      final displayTime = getCompletedTimeForCategory(metrics, selectedCategory, useNhraRules: useNhraRulesSetting);
       if (displayTime != null) {
         primaryTime = "${displayTime.toStringAsFixed(2)}s";
       }
     } else {
-      final t12 = getCompletedTimeForCategory(metrics, '1/2mile', showRollout: showRolloutSetting);
-      final t14 = getCompletedTimeForCategory(metrics, '1/4mile', showRollout: showRolloutSetting);
-      final t0_200kmh = getCompletedTimeForCategory(metrics, '0-200kmh', showRollout: showRolloutSetting);
-      final t0_130mph = getCompletedTimeForCategory(metrics, '0-130mph', showRollout: showRolloutSetting);
-      final t100_200 = getCompletedTimeForCategory(metrics, '100-200kmh', showRollout: showRolloutSetting);
-      final t60_130 = getCompletedTimeForCategory(metrics, '60-130mph', showRollout: showRolloutSetting);
-      final t1000 = getCompletedTimeForCategory(metrics, '1000ft', showRollout: showRolloutSetting);
-      final t18 = getCompletedTimeForCategory(metrics, '1/8mile', showRollout: showRolloutSetting);
-      final t0_100kmh = getCompletedTimeForCategory(metrics, '0-100kmh', showRollout: showRolloutSetting);
-      final t0_60mph = getCompletedTimeForCategory(metrics, '0-60mph', showRollout: showRolloutSetting);
-      final t330 = getCompletedTimeForCategory(metrics, '330ft', showRollout: showRolloutSetting);
-      final t60 = getCompletedTimeForCategory(metrics, '60ft', showRollout: showRolloutSetting);
+      final t12 = getCompletedTimeForCategory(metrics, '1/2mile', useNhraRules: useNhraRulesSetting);
+      final t14 = getCompletedTimeForCategory(metrics, '1/4mile', useNhraRules: useNhraRulesSetting);
+      final t0_200kmh = getCompletedTimeForCategory(metrics, '0-200kmh', useNhraRules: useNhraRulesSetting);
+      final t0_130mph = getCompletedTimeForCategory(metrics, '0-130mph', useNhraRules: useNhraRulesSetting);
+      final t100_200 = getCompletedTimeForCategory(metrics, '100-200kmh', useNhraRules: useNhraRulesSetting);
+      final t60_130 = getCompletedTimeForCategory(metrics, '60-130mph', useNhraRules: useNhraRulesSetting);
+      final t1000 = getCompletedTimeForCategory(metrics, '1000ft', useNhraRules: useNhraRulesSetting);
+      final t18 = getCompletedTimeForCategory(metrics, '1/8mile', useNhraRules: useNhraRulesSetting);
+      final t0_100kmh = getCompletedTimeForCategory(metrics, '0-100kmh', useNhraRules: useNhraRulesSetting);
+      final t0_60mph = getCompletedTimeForCategory(metrics, '0-60mph', useNhraRules: useNhraRulesSetting);
+      final t330 = getCompletedTimeForCategory(metrics, '330ft', useNhraRules: useNhraRulesSetting);
+      final t60 = getCompletedTimeForCategory(metrics, '60ft', useNhraRules: useNhraRulesSetting);
 
       if (t12 != null) {
         primaryLabel = "1/2 Mile";
@@ -535,7 +535,7 @@ class RunHistoryCard extends StatelessWidget {
               test.endSpeed != null &&
               (metrics.targetEndSpeed! - test.endSpeed!).abs() < 0.1 &&
               metrics.targetSpeedUnit == test.speedUnit?.name) {
-            compTime = getCompletedTimeForCategory(metrics, test.id, showRollout: showRolloutSetting);
+            compTime = getCompletedTimeForCategory(metrics, test.id, useNhraRules: useNhraRulesSetting);
             isOfficial = true;
             break;
           }
@@ -549,7 +549,7 @@ class RunHistoryCard extends StatelessWidget {
               ? (metrics.targetEndSpeed! * 0.621371).round()
               : metrics.targetEndSpeed!.round();
           final customId = 'custom_${start}_${end}_$unit';
-          compTime = getCompletedTimeForCategory(metrics, customId, showRollout: showRolloutSetting);
+          compTime = getCompletedTimeForCategory(metrics, customId, useNhraRules: useNhraRulesSetting);
         }
         primaryTime = compTime != null ? "${compTime.toStringAsFixed(2)}s" : "-.--s";
       } else if (isMetric && t0_100kmh != null) {
@@ -787,3 +787,4 @@ class RunHistoryCard extends StatelessWidget {
     );
   }
 }
+
