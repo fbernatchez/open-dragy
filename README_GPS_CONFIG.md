@@ -56,9 +56,3 @@ Disable bulky and unnecessary NMEA sentences to free up the ESP32 UART buffer an
 
 **Action:** For each key, enter the value, check *RAM, BBR, Flash*, and click **Set**. Once all keys have been updated, click the main **Send** button in the bottom right corner.
 
----
-
-## 🔍 Stream Validation (Debug Console)
-Once the GPS module is configured and restarted, the application's NMEA console should display a clean stream alternating exclusively between two types of frames:
-* `$GNGGA,........`
-* `$GNRMC,........`

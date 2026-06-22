@@ -105,7 +105,12 @@ The companion application is written in Flutter and is located in the root direc
 * [lib/services/physics_engine.dart](file:///d:/Projets/open_dragy/lib/services/physics_engine.dart): Advanced physics computations (trapezoidal integration, sensor fusion filters, interpolation logic).
 * [lib/services/ble_service.dart](file:///d:/Projets/open_dragy/lib/services/ble_service.dart): BLE scanner and stream listener for UART & IMU data.
 * [lib/providers/dragy_provider.dart](file:///d:/Projets/open_dragy/lib/providers/dragy_provider.dart): Core state provider coordinating Bluetooth events, GPS/IMU data processing, runs logic, settings, and database saves.
-* [lib/services/history_service.dart](file:///d:/Projets/open_dragy/lib/services/history_service.dart): Manages local saving and retrieval of historical run logs in JSON format.
+* [lib/services/history_service.dart](file:///d:/Projets/open_dragy/lib/services/history_service.dart): Manages local saving and retrieval of historical run logs.
 * [lib/services/weather_service.dart](file:///d:/Projets/open_dragy/lib/services/weather_service.dart): Integration with Open-Meteo API to log run-time environment data.
+* [lib/services/garage_service.dart](file:///d:/Projets/open_dragy/lib/services/garage_service.dart): Manages local storage of vehicle profiles (cars, bikes) for fleet management.
+* [lib/services/settings_service.dart](file:///d:/Projets/open_dragy/lib/services/settings_service.dart): Handles user preferences such as unit toggles (Metric/Imperial) and app settings.
 * [lib/screens/dashboard_screen.dart](file:///d:/Projets/open_dragy/lib/screens/dashboard_screen.dart): Live telemetry display, speedometer, Bluetooth controls, and active timer stats.
+* [lib/screens/run_history_screen.dart](file:///d:/Projets/open_dragy/lib/screens/run_history_screen.dart): Displays the history of all recorded runs and allows filtering or selecting runs to view details.
 * [lib/screens/run_detail_screen.dart](file:///d:/Projets/open_dragy/lib/screens/run_detail_screen.dart): Post-run analysis, graphs, G-force curves, and slope validations.
+* [lib/screens/garage_screen.dart](file:///d:/Projets/open_dragy/lib/screens/garage_screen.dart): Interface for adding, editing, and selecting vehicles.
+* [lib/screens/settings_screen.dart](file:///d:/Projets/open_dragy/lib/screens/settings_screen.dart): UI for configuring app preferences.
