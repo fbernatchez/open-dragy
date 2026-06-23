@@ -1212,8 +1212,22 @@ class TelemetryChartPainter extends CustomPainter {
     final double maxG = 1.5;
 
     // Bounds for Height/Elevation (Y axis 3)
-    final double minAlt = isMetric ? -15.0 : -50.0;
-    final double maxAlt = isMetric ? 15.0 : 50.0;
+    double minAlt = isMetric ? -15.0 : -50.0;
+    double maxAlt = isMetric ? 15.0 : 50.0;
+    if (elevations.isNotEmpty) {
+      double dataMin = elevations.reduce(min);
+      double dataMax = elevations.reduce(max);
+      double altRange = dataMax - dataMin;
+      final double minRange = isMetric ? 30.0 : 100.0;
+      if (altRange < minRange) {
+        final double center = (dataMax + dataMin) / 2;
+        minAlt = center - (minRange / 2);
+        maxAlt = center + (minRange / 2);
+      } else {
+        minAlt = dataMin - (altRange * 0.1);
+        maxAlt = dataMax + (altRange * 0.1);
+      }
+    }
 
     // Drawing helper functions to map values to coordinates
     double getX(double t) {
