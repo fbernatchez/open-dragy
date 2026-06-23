@@ -1,4 +1,4 @@
-﻿import 'race_metrics.dart';
+import 'race_metrics.dart';
 
 enum DistanceUnit {
   feet,
@@ -260,7 +260,10 @@ double? _findSpeedCrossingTime(
     final curr = history[i];
     if (prev.elapsedTime < startTimeOffset) continue;
 
-    if (prev.speedKmh <= targetSpeedKmh && curr.speedKmh > targetSpeedKmh) {
+    if (prev.speedKmh <= targetSpeedKmh && curr.speedKmh >= targetSpeedKmh) {
+      if (prev.speedKmh == targetSpeedKmh) {
+        return prev.elapsedTime;
+      }
       final speedDiff = curr.speedKmh - prev.speedKmh;
       double fraction = 0.0;
       if (speedDiff > 0) {
