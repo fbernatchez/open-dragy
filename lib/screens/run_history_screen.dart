@@ -451,11 +451,6 @@ class RunHistoryCard extends StatelessWidget {
       double maxTime = -1.0;
 
       for (final test in completed) {
-        if (test.speedUnit != null) {
-          final isTestMetric = test.speedUnit == SpeedUnit.kmh;
-          if (isTestMetric != isMetric) continue;
-        }
-        
         final t = getCompletedTimeForCategory(metrics, test.id, useNhraRules: useNhraRulesSetting);
         if (t != null && t > maxTime) {
           maxTime = t;
