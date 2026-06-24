@@ -1,6 +1,6 @@
 # 🏁 OpenDragy
 
-OpenDragy is a high-precision, open-source vehicle performance timer (similar to Dragy) that measures acceleration, speed intervals, and distances. It combines custom **ESP32-S3 firmware** reading a 10Hz GPS and a BMI160 accelerometer with a sleek, dark-themed **Flutter companion app** over Bluetooth Low Energy (BLE).
+OpenDragy is a high-precision, open-source vehicle performance timer that measures acceleration, speed intervals, and distances. It combines custom **ESP32-S3 firmware** reading a 10Hz GPS and a BMI160 accelerometer with a sleek, dark-themed **Flutter companion app** over Bluetooth Low Energy (BLE).
 
 ---
 
@@ -36,6 +36,8 @@ OpenDragy is a high-precision, open-source vehicle performance timer (similar to
 ## 🛠️ Hardware Setup
 
 The hardware unit runs on an **ESP32-S3** microcontroller that interfaces with a high-speed GPS module and a 6-axis IMU sensor.
+
+For a 3D-printable case for the OpenDragy hardware, check out the [OpenDragy Printables page](https://www.printables.com/model/1762658-opendragy-open-source-high-precision-10hz-gps-perf).
 
 ### 📋 Bill of Materials (BOM)
 1. **ESP32-S3 Mini Development Board** (or similar ESP32-S3 board)
