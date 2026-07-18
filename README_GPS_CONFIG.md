@@ -77,3 +77,12 @@ Disable bulky and unnecessary NMEA sentences to free up the ESP32-S3 UART buffer
 
 **Action:** For each key, enter the value, check *RAM, BBR, Flash*, and click **Set**. Once all keys have been updated, click the main **Send** button in the bottom right corner.
 
+---
+
+## 4. Dynamic Platform Model
+Configure the dynamic platform model to optimize the positioning engine for high acceleration environments.
+
+* **Section:** `Advanced configuration` -> `CFG-NAVSPG-`
+* **Key:** `CFG-NAVSPG-DYNMODEL`
+* **Value:** `4 - AUTOMOT`
+* **Action:** Check *RAM, BBR, Flash* -> Click **Set** -> Click **Send**.
