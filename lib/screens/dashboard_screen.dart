@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../providers/dragy_provider.dart';
 import '../models/race_target.dart';
+import '../models/race_metrics.dart';
 import '../widgets/device_selector_modal.dart';
 import 'run_history_screen.dart';
 import 'garage_screen.dart';
@@ -17,6 +18,15 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
+  final ScrollController _scrollController = ScrollController();
+  int _previousMilestoneCount = 0;
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
   void _showDeviceSelector(BuildContext context) {
     showModalBottomSheet(
       context: context,
@@ -32,9 +42,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final dragy = Provider.of<DragyProvider>(context);
-    final metrics = dragy.metrics;
-    final isConnected = dragy.isConnected;
     final isMetric = dragy.isMetric;
+    final isConnected = dragy.isConnected;
+    final metrics = dragy.metrics;
 
     // Determine the main highlighted time or status message
     String mainTime = "0.00s";
@@ -183,6 +193,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
 
     reachedMilestones.sort((a, b) => a.sortTime.compareTo(b.sortTime));
+
+    final currentMilestoneCount = reachedMilestones.length;
+    if (currentMilestoneCount > _previousMilestoneCount) {
+      _previousMilestoneCount = currentMilestoneCount;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scrollController.hasClients) {
+          _scrollController.animateTo(
+            _scrollController.position.maxScrollExtent,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          );
+        }
+      });
+    } else if (currentMilestoneCount < _previousMilestoneCount || (!metrics.isRunning && metrics.history.isEmpty)) {
+      _previousMilestoneCount = currentMilestoneCount;
+    }
 
     final displaySpeed = isMetric
         ? metrics.speedKmh
@@ -469,15 +495,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 // Top flexible area that perfectly centers the text block
                 // between the top of the screen and the bottom widgets
                 Expanded(
-                  child: Center(
-                    child: SingleChildScrollView(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const SizedBox(height: 12),
-                          // Dragy Logo Text
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.max,
+                      children: [
+                        const SizedBox(height: 72), // Clearance for top icons
+                        const SizedBox(height: 12),
+                        // Dragy Logo Text
                           Text(
                             'OpenDragy',
                             style: GoogleFonts.comfortaa(
@@ -856,32 +882,37 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               ],
                             ),
                           ],
-                          const SizedBox(height: 24),
-                          const Divider(color: Colors.white24, height: 1),
-                          const SizedBox(height: 16),
-                          Column(
-                            children: reachedMilestones.map((m) {
-                              return Padding(
-                                padding: const EdgeInsets.only(bottom: 12.0),
-                                child: _ResultRow(
-                                  label: m.label,
-                                  time: m.time,
-                                  trapSpeed: m.trapSpeed != null
-                                      ? (isMetric
-                                            ? m.trapSpeed!
-                                            : m.trapSpeed! * 0.621371)
-                                      : null,
-                                  isMetric: isMetric,
+                          if (reachedMilestones.isNotEmpty) ...[
+                            const SizedBox(height: 24),
+                            const Divider(color: Colors.white24, height: 1),
+                            const SizedBox(height: 16),
+                            Flexible(
+                              child: SingleChildScrollView(
+                                controller: _scrollController,
+                                child: Column(
+                                  children: reachedMilestones.map((m) {
+                                    return Padding(
+                                      padding: const EdgeInsets.only(bottom: 12.0),
+                                      child: _ResultRow(
+                                        label: m.label,
+                                        time: m.time,
+                                        trapSpeed: m.trapSpeed != null
+                                            ? (isMetric
+                                                  ? m.trapSpeed!
+                                                  : m.trapSpeed! * 0.621371)
+                                            : null,
+                                        isMetric: isMetric,
+                                      ),
+                                    );
+                                  }).toList(),
                                 ),
-                              );
-                            }).toList(),
-                          ),
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),
-                  ),
                 ),
-              ),
 
                 // Bottom Elements
                 if (isConnected)
