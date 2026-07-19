@@ -1142,7 +1142,7 @@ class _ResultRow extends StatelessWidget {
         Text(
           isFinished
               ? (trapSpeed != null
-                    ? '${time!.toStringAsFixed(2)}s@${trapSpeed!.toStringAsFixed(1)}'
+                    ? '${time!.toStringAsFixed(2)}s@${trapSpeed!.toStringAsFixed(2)}'
                     : '${time!.toStringAsFixed(2)}s')
               : '-.--s',
           style: GoogleFonts.robotoMono(

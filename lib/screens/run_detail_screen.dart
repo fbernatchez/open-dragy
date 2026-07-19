@@ -513,9 +513,9 @@ class _DetailSlipRow extends StatelessWidget {
     if (trapSpeed != null) {
       if (!isMetric) {
         final speedMph = trapSpeed! * 0.621371;
-        speedDisplay = '${time!.toStringAsFixed(2)}s@${speedMph.toStringAsFixed(1)} mph';
+        speedDisplay = '${time!.toStringAsFixed(2)}s@${speedMph.toStringAsFixed(2)} mph';
       } else {
-        speedDisplay = '${time!.toStringAsFixed(2)}s@${trapSpeed!.toStringAsFixed(1)} km/h';
+        speedDisplay = '${time!.toStringAsFixed(2)}s@${trapSpeed!.toStringAsFixed(2)} km/h';
       }
     } else {
       speedDisplay = '${time!.toStringAsFixed(2)}s';
@@ -1017,7 +1017,7 @@ class _TelemetryChartState extends State<TelemetryChart> {
               ),
               _HudStat(
                 label: 'Speed',
-                value: speeds[idx].toStringAsFixed(1),
+                value: speeds[idx].toStringAsFixed(2),
                 valueColor: const Color(0xFF29B6F6), // Cyan
               ),
               _HudStat(
@@ -1061,7 +1061,7 @@ class _TelemetryChartState extends State<TelemetryChart> {
           children: [
             _HudStat(
               label: 'Max Speed',
-              value: maxSpeed.toStringAsFixed(1),
+              value: maxSpeed.toStringAsFixed(2),
               valueColor: const Color(0xFF29B6F6),
             ),
             _HudStat(
