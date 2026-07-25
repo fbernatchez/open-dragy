@@ -357,6 +357,43 @@ class OpenDragyStorage {
     } catch (_) {}
   }
 
+  /// Raw CSV under `runs/{runId}/` (JSON stays flat in `runs/{runId}.json`).
+  Future<void> pushSavedRunRawCsv({
+    required String runId,
+    required String gpsCsv,
+    required String imuCsv,
+  }) async {
+    const gpsName = 'gps.csv';
+    const imuName = 'imu.csv';
+
+    final localDir = await localRunsDirectory();
+    final rawDir = Directory('${localDir.path}/$runId');
+    if (!await rawDir.exists()) {
+      await rawDir.create(recursive: true);
+    }
+    await File('${rawDir.path}/$gpsName').writeAsString(gpsCsv);
+    await File('${rawDir.path}/$imuName').writeAsString(imuCsv);
+
+    if (_mode != 'saf') return;
+    final runs = await _subdir(_runsSubdir);
+    if (runs == null) return;
+    try {
+      var rawFolder = await runs.find(runId);
+      if (rawFolder == null || !rawFolder.isDirectory) {
+        rawFolder = await runs.createDirectory(runId);
+      }
+      if (rawFolder == null) return;
+      for (final entry in [
+        (gpsName, gpsCsv),
+        (imuName, imuCsv),
+      ]) {
+        final existing = await rawFolder.find(entry.$1);
+        if (existing != null) await existing.delete();
+        await rawFolder.createFile(name: entry.$1, content: entry.$2);
+      }
+    } catch (_) {}
+  }
+
   Future<List<Map<String, dynamic>>> pullSavedRuns() async {
     if (_mode == 'saf') {
       final runs = await _subdir(_runsSubdir);

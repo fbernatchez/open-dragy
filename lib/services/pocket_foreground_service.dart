@@ -51,7 +51,8 @@ class PocketForegroundTaskHandler extends TaskHandler {
 class PocketForegroundService {
   static bool _initialized = false;
 
-  static const _channelId = 'open_dragy_pocket';
+  // New channel id when importance changes — Android caches the old HIGH channel.
+  static const _channelId = 'open_dragy_pocket_quiet';
   static const _serviceId = 4243;
 
   static void ensureInitialized() {
@@ -65,12 +66,13 @@ class PocketForegroundService {
         channelDescription:
             'Keeps pocket timing or logger recording active with the screen off.',
         onlyAlertOnce: true,
-        showWhen: true,
+        showWhen: false,
         playSound: false,
         enableVibration: false,
         visibility: NotificationVisibility.VISIBILITY_PUBLIC,
-        channelImportance: NotificationChannelImportance.HIGH,
-        priority: NotificationPriority.HIGH,
+        // LOW = stays collapsed in the shade (no heads-up banner on start).
+        channelImportance: NotificationChannelImportance.LOW,
+        priority: NotificationPriority.LOW,
       ),
       iosNotificationOptions: const IOSNotificationOptions(
         showNotification: false,

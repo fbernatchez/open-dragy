@@ -1,4 +1,5 @@
 import 'race_metrics.dart';
+import 'raw_run_log.dart';
 
 class SavedRun {
   final String id;
@@ -10,6 +11,15 @@ class SavedRun {
   final String? vehicleId;
   final String? vehicleName; // snapshot of display name at run time
 
+  /// Raw GPS samples around the run (pre-roll + run). Optional for older saves.
+  final List<RawGpsSample>? rawGps;
+
+  /// Raw IMU samples (g). Optional for older saves.
+  final List<RawImuSample>? rawImu;
+
+  /// Elapsed ms (in raw capture timeline) when the timed run started.
+  final int? rawRunStartElapsedMs;
+
   SavedRun({
     required this.id,
     required this.dateTime,
@@ -19,7 +29,14 @@ class SavedRun {
     this.humidity,
     this.vehicleId,
     this.vehicleName,
+    this.rawGps,
+    this.rawImu,
+    this.rawRunStartElapsedMs,
   });
+
+  bool get hasRawLog =>
+      (rawGps != null && rawGps!.isNotEmpty) ||
+      (rawImu != null && rawImu!.isNotEmpty);
 
   SavedRun copyWith({
     String? id,
@@ -30,6 +47,9 @@ class SavedRun {
     double? humidity,
     String? vehicleId,
     String? vehicleName,
+    List<RawGpsSample>? rawGps,
+    List<RawImuSample>? rawImu,
+    int? rawRunStartElapsedMs,
   }) {
     return SavedRun(
       id: id ?? this.id,
@@ -40,6 +60,9 @@ class SavedRun {
       humidity: humidity ?? this.humidity,
       vehicleId: vehicleId ?? this.vehicleId,
       vehicleName: vehicleName ?? this.vehicleName,
+      rawGps: rawGps ?? this.rawGps,
+      rawImu: rawImu ?? this.rawImu,
+      rawRunStartElapsedMs: rawRunStartElapsedMs ?? this.rawRunStartElapsedMs,
     );
   }
 
@@ -53,14 +76,47 @@ class SavedRun {
       'humidity': humidity,
       'vehicleId': vehicleId,
       'vehicleName': vehicleName,
+      if (rawGps != null || rawImu != null)
+        'raw': {
+          'version': 1,
+          'runStartElapsedMs': rawRunStartElapsedMs,
+          'gps': rawGps?.map((e) => e.toJson()).toList() ?? const [],
+          'imu': rawImu?.map((e) => e.toJson()).toList() ?? const [],
+        },
     };
   }
 
   factory SavedRun.fromJson(Map<String, dynamic> json) {
+    List<RawGpsSample>? rawGps;
+    List<RawImuSample>? rawImu;
+    int? rawRunStartElapsedMs;
+
+    final raw = json['raw'];
+    if (raw is Map) {
+      final map = Map<String, dynamic>.from(raw);
+      rawRunStartElapsedMs = (map['runStartElapsedMs'] as num?)?.toInt();
+      final gpsList = map['gps'];
+      if (gpsList is List) {
+        rawGps = gpsList
+            .whereType<Map>()
+            .map((e) => RawGpsSample.fromJson(Map<String, dynamic>.from(e)))
+            .toList();
+      }
+      final imuList = map['imu'];
+      if (imuList is List) {
+        rawImu = imuList
+            .whereType<Map>()
+            .map((e) => RawImuSample.fromJson(Map<String, dynamic>.from(e)))
+            .toList();
+      }
+    }
+
     return SavedRun(
       id: json['id'] as String,
       dateTime: DateTime.parse(json['dateTime'] as String),
-      metrics: RaceMetrics.fromJson(Map<String, dynamic>.from(json['metrics'] as Map)),
+      metrics: RaceMetrics.fromJson(
+        Map<String, dynamic>.from(json['metrics'] as Map),
+      ),
       notes: json['notes'] as String?,
       temperature: json['temperature'] != null
           ? (json['temperature'] as num).toDouble()
@@ -70,6 +126,9 @@ class SavedRun {
           : null,
       vehicleId: json['vehicleId'] as String?,
       vehicleName: json['vehicleName'] as String?,
+      rawGps: rawGps,
+      rawImu: rawImu,
+      rawRunStartElapsedMs: rawRunStartElapsedMs,
     );
   }
 }

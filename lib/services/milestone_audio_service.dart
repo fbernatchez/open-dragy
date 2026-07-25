@@ -1,0 +1,300 @@
+import 'dart:async';
+
+import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter_tts/flutter_tts.dart';
+
+import '../models/app_cues.dart';
+import '../models/race_metrics.dart';
+
+/// Beep / spoken cues when drag/interval milestones are first reached.
+///
+/// Selected drag/interval finish is always announced when cues are on.
+/// Extra intermediates are gated by [enabledOptionalIds] (see [OptionalAudioMilestone]).
+///
+/// Beep patterns:
+/// - 1 short  — early / speed marks
+/// - 2 short  — intermediate distance
+/// - 1 long + 2 short — selected target / finish
+class MilestoneAudioService {
+  final FlutterTts _tts = FlutterTts();
+  final AudioPlayer _beepPlayer = AudioPlayer();
+  final Set<String> _announced = {};
+  final List<_Cue> _queue = [];
+
+  bool _enabled = true;
+  AudioCueMode _mode = AudioCueMode.voice;
+  bool _ready = false;
+  bool _speaking = false;
+  bool _disposed = false;
+  bool _playedTargetFinish = false;
+
+  bool get enabled => _enabled;
+  AudioCueMode get mode => _mode;
+
+  Future<void> init() async {
+    if (_ready || _disposed) return;
+    try {
+      await _beepPlayer.setAudioContext(
+        AudioContext(
+          android: const AudioContextAndroid(
+            isSpeakerphoneOn: false,
+            stayAwake: true,
+            contentType: AndroidContentType.sonification,
+            usageType: AndroidUsageType.assistanceNavigationGuidance,
+            audioFocus: AndroidAudioFocus.gainTransientMayDuck,
+          ),
+          iOS: AudioContextIOS(
+            category: AVAudioSessionCategory.playback,
+            options: const {
+              AVAudioSessionOptions.mixWithOthers,
+              AVAudioSessionOptions.duckOthers,
+            },
+          ),
+        ),
+      );
+      await _beepPlayer.setReleaseMode(ReleaseMode.stop);
+      await _beepPlayer.setVolume(1.0);
+
+      await _tts.setLanguage('en-US');
+      await _tts.setSpeechRate(0.48);
+      await _tts.setVolume(1.0);
+      await _tts.setPitch(1.05);
+      await _tts.awaitSpeakCompletion(true);
+      await _tts.setAudioAttributesForNavigation();
+      _ready = true;
+    } catch (_) {
+      _ready = false;
+    }
+  }
+
+  void setEnabled(bool value) {
+    _enabled = value;
+    if (!value) {
+      _queue.clear();
+      unawaited(_tts.stop());
+      unawaited(_beepPlayer.stop());
+      _speaking = false;
+    }
+  }
+
+  void setMode(AudioCueMode mode) {
+    _mode = mode;
+    if (mode == AudioCueMode.beep) {
+      unawaited(_tts.stop());
+    }
+  }
+
+  void resetRun() {
+    _announced.clear();
+    _queue.clear();
+    _playedTargetFinish = false;
+    unawaited(_tts.stop());
+    unawaited(_beepPlayer.stop());
+    _speaking = false;
+  }
+
+  Future<void> playTestCue() async {
+    if (_disposed) return;
+    if (!_ready) await init();
+    if (_mode == AudioCueMode.beep) {
+      await _playPattern(_BeepPattern.finish);
+    } else {
+      await _tts.speak('Quarter mile');
+    }
+  }
+
+  void onMetricsUpdate({
+    required RaceMetrics previous,
+    required RaceMetrics next,
+    required bool isMetric,
+    /// Milestone id for the armed drag target (`14mile`, …), or null (interval).
+    String? targetMilestoneId,
+    /// [OptionalAudioMilestone.id] values the user opted into.
+    required Set<String> enabledOptionalIds,
+  }) {
+    if (!_enabled || _disposed) return;
+
+    if (!previous.isRunning && next.isRunning) {
+      resetRun();
+    }
+
+    void maybe(
+      String id,
+      double? before,
+      double? after,
+      String phrase,
+      _BeepPattern pattern,
+    ) {
+      if (before != null || after == null) return;
+      final isTarget = targetMilestoneId != null && id == targetMilestoneId;
+      if (!isTarget && !_optionalAllows(id, enabledOptionalIds)) return;
+      if (!_announced.add(id)) return;
+      _enqueue(
+        phrase,
+        pattern: isTarget ? _BeepPattern.finish : pattern,
+      );
+      if (isTarget) _playedTargetFinish = true;
+    }
+
+    maybe(
+      '60ft',
+      previous.time60ft,
+      next.time60ft,
+      'Sixty feet',
+      _BeepPattern.single,
+    );
+    maybe(
+      '330ft',
+      previous.time330ft,
+      next.time330ft,
+      'Three thirty',
+      _BeepPattern.single,
+    );
+    if (isMetric) {
+      maybe(
+        '100kmh',
+        previous.time0to100kmh,
+        next.time0to100kmh,
+        'One hundred',
+        _BeepPattern.single,
+      );
+    } else {
+      maybe(
+        '60mph',
+        previous.time0to60mph,
+        next.time0to60mph,
+        'Sixty',
+        _BeepPattern.single,
+      );
+    }
+    maybe(
+      '18mile',
+      previous.time18Mile,
+      next.time18Mile,
+      'Eighth mile',
+      _BeepPattern.double_,
+    );
+    maybe(
+      '1000ft',
+      previous.time1000ft,
+      next.time1000ft,
+      'One thousand',
+      _BeepPattern.double_,
+    );
+    maybe(
+      '14mile',
+      previous.time14Mile,
+      next.time14Mile,
+      'Quarter mile',
+      _BeepPattern.double_,
+    );
+    maybe(
+      '12mile',
+      previous.time12Mile,
+      next.time12Mile,
+      'Half mile',
+      _BeepPattern.double_,
+    );
+
+    if (previous.isRunning &&
+        !next.isRunning &&
+        next.history.isNotEmpty &&
+        _announced.add('finish')) {
+      // Always announce run end if the selected target cue did not already fire
+      // (interval mode, or drag cancelled before target).
+      if (!_playedTargetFinish) {
+        _enqueue('Finish', pattern: _BeepPattern.finish);
+      } else if (_mode == AudioCueMode.voice) {
+        _enqueue('Finish', pattern: _BeepPattern.single);
+      }
+    }
+  }
+
+  bool _optionalAllows(String milestoneId, Set<String> enabled) {
+    if (milestoneId == '100kmh' || milestoneId == '60mph') {
+      return enabled.contains(OptionalAudioMilestone.speedMark.id);
+    }
+    return enabled.contains(milestoneId);
+  }
+
+  void _enqueue(String phrase, {required _BeepPattern pattern}) {
+    _queue.add(_Cue(phrase: phrase, pattern: pattern));
+    unawaited(_drain());
+  }
+
+  Future<void> _drain() async {
+    if (_speaking || _disposed) return;
+    _speaking = true;
+    try {
+      while (_queue.isNotEmpty && !_disposed && _enabled) {
+        final cue = _queue.removeAt(0);
+        if (!_ready) {
+          await init();
+        }
+        if (_mode == AudioCueMode.beep) {
+          await _playPattern(cue.pattern);
+        } else if (_ready && _enabled && !_disposed) {
+          await _tts.speak(cue.phrase);
+        }
+      }
+    } finally {
+      _speaking = false;
+      if (_queue.isNotEmpty && _enabled && !_disposed) {
+        unawaited(_drain());
+      }
+    }
+  }
+
+  Future<void> _playPattern(_BeepPattern pattern) async {
+    switch (pattern) {
+      case _BeepPattern.single:
+        await _playTone(long: false);
+        break;
+      case _BeepPattern.double_:
+        await _playTone(long: false);
+        await Future<void>.delayed(const Duration(milliseconds: 90));
+        await _playTone(long: false);
+        break;
+      case _BeepPattern.finish:
+        await _playTone(long: true);
+        await Future<void>.delayed(const Duration(milliseconds: 120));
+        await _playTone(long: false);
+        await Future<void>.delayed(const Duration(milliseconds: 90));
+        await _playTone(long: false);
+        break;
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+  }
+
+  Future<void> _playTone({required bool long}) async {
+    if (!_enabled || _disposed) return;
+    final asset = long ? 'sounds/cue_beep_long.wav' : 'sounds/cue_beep.wav';
+    try {
+      await _beepPlayer.stop();
+      await _beepPlayer.play(AssetSource(asset));
+      await _beepPlayer.onPlayerComplete.first.timeout(
+        Duration(milliseconds: long ? 500 : 350),
+        onTimeout: () {},
+      );
+    } catch (_) {}
+  }
+
+  Future<void> dispose() async {
+    _disposed = true;
+    _queue.clear();
+    try {
+      await _tts.stop();
+    } catch (_) {}
+    try {
+      await _beepPlayer.dispose();
+    } catch (_) {}
+  }
+}
+
+enum _BeepPattern { single, double_, finish }
+
+class _Cue {
+  final String phrase;
+  final _BeepPattern pattern;
+  const _Cue({required this.phrase, required this.pattern});
+}

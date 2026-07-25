@@ -445,6 +445,19 @@ class RunDetailScreen extends StatelessWidget {
                 isMetric: dragy.isMetric,
               ),
             ],
+            if (run.hasRawLog) ...[
+              const SizedBox(height: 16),
+              Text(
+                'Raw log · ${run.rawGps?.length ?? 0} GPS · '
+                '${run.rawImu?.length ?? 0} IMU'
+                '${run.rawRunStartElapsedMs != null ? " · start @ ${run.rawRunStartElapsedMs} ms" : ""}',
+                style: GoogleFonts.robotoMono(
+                  color: Colors.white38,
+                  fontSize: 12,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
             const SizedBox(height: 24),
             _NoteBox(run: run),
           ],

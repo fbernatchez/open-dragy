@@ -14,6 +14,8 @@ import 'settings_screen.dart';
 import 'ride_logs_screen.dart';
 import 'satellite_status_screen.dart';
 import '../widgets/logger_tags_input.dart';
+import '../widgets/finish_celebration_overlay.dart';
+import '../models/app_cues.dart';
 import '../utils/logger_tags.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -679,7 +681,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               dragy.isRideRecording
                                   ? 'REC · ${dragy.rideTrackPointCount} GPS · '
                                       '${dragy.isConnected ? "live" : "reconnecting"}'
-                                  : 'Connect OpenDragy to record',
+                                  : isConnected
+                                      ? 'Set tags/notes, then Start'
+                                      : 'Connect OpenDragy, then Start',
                               style: GoogleFonts.robotoMono(
                                 color: dragy.isRideRecording
                                     ? Colors.redAccent
@@ -774,6 +778,69 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     vertical: 12,
                                   ),
                                 ),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            ElevatedButton(
+                              onPressed: () async {
+                                if (dragy.isRideRecording) {
+                                  await dragy.stopRideRecording();
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'Logger stopped — session saved.',
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                  return;
+                                }
+                                final err = await dragy.startRideRecording();
+                                if (context.mounted && err != null) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text(err)),
+                                  );
+                                }
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: dragy.isRideRecording
+                                    ? Colors.redAccent
+                                    : const Color(0xFF1565C0),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 40,
+                                  vertical: 16,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(30),
+                                ),
+                                elevation: 8,
+                                shadowColor: dragy.isRideRecording
+                                    ? Colors.redAccent.withOpacity(0.5)
+                                    : const Color(0xFF1565C0).withOpacity(0.5),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    dragy.isRideRecording
+                                        ? Icons.stop
+                                        : Icons.fiber_manual_record,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    dragy.isRideRecording
+                                        ? 'STOP REC'
+                                        : 'START REC',
+                                    style: GoogleFonts.roboto(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 1.2,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                             const SizedBox(height: 8),
@@ -1275,12 +1342,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       InkWell(
                         onTap: () async {
                           if (dragy.isLoggerMode) {
+                            final wasRecording = dragy.isRideRecording;
                             await dragy.setLoggerMode(false);
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
+                                SnackBar(
                                   content: Text(
-                                    'Logger off — session saved (GPX + CSV).',
+                                    wasRecording
+                                        ? 'Logger off — session saved (GPX + CSV).'
+                                        : 'Logger off.',
                                   ),
                                 ),
                               );
@@ -1294,7 +1364,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
                                   content: Text(
-                                    'Logger on — set tags, connect OpenDragy, then pocket.',
+                                    'Logger on — set tags/notes, then Start Rec.',
                                   ),
                                   duration: Duration(seconds: 4),
                                 ),
@@ -1444,6 +1514,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ),
           ),
+          if (dragy.finishCelebrationToken > 0 &&
+              dragy.finishCelebration != FinishCelebrationMode.off)
+            FinishCelebrationOverlay(
+              key: ValueKey(dragy.finishCelebrationToken),
+              mode: dragy.finishCelebration,
+            ),
         ],
       ),
     );

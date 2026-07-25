@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../providers/dragy_provider.dart';
+import 'audio_milestones_screen.dart';
 import 'ride_logs_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -66,6 +67,125 @@ class SettingsScreen extends StatelessWidget {
             value: !dragy.pocketMode,
             onChanged: (alwaysOn) => dragy.setPocketMode(!alwaysOn),
           ),
+          _SettingsChoice(
+            icon: Icons.flag_outlined,
+            title: 'Finish celebration',
+            subtitle: switch (dragy.finishCelebration) {
+              FinishCelebrationMode.off =>
+                'No on-screen cue when the selected target finishes',
+              FinishCelebrationMode.flash =>
+                'Flash the screen (only if display is on)',
+              FinishCelebrationMode.checkered =>
+                'Checkered flag (only if display is on)',
+            },
+            options: const [
+              _ChoiceOption('Off', FinishCelebrationMode.off),
+              _ChoiceOption('Flash', FinishCelebrationMode.flash),
+              _ChoiceOption('Flag', FinishCelebrationMode.checkered),
+            ],
+            selected: dragy.finishCelebration,
+            onSelected: (v) =>
+                dragy.setFinishCelebration(v as FinishCelebrationMode),
+          ),
+
+          _SectionHeader(label: 'Audio'),
+          _SettingsToggle(
+            icon: Icons.volume_up_outlined,
+            title: 'Audio cues',
+            subtitle: dragy.voiceCuesEnabled
+                ? (dragy.audioCueMode == AudioCueMode.voice
+                    ? 'Spoken milestones (Quarter mile, One hundred, …)'
+                    : 'Beeps only — good for helmet intercom')
+                : 'Silent — no cues during runs',
+            value: dragy.voiceCuesEnabled,
+            onChanged: (v) => dragy.setVoiceCuesEnabled(v),
+          ),
+          if (dragy.voiceCuesEnabled) ...[
+            _SettingsChoice(
+              icon: Icons.record_voice_over_outlined,
+              title: 'Cue style',
+              subtitle: dragy.audioCueMode == AudioCueMode.voice
+                  ? 'English voice via phone TTS → Bluetooth'
+                  : 'Tone beeps via media audio → Bluetooth',
+              options: const [
+                _ChoiceOption('Beep', AudioCueMode.beep),
+                _ChoiceOption('Voice', AudioCueMode.voice),
+              ],
+              selected: dragy.audioCueMode,
+              onSelected: (v) => dragy.setAudioCueMode(v as AudioCueMode),
+            ),
+            ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+              leading: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1565C0).withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.timeline,
+                  color: Color(0xFF42A5F5),
+                  size: 22,
+                ),
+              ),
+              title: Text(
+                'Milestone cues',
+                style: GoogleFonts.roboto(
+                  color: Colors.white,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              subtitle: Text(
+                dragy.optionalAudioMilestones.isEmpty
+                    ? 'Target finish only · ${dragy.activeTargetLabel}'
+                    : 'Target + ${dragy.optionalAudioMilestones.length} optional',
+                style: GoogleFonts.roboto(color: Colors.white38, fontSize: 12),
+              ),
+              trailing: const Icon(Icons.chevron_right, color: Colors.white38),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const AudioMilestonesScreen(),
+                  ),
+                );
+              },
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: OutlinedButton.icon(
+                onPressed: () async {
+                  await dragy.playTestAudioCue();
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          dragy.audioCueMode == AudioCueMode.voice
+                              ? 'Played “Quarter mile” — check headphones / intercom'
+                              : 'Played finish pattern (long + 2 short) — check intercom',
+                        ),
+                        duration: const Duration(seconds: 3),
+                      ),
+                    );
+                  }
+                },
+                icon: const Icon(Icons.hearing, color: Color(0xFF42A5F5)),
+                label: Text(
+                  'Test cue now',
+                  style: GoogleFonts.roboto(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Colors.white24),
+                  minimumSize: const Size.fromHeight(48),
+                ),
+              ),
+            ),
+          ],
 
           _SectionHeader(label: 'Data'),
           ListTile(
@@ -243,6 +363,115 @@ class _SectionHeader extends StatelessWidget {
           fontWeight: FontWeight.bold,
           letterSpacing: 1.5,
         ),
+      ),
+    );
+  }
+}
+
+class _ChoiceOption<T> {
+  final String label;
+  final T value;
+  const _ChoiceOption(this.label, this.value);
+}
+
+class _SettingsChoice extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final List<_ChoiceOption> options;
+  final Object selected;
+  final ValueChanged<Object> onSelected;
+
+  const _SettingsChoice({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.options,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF111111),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withOpacity(0.06)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1565C0).withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: const Color(0xFF42A5F5), size: 22),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: GoogleFonts.roboto(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: GoogleFonts.roboto(
+                        color: Colors.white38,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final opt in options)
+                ChoiceChip(
+                  label: Text(
+                    opt.label,
+                    style: GoogleFonts.roboto(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: selected == opt.value
+                          ? Colors.white
+                          : Colors.white70,
+                    ),
+                  ),
+                  selected: selected == opt.value,
+                  onSelected: (_) => onSelected(opt.value),
+                  selectedColor: const Color(0xFF1565C0),
+                  backgroundColor: Colors.white10,
+                  side: BorderSide(
+                    color: selected == opt.value
+                        ? const Color(0xFF42A5F5)
+                        : Colors.white24,
+                  ),
+                  showCheckmark: false,
+                ),
+            ],
+          ),
+        ],
       ),
     );
   }

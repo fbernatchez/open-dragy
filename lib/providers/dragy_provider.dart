@@ -19,7 +19,12 @@ import '../services/weather_service.dart';
 import '../services/pocket_foreground_service.dart';
 import '../services/ride_recorder.dart';
 import '../services/open_dragy_storage.dart';
+import '../services/milestone_audio_service.dart';
+import '../models/app_cues.dart';
+import '../models/raw_run_log.dart';
 import '../models/satellite_sv.dart';
+
+export '../models/app_cues.dart';
 import '../utils/nmea_parser.dart';
 import '../utils/logger_tags.dart';
 import '../utils/ubx_cfg.dart';
@@ -67,6 +72,8 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
   final WeatherService _weatherService = WeatherService();
   final RideRecorder _rideRecorder = RideRecorder();
   final OpenDragyStorage _durableStorage = OpenDragyStorage();
+  final MilestoneAudioService _milestoneAudio = MilestoneAudioService();
+  final RunRawCapture _runRaw = RunRawCapture();
 
   double? _latitude;
   double? get latitude => _latitude;
@@ -139,6 +146,30 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
   /// When false: keep display awake while connected (classic dash use).
   bool _pocketMode = false;
   bool get pocketMode => _pocketMode;
+
+  /// Spoken / beep cues at drag/interval milestones (helmet intercom).
+  bool _voiceCuesEnabled = true;
+  bool get voiceCuesEnabled => _voiceCuesEnabled;
+
+  AudioCueMode _audioCueMode = AudioCueMode.voice;
+  AudioCueMode get audioCueMode => _audioCueMode;
+
+  /// Extra milestones beyond selected-target finish (default: 0–100 / 0–60).
+  Set<OptionalAudioMilestone> _optionalAudioMilestones = {
+    OptionalAudioMilestone.speedMark,
+  };
+  Set<OptionalAudioMilestone> get optionalAudioMilestones =>
+      Set.unmodifiable(_optionalAudioMilestones);
+
+  bool isOptionalAudioMilestoneEnabled(OptionalAudioMilestone m) =>
+      _optionalAudioMilestones.contains(m);
+
+  /// Finish flash / checkered flag — only when app is foreground (display on).
+  FinishCelebrationMode _finishCelebration = FinishCelebrationMode.checkered;
+  FinishCelebrationMode get finishCelebration => _finishCelebration;
+
+  int _finishCelebrationToken = 0;
+  int get finishCelebrationToken => _finishCelebrationToken;
 
   // --- Logger mode (continuous raw → PC) ---
   bool _isLoggerMode = false;
@@ -396,6 +427,11 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   double _gForceCalibrationOffset = 0.0;
+  /// After ARM: collect ~0.5 s of IMU, then freeze longitudinal zero.
+  bool _armCalibPending = false;
+  DateTime? _armCalibStartedAt;
+  final List<double> _armCalibSamples = [];
+  static const Duration _armCalibDuration = Duration(milliseconds: 500);
   DateTime? _lastGpsUpdateTime;
 
   double get liveElapsedTime {
@@ -443,6 +479,9 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
     return _activeIntervalTarget.label;
   }
 
+  /// Current drag / interval target label (for settings / notifications).
+  String get activeTargetLabel => _pocketTargetLabel;
+
   Future<void> _loadAppVersion() async {
     try {
       final packageInfo = await PackageInfo.fromPlatform();
@@ -476,6 +515,8 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
         _gsvByTalker.clear();
         if (!_isRideRecording) {
           _isArmed = false;
+          _cancelArmCalibration();
+          _runRaw.clear();
           _metrics = _physicsEngine.reset();
           _lastGpsUpdateTime = null;
           _recentSpeeds.clear();
@@ -495,9 +536,7 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
         if (_satelliteDetailActive) {
           unawaited(_sendSatelliteDetailConfig(enable: true));
         }
-        if (_isLoggerMode && !_isRideRecording) {
-          unawaited(startRideRecording());
-        } else if (_isRideRecording) {
+        if (_isRideRecording) {
           unawaited(_updateLoggerNotification());
         } else {
           unawaited(_syncPocketStatusNotification());
@@ -590,6 +629,7 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
           }
 
           final wasRunning = _metrics.isRunning;
+          final previousMetrics = _metrics;
 
           _metrics = _physicsEngine.updateMetrics(
             _metrics,
@@ -607,6 +647,47 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
             gpsTimeSeconds: data.timeSeconds,
           );
           final isRunning = _metrics.isRunning;
+
+          if (!_isLoggerMode && _voiceCuesEnabled) {
+            _milestoneAudio.onMetricsUpdate(
+              previous: previousMetrics,
+              next: _metrics,
+              isMetric: _isMetric,
+              targetMilestoneId: _runMode == 'drag'
+                  ? _audioMilestoneIdForDragTarget(_activeDragTarget)
+                  : null,
+              enabledOptionalIds: _optionalAudioMilestones
+                  .map((e) => e.id)
+                  .toSet(),
+            );
+          }
+
+          if (!wasRunning && isRunning) {
+            // Launch before 0.5 s window ends — freeze zero from samples so far.
+            if (_armCalibPending) {
+              _finishArmCalibration();
+            }
+            _runRaw.markRunStarted();
+          }
+
+          if (_runRaw.isActive) {
+            _runRaw.addGps(
+              latitude: _latitude,
+              longitude: _longitude,
+              altitudeM: _altitude,
+              speedKmh: data.speedKmh ?? _metrics.speedKmh,
+              hdop: _hdop > 0 ? _hdop : null,
+              satellites: _satellites > 0 ? _satellites : null,
+              fixQuality: _fixQuality,
+            );
+          }
+
+          if (wasRunning &&
+              !isRunning &&
+              _metrics.history.isNotEmpty &&
+              !_isLoggerMode) {
+            _maybeTriggerFinishCelebration();
+          }
 
           if (isRunning) {
             _lastGpsUpdateTime = DateTime.now();
@@ -679,8 +760,17 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
           final ay = int.parse(parts[1].trim()) / 16384.0;
           final az = int.parse(parts[2].trim()) / 16384.0;
 
-          // We'll use the Y axis for longitudinal G-force (front to back) after a 90-degree pivot
+          // Y axis = longitudinal G after typical ESP mount (90° pivot).
           double gForce = ay;
+
+          if (_armCalibPending) {
+            _armCalibSamples.add(ay);
+            final started = _armCalibStartedAt;
+            if (started != null &&
+                DateTime.now().difference(started) >= _armCalibDuration) {
+              _finishArmCalibration();
+            }
+          }
 
           if (_isRideRecording && _rideRecorder.isRecording) {
             final started = _rideRecorder.startedAt;
@@ -697,9 +787,12 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
             }
           }
 
-          // Automatic progressive calibration when speed is constant (cruising or stationary) and not in an active run
-          if (!_metrics.isRunning && isSpeedConstant) {
-            const double alpha = 0.02; // Calibration speed factor (EMA)
+          // Slow EMA only when idle (not armed / not running / not calibrating).
+          if (!_metrics.isRunning &&
+              !_isArmed &&
+              !_armCalibPending &&
+              isSpeedConstant) {
+            const double alpha = 0.02;
             _gForceCalibrationOffset =
                 _gForceCalibrationOffset * (1.0 - alpha) + gForce * alpha;
           }
@@ -709,6 +802,10 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
           // Clamp noise to prevent "-0.0" from showing up
           if (calibratedGForce.abs() < 0.05) {
             calibratedGForce = 0.0;
+          }
+
+          if (_runRaw.isActive) {
+            _runRaw.addImu(axG: ax, ayG: ay, azG: az);
           }
 
           _metrics = _metrics.copyWith(gForce: calibratedGForce);
@@ -731,9 +828,6 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
       unawaited(_saveSettings());
       notifyListeners();
       unawaited(_injectGpsAiding());
-      if (_isLoggerMode && !_isRideRecording) {
-        unawaited(startRideRecording());
-      }
     }
     return success;
   }
@@ -924,6 +1018,12 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
       final vehicle = activeVehicle;
       final runId = DateTime.now().millisecondsSinceEpoch.toString();
 
+      final rawGps = List<RawGpsSample>.from(_runRaw.gps);
+      final rawImu = List<RawImuSample>.from(_runRaw.imu);
+      final rawStartMs = _runRaw.runStartElapsedMs;
+      final gpsCsv = _runRaw.toGpsCsv();
+      final imuCsv = _runRaw.toImuCsv();
+
       final savedRun = SavedRun(
         id: runId,
         dateTime: DateTime.now(),
@@ -932,11 +1032,23 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
         humidity: null,
         vehicleId: vehicle?.id,
         vehicleName: vehicle?.displayName,
+        rawGps: rawGps.isEmpty ? null : rawGps,
+        rawImu: rawImu.isEmpty ? null : rawImu,
+        rawRunStartElapsedMs: rawStartMs,
       );
 
       // Save run locally and show in UI immediately
       await _historyService.saveRun(savedRun);
       unawaited(_durableStorage.pushSavedRunJson(runId, savedRun.toJson()));
+      if (rawGps.isNotEmpty || rawImu.isNotEmpty) {
+        unawaited(
+          _durableStorage.pushSavedRunRawCsv(
+            runId: runId,
+            gpsCsv: gpsCsv,
+            imuCsv: imuCsv,
+          ),
+        );
+      }
       _savedRuns.insert(0, savedRun);
       _needsUiUpdate = true;
       notifyListeners();
@@ -948,6 +1060,7 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
         _fetchAndApplyWeather(runId, lat, lon);
       }
     }
+    _runRaw.clear();
   }
 
   Future<void> _fetchAndApplyWeather(
@@ -1019,6 +1132,8 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
     if (_activeDragTarget != target) {
       _activeDragTarget = target;
       _isArmed = false; // Disarm on target change
+      _cancelArmCalibration();
+      _runRaw.clear();
       _metrics = _physicsEngine.reset();
       _lastGpsUpdateTime = null;
       unawaited(_releasePocketOrKeepAlive());
@@ -1117,6 +1232,72 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
+  void setVoiceCuesEnabled(bool value) {
+    if (_voiceCuesEnabled == value) return;
+    _voiceCuesEnabled = value;
+    _milestoneAudio.setEnabled(value);
+    _saveSettings();
+    notifyListeners();
+  }
+
+  void setAudioCueMode(AudioCueMode mode) {
+    if (_audioCueMode == mode) return;
+    _audioCueMode = mode;
+    _milestoneAudio.setMode(mode);
+    _saveSettings();
+    notifyListeners();
+  }
+
+  void setOptionalAudioMilestone(OptionalAudioMilestone m, bool enabled) {
+    final next = Set<OptionalAudioMilestone>.from(_optionalAudioMilestones);
+    if (enabled) {
+      next.add(m);
+    } else {
+      next.remove(m);
+    }
+    if (next.length == _optionalAudioMilestones.length &&
+        next.containsAll(_optionalAudioMilestones)) {
+      return;
+    }
+    _optionalAudioMilestones = next;
+    _saveSettings();
+    notifyListeners();
+  }
+
+  /// Play one sample of the current cue style (headphones / intercom check).
+  Future<void> playTestAudioCue() => _milestoneAudio.playTestCue();
+
+  static String _audioMilestoneIdForDragTarget(RaceDragTarget target) {
+    switch (target) {
+      case RaceDragTarget.sixtyFeet:
+        return '60ft';
+      case RaceDragTarget.threeHundredThirtyFeet:
+        return '330ft';
+      case RaceDragTarget.eighthMile:
+        return '18mile';
+      case RaceDragTarget.thousandFeet:
+        return '1000ft';
+      case RaceDragTarget.quarterMile:
+        return '14mile';
+      case RaceDragTarget.halfMile:
+        return '12mile';
+    }
+  }
+
+  void setFinishCelebration(FinishCelebrationMode mode) {
+    if (_finishCelebration == mode) return;
+    _finishCelebration = mode;
+    _saveSettings();
+    notifyListeners();
+  }
+
+  void _maybeTriggerFinishCelebration() {
+    if (_finishCelebration == FinishCelebrationMode.off) return;
+    // Pocket / screen-off: app leaves resumed — skip overlay.
+    if (!_appInForeground) return;
+    _finishCelebrationToken++;
+  }
+
   void _applyScreenPolicy() {
     if (_isRideRecording) {
       WakelockPlus.disable();
@@ -1129,10 +1310,41 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
+  /// Start collecting IMU for [_armCalibDuration] after ARM (staged zero).
+  void _beginArmCalibration() {
+    _armCalibPending = true;
+    _armCalibStartedAt = DateTime.now();
+    _armCalibSamples.clear();
+  }
+
+  void _cancelArmCalibration() {
+    _armCalibPending = false;
+    _armCalibStartedAt = null;
+    _armCalibSamples.clear();
+  }
+
+  /// Average the post-ARM window → freeze longitudinal zero.
+  void _finishArmCalibration() {
+    if (_armCalibSamples.isEmpty) {
+      _cancelArmCalibration();
+      return;
+    }
+    var sum = 0.0;
+    for (final v in _armCalibSamples) {
+      sum += v;
+    }
+    _gForceCalibrationOffset = sum / _armCalibSamples.length;
+    _armCalibPending = false;
+    _armCalibStartedAt = null;
+    _armCalibSamples.clear();
+  }
+
   Future<void> toggleArm() async {
     if (_isLoggerMode) return;
     if (_metrics.isRunning) {
       _isArmed = false;
+      _cancelArmCalibration();
+      _runRaw.clear();
       _metrics = _physicsEngine.reset();
       _lastGpsUpdateTime = null;
       await _releasePocketOrKeepAlive();
@@ -1141,6 +1353,11 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
       if (_isArmed) {
         _metrics = _physicsEngine.reset();
         _lastGpsUpdateTime = null;
+        _beginArmCalibration();
+        _runRaw.startArmed();
+      } else {
+        _cancelArmCalibration();
+        _runRaw.clear();
       }
       if (_pocketMode) {
         await _syncPocketStatusNotification();
@@ -1158,13 +1375,14 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
     if (enabled) {
       _isLoggerMode = true;
       _isArmed = false;
+      _cancelArmCalibration();
+      _runRaw.clear();
       _metrics = _physicsEngine.reset();
       _lastGpsUpdateTime = null;
+      _milestoneAudio.resetRun();
       await PocketForegroundService.stop();
       notifyListeners();
-      if (_isConnected) {
-        return await startRideRecording();
-      }
+      // Recording starts only via Start — tags/notes stay editable until then.
       return null;
     }
 
@@ -1236,6 +1454,9 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
 
     await refreshLoggerTagIndex();
+    unawaited(_milestoneAudio.init());
+    _milestoneAudio.setEnabled(_voiceCuesEnabled);
+    _milestoneAudio.setMode(_audioCueMode);
     _applyScreenPolicy();
     if (_pocketMode && !_isLoggerMode && !_isRideRecording) {
       await _syncPocketStatusNotification();
@@ -1298,6 +1519,39 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
     if (data.containsKey('pocketMode')) {
       _pocketMode = data['pocketMode'] as bool? ?? _pocketMode;
+    }
+    if (data.containsKey('voiceCuesEnabled')) {
+      _voiceCuesEnabled = data['voiceCuesEnabled'] as bool? ?? _voiceCuesEnabled;
+      _milestoneAudio.setEnabled(_voiceCuesEnabled);
+    }
+    final audioCueName = data['audioCueMode'] as String?;
+    if (audioCueName != null) {
+      _audioCueMode = AudioCueMode.values.firstWhere(
+        (e) => e.name == audioCueName,
+        orElse: () => _audioCueMode,
+      );
+      _milestoneAudio.setMode(_audioCueMode);
+    }
+    final optionalRaw = data['optionalAudioMilestones'];
+    if (optionalRaw is List) {
+      final parsed = <OptionalAudioMilestone>{};
+      for (final item in optionalRaw) {
+        final name = item.toString();
+        for (final m in OptionalAudioMilestone.values) {
+          if (m.name == name || m.id == name) {
+            parsed.add(m);
+            break;
+          }
+        }
+      }
+      _optionalAudioMilestones = parsed;
+    }
+    final finishName = data['finishCelebration'] as String?;
+    if (finishName != null) {
+      _finishCelebration = FinishCelebrationMode.values.firstWhere(
+        (e) => e.name == finishName,
+        orElse: () => _finishCelebration,
+      );
     }
     if (data.containsKey('loggerTagsText') ||
         data.containsKey('loggerConfiguration')) {
@@ -1371,6 +1625,11 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
         'tempInCelsius': _tempInCelsius,
         'useNhraRules': _useNhraRules,
         'pocketMode': _pocketMode,
+        'voiceCuesEnabled': _voiceCuesEnabled,
+        'audioCueMode': _audioCueMode.name,
+        'optionalAudioMilestones':
+            _optionalAudioMilestones.map((e) => e.name).toList(),
+        'finishCelebration': _finishCelebration.name,
         'loggerTagsText': _loggerTagsText,
         'loggerNotes': _loggerNotes,
         'runMode': _runMode,
@@ -1709,6 +1968,8 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> _handlePocketStop() async {
     if (_metrics.isRunning) {
       _isArmed = false;
+      _cancelArmCalibration();
+      _runRaw.clear();
       _metrics = _physicsEngine.reset();
       _lastGpsUpdateTime = null;
       notifyListeners();
@@ -1719,7 +1980,9 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void> _handlePocketDisarm() async {
     _isArmed = false;
+    _cancelArmCalibration();
     if (!_metrics.isRunning) {
+      _runRaw.clear();
       _metrics = _physicsEngine.reset();
       _lastGpsUpdateTime = null;
     }
@@ -1732,6 +1995,8 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
     if (_runMode != mode) {
       _runMode = mode;
       _isArmed = false; // Disarm on mode change
+      _cancelArmCalibration();
+      _runRaw.clear();
       _metrics = _physicsEngine.reset();
       _lastGpsUpdateTime = null;
       unawaited(_releasePocketOrKeepAlive());
@@ -1744,6 +2009,8 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
     if (_activeIntervalTarget != target) {
       _activeIntervalTarget = target;
       _isArmed = false; // Disarm on target change
+      _cancelArmCalibration();
+      _runRaw.clear();
       _metrics = _physicsEngine.reset();
       _lastGpsUpdateTime = null;
       unawaited(_releasePocketOrKeepAlive());
@@ -1756,6 +2023,8 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
     _customIntervalStartSpeed = start.roundToDouble();
     _customIntervalEndSpeed = end.roundToDouble();
     _isArmed = false; // Disarm on range change
+    _cancelArmCalibration();
+    _runRaw.clear();
     _metrics = _physicsEngine.reset();
     _lastGpsUpdateTime = null;
     unawaited(_releasePocketOrKeepAlive());
@@ -1765,39 +2034,8 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void> _loadSettings() async {
     final data = await _settingsService.load();
-    _isMetric = data['isMetric'] as bool? ?? false;
-    _tempInCelsius = data['tempInCelsius'] as bool? ?? true;
-    _useNhraRules = data['useNhraRules'] as bool? ?? true;
-    _pocketMode = data['pocketMode'] as bool? ?? false;
-    _loggerTagsText = data['loggerTagsText'] as String? ??
-        data['loggerConfiguration'] as String? ??
-        '';
-    _loggerNotes = data['loggerNotes'] as String? ?? '';
-    _runMode = data['runMode'] as String? ?? 'drag';
+    _applySettingsMap(data);
     _applyScreenPolicy();
-
-    final dragTargetName = data['activeDragTarget'] as String?;
-    _activeDragTarget = RaceDragTarget.values.firstWhere(
-      (e) => e.name == dragTargetName,
-      orElse: () => RaceDragTarget.quarterMile,
-    );
-
-    final intervalTargetName = data['activeIntervalTarget'] as String?;
-    _activeIntervalTarget = RaceIntervalTarget.values.firstWhere(
-      (e) => e.name == intervalTargetName,
-      orElse: () => RaceIntervalTarget.sixtyToOneThirtyMph,
-    );
-
-    _customIntervalStartSpeed =
-        (data['customIntervalStartSpeed'] as num?)?.toDouble() ?? 100.0;
-    _customIntervalEndSpeed =
-        (data['customIntervalEndSpeed'] as num?)?.toDouble() ?? 200.0;
-    _loadAidingFromMap(data);
-    final lastBle = data['lastBleDeviceId'] as String?;
-    if (lastBle != null && lastBle.isNotEmpty) {
-      _bleReconnectId = lastBle;
-    }
-    _syncActiveTargetToUnit();
     notifyListeners();
   }
 
@@ -1871,6 +2109,7 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
       unawaited(_rideRecorder.stop(vehicleName: activeVehicle?.displayName));
     }
     unawaited(PocketForegroundService.stop());
+    unawaited(_milestoneAudio.dispose());
     super.dispose();
   }
 }
