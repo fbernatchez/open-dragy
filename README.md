@@ -11,7 +11,7 @@ OpenDragy is a high-precision, open-source vehicle performance timer that measur
 * **Zero-Crossing Interpolation**: Interpolates the exact start time (down to the millisecond) between the last stationary tick and the first launch tick, guaranteeing highly accurate launch timings.
 * **Auto-Armed Launch Control**: Automatically starts recording when speed exceeds `3.0 km/h` to bypass GPS drift/wandering, auto-stops when stationary, and auto-disarms upon completion.
 * **Wakelock Integration**: Intelligently keeps your device screen awake and active during armed and ongoing runs, so you never miss your telemetry.
-* **Pocket Mode**: Lets the phone screen turn off while a foreground service keeps timing / logger alive — useful on motorcycles or when the phone is in a pocket.
+* **Pocket Mode**: Built primarily for motorcycle use — the phone screen may turn off while a foreground service keeps timing / logger alive with the phone in a pocket or tank bag.
 * **BLE Auto-Connect**: Automatically scans for and reconnects to an advertising `OpenDragy` unit (remembers the last device). Manual disconnect pauses auto-connect until you open the device picker again.
 * **A-GPS Cold-Start Aiding**: On BLE connect, injects phone UTC time and the last known coarse position into the u-blox M10 to speed up time-to-first-fix.
 * **Continuous Logger Mode**: Records a full session to GPX + GPS/IMU CSV (with tags & notes) for offline PC analysis; sessions sync into a durable `/OpenDragy` folder on the phone.
@@ -26,22 +26,17 @@ OpenDragy is a high-precision, open-source vehicle performance timer that measur
 
 ## 📸 Screenshots
 
-Drop PNGs into [`docs/screenshots/`](docs/screenshots/) using the names below (portrait phone frames preferred).
+![Logger mode](docs/screenshots/pocket_logger.png)
+
+Still useful to add (portrait, into [`docs/screenshots/`](docs/screenshots/)):
 
 | File | What to capture |
 | :--- | :--- |
 | `dashboard.png` | Main dashboard with BLE connected (speed, SAT chip, arm controls) |
-| `pocket_logger.png` | Logger mode armed / recording with tag chips visible |
 | `map.png` | OSM map screen opened from the SAT chip (with a GPS fix) |
 | `ride_logs.png` | Ride logs list with tags / share |
 | `run_detail.png` | Post-run chart (speed + G-force) |
 | `garage.png` | Garage / vehicle list |
-
-<!-- Uncomment after files exist:
-![Dashboard](docs/screenshots/dashboard.png)
-![Logger](docs/screenshots/pocket_logger.png)
-![Map](docs/screenshots/map.png)
--->
 
 ---
 
