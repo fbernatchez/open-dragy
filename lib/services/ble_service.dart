@@ -3,12 +3,15 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
 class BleService {
   final String uartServiceUuid = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
+  final String rxCharacteristicUuid =
+      "6e400002-b5a3-f393-e0a9-e50e24dcca9e"; // phone → GPS UART
   final String txCharacteristicUuid =
       "6e400003-b5a3-f393-e0a9-e50e24dcca9e"; // GPS
   final String imuCharacteristicUuid =
       "6e400004-b5a3-f393-e0a9-e50e24dcca9e"; // IMU
 
   BluetoothDevice? _connectedDevice;
+  BluetoothCharacteristic? _rxCharacteristic;
   StreamSubscription<List<int>>? _txSubscription;
   StreamSubscription<List<int>>? _imuSubscription;
   // ignore: unused_field
@@ -78,9 +81,16 @@ class BleService {
       for (var service in services) {
         if (service.uuid.toString().toLowerCase() == uartServiceUuid) {
           for (var char in service.characteristics) {
+            final uuid = char.uuid.toString().toLowerCase();
+            if (uuid == rxCharacteristicUuid &&
+                (char.properties.write ||
+                    char.properties.writeWithoutResponse)) {
+              _rxCharacteristic = char;
+              // ignore: avoid_print
+              print('[BLE] RX (GPS write) ready: $uuid');
+            }
             if (char.properties.notify || char.properties.indicate) {
               await char.setNotifyValue(true);
-              final uuid = char.uuid.toString().toLowerCase();
               // ignore: avoid_print
               print('[BLE] Subscribed to notifications on: $uuid');
 
@@ -124,6 +134,20 @@ class BleService {
       String line = _buffer.substring(0, newlineIndex).trim();
       _buffer = _buffer.substring(newlineIndex + 1);
       if (line.isNotEmpty) {
+        if (line.length >= 6 && line.startsWith('\$')) {
+          final type = line.substring(3, 6);
+          // Throttle: log non-GGA/RMC always; GGA/RMC occasionally.
+          if (type != 'GGA' && type != 'RMC') {
+            // ignore: avoid_print
+            print('[BLE] NMEA $line');
+          }
+        } else {
+          // ignore: avoid_print
+          print(
+            '[BLE] non-NMEA len=${line.length} '
+            'head=${line.substring(0, line.length.clamp(0, 24))}',
+          );
+        }
         _nmeaStreamController.add(line);
       }
     }
@@ -141,6 +165,20 @@ class BleService {
     }
   }
 
+  /// Writes raw bytes to the GPS UART (BLE RX → ESP32 → M10).
+  Future<bool> writeToGps(List<int> bytes) async {
+    final rx = _rxCharacteristic;
+    if (rx == null || bytes.isEmpty) return false;
+    try {
+      await rx.write(bytes, withoutResponse: false);
+      return true;
+    } catch (e) {
+      // ignore: avoid_print
+      print('[BLE] writeToGps failed: $e');
+      return false;
+    }
+  }
+
   Future<void> disconnect() async {
     try {
       await _connectedDevice?.disconnect();
@@ -155,22 +193,36 @@ class BleService {
     _imuSubscription = null;
     _connectionSubscription?.cancel();
     _connectionSubscription = null;
+    _rxCharacteristic = null;
     _connectedDevice = null;
   }
 
   Stream<List<ScanResult>> get scanResults => FlutterBluePlus.scanResults;
   Stream<bool> get isScanning => FlutterBluePlus.isScanning;
 
-  void startScan() {
+  /// Continuous scan when [timeout] is null (device picker).
+  /// Optional [withNames] filters advertisements (e.g. `OpenDragy`).
+  void startScan({List<String> withNames = const [], Duration? timeout}) {
     FlutterBluePlus.stopScan().then((_) {
       Future.delayed(const Duration(milliseconds: 300), () {
-        // No timeout = continuous scan, like native Android behavior
-        FlutterBluePlus.startScan().catchError((_) {});
+        FlutterBluePlus.startScan(
+          withNames: withNames,
+          timeout: timeout,
+        ).catchError((_) {});
       });
     });
   }
 
   Future<void> stopScan() async {
     await FlutterBluePlus.stopScan();
+  }
+
+  Future<bool> get isAdapterOn async {
+    try {
+      return await FlutterBluePlus.adapterState.first ==
+          BluetoothAdapterState.on;
+    } catch (_) {
+      return false;
+    }
   }
 }

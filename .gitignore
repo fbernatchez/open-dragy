@@ -120,3 +120,9 @@ app.*.symbols
 !/dev/ci/**/Gemfile.lock*.apk
 
 *.apk
+
+# Local ride exports / flash tooling (not source)
+exports/
+tools/arduino-cli/
+tools/_flash_build/
+tools/_gsv_logcat.txt

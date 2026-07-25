@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:path_provider/path_provider.dart';
+import 'open_dragy_storage.dart';
 
 /// Session recorder for Logger mode (GPX + CSV + manifest for PC analysis).
 class RideRecorder {
@@ -10,8 +10,9 @@ class RideRecorder {
   File? _imuCsvFile;
   File? _gpsCsvFile;
   String? _sessionId;
-  String? _projectTag;
-  String? _configuration;
+  List<String> _tags = const [];
+  String? _notes;
+  String? _vehicleId;
   int _trackPointCount = 0;
   int _gpsRowCount = 0;
   DateTime? _startedAt;
@@ -23,14 +24,8 @@ class RideRecorder {
   DateTime? get startedAt => _startedAt;
   bool get isRecording => _sink != null;
 
-  static Future<Directory> ridesDirectory() async {
-    final base = await getApplicationDocumentsDirectory();
-    final dir = Directory('${base.path}/rides');
-    if (!await dir.exists()) {
-      await dir.create(recursive: true);
-    }
-    return dir;
-  }
+  static Future<Directory> ridesDirectory() =>
+      OpenDragyStorage.localRidesDirectory();
 
   static Future<List<File>> listSessionManifests() async {
     final dir = await ridesDirectory();
@@ -77,10 +72,31 @@ class RideRecorder {
     return null;
   }
 
+  static Future<Map<String, dynamic>?> readManifest(String sessionId) async {
+    final dir = await ridesDirectory();
+    final f = File('${dir.path}/$sessionId.odlog.json');
+    if (!await f.exists()) return null;
+    try {
+      return jsonDecode(await f.readAsString()) as Map<String, dynamic>;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static List<String> tagsFromManifest(Map<String, dynamic>? manifest) {
+    if (manifest == null) return const [];
+    final raw = manifest['tags'];
+    if (raw is List) {
+      return raw.map((e) => e.toString().trim()).where((e) => e.isNotEmpty).toList();
+    }
+    return const [];
+  }
+
   Future<void> start({
     String? vehicleName,
-    String? projectTag,
-    String? configuration,
+    String? vehicleId,
+    List<String> tags = const [],
+    String? notes,
   }) async {
     if (_sink != null) return;
 
@@ -90,10 +106,9 @@ class RideRecorder {
         '${_startedAt!.year}${_pad(_startedAt!.month)}${_pad(_startedAt!.day)}_'
         '${_pad(_startedAt!.hour)}${_pad(_startedAt!.minute)}${_pad(_startedAt!.second)}';
     _sessionId = 'ride_$stamp';
-    _projectTag = projectTag;
-    _configuration = configuration?.trim().isEmpty == true
-        ? null
-        : configuration?.trim();
+    _tags = List<String>.from(tags);
+    _notes = notes?.trim().isEmpty == true ? null : notes?.trim();
+    _vehicleId = vehicleId;
     _gpxFile = File('${dir.path}/$_sessionId.gpx');
     _imuCsvFile = File('${dir.path}/${_sessionId}_imu.csv');
     _gpsCsvFile = File('${dir.path}/${_sessionId}_gps.csv');
@@ -112,13 +127,11 @@ class RideRecorder {
     _sink!.writeln(
       '    <time>${_formatUtc(_startedAt!.toUtc())}</time>',
     );
-    final desc = _configuration != null
-        ? '$name — ${_configuration!}'
-        : name;
+    final desc = _notes != null ? '$name — ${_notes!}' : name;
     _sink!.writeln('    <desc>${_escapeXml(desc)}</desc>');
-    if (projectTag != null && projectTag.isNotEmpty) {
+    if (_tags.isNotEmpty) {
       _sink!.writeln(
-        '    <keywords>${_escapeXml('project:$projectTag')}</keywords>',
+        '    <keywords>${_escapeXml(_tags.join(', '))}</keywords>',
       );
     }
     _sink!.writeln('  </metadata>');
@@ -230,14 +243,15 @@ class RideRecorder {
       );
       final manifest = {
         'format': 'open-dragy-logger',
-        'version': 2,
+        'version': 3,
         'gpsCsvColumns':
             'elapsed_ms,time_utc,lat,lon,speed_kmh,hacc_m,fix_type,heading_deg,hdop,sats,alt_m',
         'sessionId': sessionId,
         'startedAt': _startedAt?.toUtc().toIso8601String(),
         'endedAt': endedAt.toIso8601String(),
-        'project': _projectTag,
-        'configuration': _configuration,
+        'tags': _tags,
+        'notes': _notes,
+        'vehicleId': _vehicleId,
         'vehicle': vehicleName,
         'trackPoints': _trackPointCount,
         'gpsRows': _gpsRowCount,
@@ -257,8 +271,9 @@ class RideRecorder {
     _imuCsvFile = null;
     _gpsCsvFile = null;
     _sessionId = null;
-    _projectTag = null;
-    _configuration = null;
+    _tags = const [];
+    _notes = null;
+    _vehicleId = null;
     _startedAt = null;
     _trackPointCount = 0;
     _gpsRowCount = 0;

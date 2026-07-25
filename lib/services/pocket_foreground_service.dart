@@ -14,7 +14,6 @@ class PocketForegroundTaskHandler extends TaskHandler {
 
   @override
   void onRepeatEvent(DateTime timestamp) {
-    // Keep-alive tick; main isolate owns BLE + physics.
     FlutterForegroundTask.sendDataToMain({'ping': true});
   }
 
@@ -64,9 +63,13 @@ class PocketForegroundService {
         channelId: _channelId,
         channelName: 'OpenDragy pocket / logger',
         channelDescription:
-            'Keeps armed timing or logger recording active with the screen off.',
+            'Keeps pocket timing or logger recording active with the screen off.',
         onlyAlertOnce: true,
-        // High visibility helps OEM status chips / future Live Updates promotion.
+        showWhen: true,
+        playSound: false,
+        enableVibration: false,
+        visibility: NotificationVisibility.VISIBILITY_PUBLIC,
+        channelImportance: NotificationChannelImportance.HIGH,
         priority: NotificationPriority.HIGH,
       ),
       iosNotificationOptions: const IOSNotificationOptions(
@@ -101,66 +104,14 @@ class PocketForegroundService {
 
   static Future<bool> get isRunning => FlutterForegroundTask.isRunningService;
 
-  static Future<void> startArmed({required String subtitle}) async {
-    ensureInitialized();
-    if (!Platform.isAndroid) return;
-
-    if (await FlutterForegroundTask.isRunningService) {
-      await update(
-        title: 'OpenDragy — Armed',
-        subtitle: subtitle,
-        showDisarm: true,
-        showStop: false,
-      );
-      return;
-    }
-
-    await FlutterForegroundTask.startService(
-      serviceTypes: [ForegroundServiceTypes.connectedDevice],
-      serviceId: _serviceId,
-      notificationTitle: 'OpenDragy — Armed',
-      notificationText: subtitle,
-      notificationButtons: const [
-        NotificationButton(id: 'disarm', text: 'Disarm'),
-      ],
-      callback: pocketForegroundStartCallback,
-    );
-  }
-
-  static Future<void> startLogging({required String subtitle}) async {
-    ensureInitialized();
-    if (!Platform.isAndroid) return;
-
-    if (await FlutterForegroundTask.isRunningService) {
-      await update(
-        title: 'OpenDragy — Logger',
-        subtitle: subtitle,
-        showDisarm: false,
-        showStop: true,
-      );
-      return;
-    }
-
-    await FlutterForegroundTask.startService(
-      serviceTypes: [ForegroundServiceTypes.connectedDevice],
-      serviceId: _serviceId,
-      notificationTitle: 'OpenDragy — Logger',
-      notificationText: subtitle,
-      notificationButtons: const [
-        NotificationButton(id: 'stop', text: 'Stop'),
-      ],
-      callback: pocketForegroundStartCallback,
-    );
-  }
-
-  static Future<void> update({
+  static Future<void> startOrUpdate({
     required String title,
     required String subtitle,
     bool showDisarm = false,
     bool showStop = false,
   }) async {
+    ensureInitialized();
     if (!Platform.isAndroid) return;
-    if (!await FlutterForegroundTask.isRunningService) return;
 
     final buttons = <NotificationButton>[];
     if (showStop) {
@@ -170,10 +121,54 @@ class PocketForegroundService {
       buttons.add(const NotificationButton(id: 'disarm', text: 'Disarm'));
     }
 
-    await FlutterForegroundTask.updateService(
+    if (await FlutterForegroundTask.isRunningService) {
+      await FlutterForegroundTask.updateService(
+        notificationTitle: title,
+        notificationText: subtitle,
+        notificationButtons: buttons,
+      );
+      return;
+    }
+
+    await FlutterForegroundTask.startService(
+      serviceTypes: [ForegroundServiceTypes.connectedDevice],
+      serviceId: _serviceId,
       notificationTitle: title,
       notificationText: subtitle,
       notificationButtons: buttons,
+      callback: pocketForegroundStartCallback,
+    );
+  }
+
+  static Future<void> startArmed({required String subtitle}) async {
+    await startOrUpdate(
+      title: 'OpenDragy — Armed',
+      subtitle: subtitle,
+      showDisarm: true,
+      showStop: false,
+    );
+  }
+
+  static Future<void> startLogging({required String subtitle}) async {
+    await startOrUpdate(
+      title: 'OpenDragy — Logger',
+      subtitle: subtitle,
+      showDisarm: false,
+      showStop: true,
+    );
+  }
+
+  static Future<void> update({
+    required String title,
+    required String subtitle,
+    bool showDisarm = false,
+    bool showStop = false,
+  }) async {
+    await startOrUpdate(
+      title: title,
+      subtitle: subtitle,
+      showDisarm: showDisarm,
+      showStop: showStop,
     );
   }
 

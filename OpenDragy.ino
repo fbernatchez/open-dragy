@@ -36,9 +36,11 @@ class MyServerCallbacks : public BLEServerCallbacks {
 
 class MyCallbacks : public BLECharacteristicCallbacks {
   void onWrite(BLECharacteristic *pCharacteristic) {
-    String rxValue = pCharacteristic->getValue();
-    if (rxValue.length() > 0) {
-      UART.write((uint8_t *)rxValue.c_str(), rxValue.length());
+    // Binary-safe: UBX aiding frames contain 0x00 (do not use c_str()).
+    uint8_t *data = pCharacteristic->getData();
+    size_t len = pCharacteristic->getLength();
+    if (data != nullptr && len > 0) {
+      UART.write(data, len);
     }
   }
 };
@@ -123,15 +125,60 @@ void loop() {
   if (deviceConnected) {
     static char gpsBuffer[256];
     static size_t gpsBufIndex = 0;
+    // Drop UBX replies (ACK/NAK after CFG) so they don't corrupt NMEA lines.
+    static uint8_t ubxState = 0; // 0=NMEA, 1=got 0xB5, 2=reading body
+    static uint8_t ubxHdr[4];
+    static size_t ubxGot = 0;
+    static size_t ubxNeed = 0;
 
     while (UART.available() > 0) {
-      char c = UART.read();
+      uint8_t c = (uint8_t)UART.read();
+
+      if (ubxState == 1) {
+        if (c == 0x62) {
+          ubxState = 2;
+          ubxGot = 0;
+          ubxNeed = 0;
+        } else {
+          ubxState = 0;
+        }
+        continue;
+      }
+
+      if (ubxState == 2) {
+        if (ubxGot < 4) {
+          ubxHdr[ubxGot++] = c;
+          if (ubxGot == 4) {
+            uint16_t len = (uint16_t)ubxHdr[2] | ((uint16_t)ubxHdr[3] << 8);
+            ubxNeed = 4 + len + 2; // class,id,len,payload,ckA,ckB
+            if (ubxNeed > 4096) {
+              ubxState = 0; // absurd length — resync
+            }
+          }
+        } else {
+          ubxGot++;
+          if (ubxGot >= ubxNeed) {
+            ubxState = 0;
+          }
+        }
+        continue;
+      }
+
+      // Start of a UBX frame while idle NMEA buffer.
+      if (gpsBufIndex == 0 && c == 0xB5) {
+        ubxState = 1;
+        continue;
+      }
+
       if (gpsBufIndex < sizeof(gpsBuffer) - 1) {
-        gpsBuffer[gpsBufIndex++] = c;
+        gpsBuffer[gpsBufIndex++] = (char)c;
       }
       if (c == '\n' || gpsBufIndex >= 200) {
-        pTxCharacteristic->setValue((uint8_t *)gpsBuffer, gpsBufIndex);
-        pTxCharacteristic->notify();
+        // Forward only NMEA sentences to the phone.
+        if (gpsBufIndex > 1 && gpsBuffer[0] == '$') {
+          pTxCharacteristic->setValue((uint8_t *)gpsBuffer, gpsBufIndex);
+          pTxCharacteristic->notify();
+        }
         gpsBufIndex = 0;
       }
     }

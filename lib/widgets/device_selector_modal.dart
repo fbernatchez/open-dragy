@@ -4,6 +4,7 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:provider/provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../providers/dragy_provider.dart';
+import '../services/ble_service.dart';
 
 class DeviceSelectorModal extends StatefulWidget {
   const DeviceSelectorModal({super.key});
@@ -14,7 +15,8 @@ class DeviceSelectorModal extends StatefulWidget {
 
 class _DeviceSelectorModalState extends State<DeviceSelectorModal> {
   String? _connectingDeviceId;
-  late final bleService;
+  late final BleService bleService;
+  late final DragyProvider _dragy;
   // Accumulated device map — devices are added but never removed
   final Map<String, ScanResult> _devicesFound = {};
   StreamSubscription<List<ScanResult>>? _scanSubscription;
@@ -22,7 +24,10 @@ class _DeviceSelectorModalState extends State<DeviceSelectorModal> {
   @override
   void initState() {
     super.initState();
-    bleService = Provider.of<DragyProvider>(context, listen: false).bleService;
+    _dragy = Provider.of<DragyProvider>(context, listen: false);
+    bleService = _dragy.bleService;
+    // Picker owns the scanner; don't race with background auto-connect.
+    _dragy.pauseBleAutoConnect();
     _checkPermissionsAndScan();
   }
 
@@ -143,6 +148,10 @@ class _DeviceSelectorModalState extends State<DeviceSelectorModal> {
   void dispose() {
     _scanSubscription?.cancel();
     bleService.stopScan();
+    // If still disconnected, keep looking for OpenDragy in the background.
+    if (!_dragy.isConnected) {
+      _dragy.resumeBleAutoConnect();
+    }
     super.dispose();
   }
 }

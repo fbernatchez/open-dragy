@@ -63,16 +63,37 @@ void main() {
       expect(glGga.longitude, closeTo(11.516667, 0.0001));
     });
 
-    test('parses GSA sentences (hdop only, ignores satellite count to prevent jitter)', () {
+    test('parses GSA sentences (DOP + used PRNs, ignores satellite count)', () {
       final gnGsa = NmeaParser.parse(withChecksum('\$GNGSA,A,3,04,05,,09,12,,,24,,,,,2.5,1.3,2.1'));
       expect(gnGsa, isNotNull);
       expect(gnGsa!.satellites, isNull);
       expect(gnGsa.hdop, 1.3);
+      expect(gnGsa.pdop, 2.5);
+      expect(gnGsa.vdop, 2.1);
+      expect(gnGsa.usedPrns, {4, 5, 9, 12, 24});
 
       final glGsa = NmeaParser.parse(withChecksum('\$GLGSA,A,3,04,05,,09,12,,,24,,,,,2.5,1.3,2.1'));
       expect(glGsa, isNotNull);
       expect(glGsa!.satellites, isNull);
       expect(glGsa.hdop, 1.3);
+    });
+
+    test('parses GSV satellite sky fragments', () {
+      final gsv = NmeaParser.parse(
+        withChecksum(
+          '\$GPGSV,2,1,07,07,79,048,42,02,61,018,43,26,49,275,44,27,45,138,42',
+        ),
+      );
+      expect(gsv, isNotNull);
+      expect(gsv!.gsv, isNotNull);
+      expect(gsv.gsv!.talker, 'GP');
+      expect(gsv.gsv!.totalMessages, 2);
+      expect(gsv.gsv!.messageNumber, 1);
+      expect(gsv.gsv!.satsInView, 7);
+      expect(gsv.gsv!.satellites.length, 4);
+      expect(gsv.gsv!.satellites.first.prn, 7);
+      expect(gsv.gsv!.satellites.first.elevationDeg, 79);
+      expect(gsv.gsv!.satellites.first.snrDbHz, 42);
     });
 
     test('rejects NMEA sentences with invalid checksums', () {

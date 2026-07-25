@@ -11,10 +11,37 @@ OpenDragy is a high-precision, open-source vehicle performance timer that measur
 * **Zero-Crossing Interpolation**: Interpolates the exact start time (down to the millisecond) between the last stationary tick and the first launch tick, guaranteeing highly accurate launch timings.
 * **Auto-Armed Launch Control**: Automatically starts recording when speed exceeds `3.0 km/h` to bypass GPS drift/wandering, auto-stops when stationary, and auto-disarms upon completion.
 * **Wakelock Integration**: Intelligently keeps your device screen awake and active during armed and ongoing runs, so you never miss your telemetry.
+* **Pocket Mode**: Lets the phone screen turn off while a foreground service keeps timing / logger alive — useful on motorcycles or when the phone is in a pocket.
+* **BLE Auto-Connect**: Automatically scans for and reconnects to an advertising `OpenDragy` unit (remembers the last device). Manual disconnect pauses auto-connect until you open the device picker again.
+* **A-GPS Cold-Start Aiding**: On BLE connect, injects phone UTC time and the last known coarse position into the u-blox M10 to speed up time-to-first-fix.
+* **Continuous Logger Mode**: Records a full session to GPX + GPS/IMU CSV (with tags & notes) for offline PC analysis; sessions sync into a durable `/OpenDragy` folder on the phone.
+* **Logger Tags**: Chip-style tag editor with suggestions from previous rides; filter and share sessions from the ride logs screen.
+* **Live OSM Map**: Tap the yellow SAT chip on the dashboard to open an OpenStreetMap view of the current fix (coords, speed, altitude, HDOP).
 * **Aesthetic Companion App**: Built with Flutter featuring a premium OLED black design with Neon Amber and Neon Green styling, utilizing the Inter font family.
 * **Garage & Fleet Management**: Track multiple vehicles locally and link performance runs to specific cars or bikes.
 * **Automated Weather Logging**: Uses coordinates from the GPS at the time of the run to fetch ambient temperature, altitude, and relative humidity from the free Open-Meteo API.
 * **Run Database & Analytics**: View historical runs with detailed interactive charts showing speed curves, G-force mapping, and elevation/slope profiles to ensure valid runs.
+
+---
+
+## 📸 Screenshots
+
+Drop PNGs into [`docs/screenshots/`](docs/screenshots/) using the names below (portrait phone frames preferred).
+
+| File | What to capture |
+| :--- | :--- |
+| `dashboard.png` | Main dashboard with BLE connected (speed, SAT chip, arm controls) |
+| `pocket_logger.png` | Logger mode armed / recording with tag chips visible |
+| `map.png` | OSM map screen opened from the SAT chip (with a GPS fix) |
+| `ride_logs.png` | Ride logs list with tags / share |
+| `run_detail.png` | Post-run chart (speed + G-force) |
+| `garage.png` | Garage / vehicle list |
+
+<!-- Uncomment after files exist:
+![Dashboard](docs/screenshots/dashboard.png)
+![Logger](docs/screenshots/pocket_logger.png)
+![Map](docs/screenshots/map.png)
+-->
 
 ---
 
@@ -118,3 +145,7 @@ The companion application is written in Flutter and is located in the root direc
 * [lib/screens/run_detail_screen.dart](file:///d:/Projets/open-dragy/lib/screens/run_detail_screen.dart): Post-run analysis, graphs, G-force curves, and slope validations.
 * [lib/screens/garage_screen.dart](file:///d:/Projets/open-dragy/lib/screens/garage_screen.dart): Interface for adding, editing, and selecting vehicles.
 * [lib/screens/settings_screen.dart](file:///d:/Projets/open-dragy/lib/screens/settings_screen.dart): UI for configuring app preferences.
+* [lib/screens/satellite_status_screen.dart](lib/screens/satellite_status_screen.dart): Live OSM map + GPS fix stats (opened from the SAT chip).
+* [lib/screens/ride_logs_screen.dart](lib/screens/ride_logs_screen.dart): Logger sessions browser (tags, share GPX/CSV).
+* [lib/services/open_dragy_storage.dart](lib/services/open_dragy_storage.dart): Durable `/OpenDragy` folder sync for settings, garage, runs, and logger sessions.
+* [lib/utils/ubx_mga.dart](lib/utils/ubx_mga.dart): UBX-MGA time/position aiding frames for faster M10 cold starts.

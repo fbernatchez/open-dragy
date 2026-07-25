@@ -60,13 +60,14 @@ class SettingsScreen extends StatelessWidget {
             icon: Icons.phone_android,
             title: dragy.pocketMode ? 'Pocket mode' : 'Always on',
             subtitle: dragy.pocketMode
-                ? 'Screen may turn off; timing stays active while armed'
+                ? 'Screen may turn off; ongoing notification keeps timing alive'
                 : 'Keeps display on while connected',
-            value: dragy.pocketMode,
-            onChanged: (v) => dragy.setPocketMode(v),
+            // Switch ON = Always on (default). OFF = Pocket mode.
+            value: !dragy.pocketMode,
+            onChanged: (alwaysOn) => dragy.setPocketMode(!alwaysOn),
           ),
 
-          _SectionHeader(label: 'Logger'),
+          _SectionHeader(label: 'Data'),
           ListTile(
             contentPadding: const EdgeInsets.symmetric(horizontal: 16),
             leading: Container(
@@ -77,7 +78,56 @@ class SettingsScreen extends StatelessWidget {
                 borderRadius: BorderRadius.circular(10),
               ),
               child: const Icon(
-                Icons.folder_open,
+                Icons.folder_special_outlined,
+                color: Color(0xFF42A5F5),
+                size: 22,
+              ),
+            ),
+            title: Text(
+              'OpenDragy data folder',
+              style: GoogleFonts.roboto(
+                color: Colors.white,
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            subtitle: Text(
+              dragy.usesPublicDataFolder
+                  ? dragy.durableDataFolderPath ?? 'OpenDragy at storage root'
+                  : dragy.hasDurableDataFolder
+                      ? 'Custom folder (SAF) — survives uninstall'
+                      : 'Tap to allow file access & create /OpenDragy',
+              style: GoogleFonts.roboto(color: Colors.white38, fontSize: 12),
+            ),
+            trailing: const Icon(Icons.chevron_right, color: Colors.white38),
+            onTap: () async {
+              final ok = await dragy.pickDurableDataFolder();
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      ok
+                          ? (dragy.usesPublicDataFolder
+                              ? 'Using ${dragy.durableDataFolderPath}'
+                              : 'Data folder linked.')
+                          : 'Storage access not granted.',
+                    ),
+                  ),
+                );
+              }
+            },
+          ),
+          ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+            leading: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: const Color(0xFF1565C0).withOpacity(0.15),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.timeline,
                 color: Color(0xFF42A5F5),
                 size: 22,
               ),
@@ -91,7 +141,7 @@ class SettingsScreen extends StatelessWidget {
               ),
             ),
             subtitle: Text(
-              'Share GPX / CSV with PC',
+              'Share GPX / CSV with PC · filter by tags',
               style: GoogleFonts.roboto(color: Colors.white38, fontSize: 12),
             ),
             trailing: const Icon(Icons.chevron_right, color: Colors.white38),

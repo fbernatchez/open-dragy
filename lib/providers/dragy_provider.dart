@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import '../models/race_metrics.dart';
 import '../models/saved_run.dart';
@@ -16,7 +18,12 @@ import '../services/settings_service.dart';
 import '../services/weather_service.dart';
 import '../services/pocket_foreground_service.dart';
 import '../services/ride_recorder.dart';
+import '../services/open_dragy_storage.dart';
+import '../models/satellite_sv.dart';
 import '../utils/nmea_parser.dart';
+import '../utils/logger_tags.dart';
+import '../utils/ubx_cfg.dart';
+import '../utils/ubx_mga.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 enum RaceDragTarget {
@@ -59,12 +66,20 @@ class DragyProvider extends ChangeNotifier {
   final SettingsService _settingsService = SettingsService();
   final WeatherService _weatherService = WeatherService();
   final RideRecorder _rideRecorder = RideRecorder();
+  final OpenDragyStorage _durableStorage = OpenDragyStorage();
 
   double? _latitude;
   double? get latitude => _latitude;
 
   double? _longitude;
   double? get longitude => _longitude;
+
+  /// Last known good fix — used as coarse M10 position aiding on connect.
+  double? _aidingLatitude;
+  double? _aidingLongitude;
+  double _aidingAltitude = 0;
+  DateTime? _aidingSavedAt;
+  DateTime? _lastAidingPersistAt;
 
   RaceMetrics _metrics = RaceMetrics();
   RaceMetrics get metrics => _metrics;
@@ -81,8 +96,31 @@ class DragyProvider extends ChangeNotifier {
   double _hdop = 0.0;
   double get hdop => _hdop;
 
+  double _pdop = 0.0;
+  double get pdop => _pdop;
+
+  double _vdop = 0.0;
+  double get vdop => _vdop;
+
+  int? _fixQuality;
+  int? get fixQuality => _fixQuality;
+
+  int? _fixMode;
+  int? get fixMode => _fixMode;
+
   double _altitude = 0.0;
   double get altitude => _altitude;
+
+  List<SatelliteSv> _skySatellites = const [];
+  List<SatelliteSv> get skySatellites => _skySatellites;
+
+  Set<int> _usedPrns = {};
+  Set<int> get usedPrns => _usedPrns;
+
+  bool _satelliteDetailActive = false;
+  bool get satelliteDetailActive => _satelliteDetailActive;
+
+  final Map<String, List<SatelliteSv>> _gsvByTalker = {};
 
   bool _isMetric = false;
   bool get isMetric => _isMetric;
@@ -112,14 +150,38 @@ class DragyProvider extends ChangeNotifier {
   int get rideTrackPointCount => _rideRecorder.trackPointCount;
   int get rideGpsRowCount => _rideRecorder.gpsRowCount;
 
-  String? _loggerProject;
-  String? get loggerProject => _loggerProject;
+  String _loggerTagsText = '';
+  String get loggerTagsText => _loggerTagsText;
 
-  String _loggerConfiguration = '';
-  String get loggerConfiguration => _loggerConfiguration;
+  String _loggerNotes = '';
+  String get loggerNotes => _loggerNotes;
+
+  List<String> _rankedLoggerTags = [];
+  List<String> get loggerSuggestedTags {
+    final current = parseLoggerTags(_loggerTagsText)
+        .map((t) => t.toLowerCase())
+        .toSet();
+    return _rankedLoggerTags
+        .where((t) => !current.contains(t.toLowerCase()))
+        .take(12)
+        .toList();
+  }
+
+  OpenDragyStorage get durableStorage => _durableStorage;
+  bool get hasDurableDataFolder => _durableStorage.hasDataFolder;
+  bool get usesPublicDataFolder => _durableStorage.isPublicMode;
+  String? get durableDataFolderPath => _durableStorage.publicRootPath;
+
+  static const _openDragyBleName = 'OpenDragy';
 
   String? _bleReconnectId;
   Timer? _reconnectTimer;
+  Timer? _autoConnectTimer;
+  StreamSubscription<BluetoothAdapterState>? _adapterStateSubscription;
+  bool _autoConnectSuppressed = false;
+  bool _autoConnectBusy = false;
+  bool _blePermissionsGranted = false;
+  bool _isDisposed = false;
 
   // --- Arming & Run Modes ---
   bool _isArmed = false;
@@ -387,9 +449,7 @@ class DragyProvider extends ChangeNotifier {
   }
 
   DragyProvider() {
-    loadSavedRuns();
-    _loadGarage();
-    _loadSettings();
+    unawaited(_bootstrapAppState());
     _loadAppVersion();
 
     FlutterForegroundTask.addTaskDataCallback(_onPocketTaskData);
@@ -407,24 +467,36 @@ class DragyProvider extends ChangeNotifier {
       _isConnected = connected;
       if (!connected) {
         _connectedDevice = null;
+        _satelliteDetailActive = false;
+        _skySatellites = const [];
+        _gsvByTalker.clear();
         if (!_isRideRecording) {
           _isArmed = false;
           _metrics = _physicsEngine.reset();
           _lastGpsUpdateTime = null;
           _recentSpeeds.clear();
           WakelockPlus.disable();
-          unawaited(PocketForegroundService.stop());
+          unawaited(_releasePocketOrKeepAlive());
         } else {
-          _startReconnectLoop();
           unawaited(_updateLoggerNotification());
         }
+        // Drop / out of range → keep looking for OpenDragy.
+        if (!_autoConnectSuppressed) {
+          _startAutoConnectLoop();
+        }
       } else {
+        _stopAutoConnectLoop();
         _stopReconnectLoop();
         _applyScreenPolicy();
+        if (_satelliteDetailActive) {
+          unawaited(_sendSatelliteDetailConfig(enable: true));
+        }
         if (_isLoggerMode && !_isRideRecording) {
           unawaited(startRideRecording());
         } else if (_isRideRecording) {
           unawaited(_updateLoggerNotification());
+        } else {
+          unawaited(_syncPocketStatusNotification());
         }
       }
       _needsUiUpdate = true;
@@ -445,6 +517,33 @@ class DragyProvider extends ChangeNotifier {
           updated = true;
         }
 
+        if (data.pdop != null) {
+          _pdop = data.pdop!;
+          updated = true;
+        }
+
+        if (data.vdop != null) {
+          _vdop = data.vdop!;
+          updated = true;
+        }
+
+        if (data.fixQuality != null) {
+          _fixQuality = data.fixQuality;
+          // New GGA epoch — start fresh used-SV set (GSA may follow in pieces).
+          _usedPrns = {};
+          updated = true;
+        }
+
+        if (data.fixMode != null) {
+          _fixMode = data.fixMode;
+          updated = true;
+        }
+
+        if (data.usedPrns != null) {
+          _usedPrns = {..._usedPrns, ...data.usedPrns!};
+          updated = true;
+        }
+
         if (data.altitude != null) {
           _altitude = data.altitude!;
           updated = true;
@@ -458,6 +557,26 @@ class DragyProvider extends ChangeNotifier {
         if (data.longitude != null) {
           _longitude = data.longitude;
           updated = true;
+        }
+
+        if (data.gsv != null) {
+          // ignore: avoid_print
+          print(
+            '[GPS] GSV ${data.gsv!.talker} '
+            '${data.gsv!.messageNumber}/${data.gsv!.totalMessages} '
+            'sats+=${data.gsv!.satellites.length}',
+          );
+          if (_ingestGsv(data.gsv!)) {
+            updated = true;
+          }
+        }
+
+        if (data.latitude != null && data.longitude != null) {
+          _rememberAidingFix(
+            data.latitude!,
+            data.longitude!,
+            data.altitude ?? _altitude,
+          );
         }
 
         if (data.speedKmh != null) {
@@ -600,11 +719,14 @@ class DragyProvider extends ChangeNotifier {
   BleService get bleService => _bleService;
 
   Future<bool> connect(BluetoothDevice device) async {
+    _autoConnectSuppressed = false;
     final success = await _bleService.connectToDevice(device);
     if (success) {
       _connectedDevice = device;
       _bleReconnectId = device.remoteId.str;
+      unawaited(_saveSettings());
       notifyListeners();
+      unawaited(_injectGpsAiding());
       if (_isLoggerMode && !_isRideRecording) {
         unawaited(startRideRecording());
       }
@@ -612,12 +734,148 @@ class DragyProvider extends ChangeNotifier {
     return success;
   }
 
-  Future<void> disconnect() async {
+  bool _ingestGsv(NmeaGsvFragment frag) {
+    final talker = frag.talker.toUpperCase();
+    if (frag.messageNumber == 1) {
+      _gsvByTalker[talker] = [];
+    }
+    final bucket = _gsvByTalker.putIfAbsent(talker, () => []);
+    bucket.addAll(frag.satellites);
+
+    if (frag.messageNumber < frag.totalMessages) {
+      return false;
+    }
+
+    // Rebuild sky list from all talkers once a talker cycle completes.
+    final merged = <SatelliteSv>[];
+    for (final list in _gsvByTalker.values) {
+      merged.addAll(list);
+    }
+    merged.sort((a, b) {
+      final c = a.talker.compareTo(b.talker);
+      if (c != 0) return c;
+      return a.prn.compareTo(b.prn);
+    });
+    _skySatellites = merged;
+    return true;
+  }
+
+  /// While the satellite screen is open, ask M10 for GSV/GSA (~1 Hz).
+  Future<void> setSatelliteDetailActive(bool active) async {
+    final wasActive = _satelliteDetailActive;
+    _satelliteDetailActive = active;
+    if (!active) {
+      _skySatellites = const [];
+      _gsvByTalker.clear();
+    }
+    notifyListeners();
+
+    if (!_isConnected) {
+      // ignore: avoid_print
+      print(
+        '[GPS] Satellite detail=$active queued '
+        '(will send CFG when connected)',
+      );
+      return;
+    }
+
+    // Always (re)send when turning on, or when turning off after being on.
+    if (active || wasActive) {
+      await _sendSatelliteDetailConfig(enable: active);
+    }
+  }
+
+  Future<void> _sendSatelliteDetailConfig({required bool enable}) async {
+    // PUBX first (NMEA) — works even when UBX-in is disabled on the module.
+    final pubxFrames = UbxCfg.pubxDetailFrames(enable: enable);
+    final ubxFrames = UbxCfg.ubxDetailFrames(enable: enable);
+    // ignore: avoid_print
+    print(
+      '[GPS] Satellite detail enable=$enable → '
+      '${pubxFrames.length} PUBX + ${ubxFrames.length} UBX frames',
+    );
+    for (final frame in [...pubxFrames, ...ubxFrames]) {
+      final ok = await _bleService.writeToGps(frame);
+      // ignore: avoid_print
+      print('[GPS] cfg write ok=$ok len=${frame.length}');
+      await Future.delayed(const Duration(milliseconds: 60));
+    }
+  }
+
+  /// Speeds up M10 cold start: phone UTC + last known coarse position.
+  Future<void> _injectGpsAiding() async {
+    try {
+      final timeMsg = UbxMga.timeUtc(DateTime.now().toUtc());
+      await _bleService.writeToGps(timeMsg);
+
+      final lat = _aidingLatitude;
+      final lon = _aidingLongitude;
+      final savedAt = _aidingSavedAt;
+      if (lat == null || lon == null || savedAt == null) return;
+
+      final age = DateTime.now().difference(savedAt);
+      if (age.inDays > 30) return;
+
+      final posMsg = UbxMga.posLlh(
+        latitudeDeg: lat,
+        longitudeDeg: lon,
+        altitudeMeters: _aidingAltitude,
+        posAccMeters: UbxMga.accuracyMetersForAge(age),
+      );
+      await Future.delayed(const Duration(milliseconds: 40));
+      await _bleService.writeToGps(posMsg);
+      // ignore: avoid_print
+      print(
+        '[GPS] Aiding injected (time + pos age=${age.inHours}h '
+        'acc=${UbxMga.accuracyMetersForAge(age)}m)',
+      );
+    } catch (e) {
+      // ignore: avoid_print
+      print('[GPS] Aiding inject failed: $e');
+    }
+  }
+
+  void _rememberAidingFix(double lat, double lon, double altMeters) {
+    _aidingLatitude = lat;
+    _aidingLongitude = lon;
+    _aidingAltitude = altMeters;
+    _aidingSavedAt = DateTime.now();
+    final last = _lastAidingPersistAt;
+    if (last != null &&
+        DateTime.now().difference(last) < const Duration(seconds: 30)) {
+      return;
+    }
+    _lastAidingPersistAt = DateTime.now();
+    unawaited(_saveSettings());
+  }
+
+  /// Manual disconnect pauses auto-connect until the next successful connect
+  /// (or [resumeBleAutoConnect] from the device picker).
+  Future<void> disconnect({bool userInitiated = true}) async {
+    if (userInitiated) {
+      _autoConnectSuppressed = true;
+      _stopAutoConnectLoop();
+      _stopReconnectLoop();
+    }
     try {
       await _bleService.disconnect();
     } catch (_) {}
     _connectedDevice = null;
     notifyListeners();
+  }
+
+  /// Re-enable background scan/connect after a manual disconnect / picker close.
+  void resumeBleAutoConnect() {
+    _autoConnectSuppressed = false;
+    if (!_isConnected) {
+      _startAutoConnectLoop();
+    }
+  }
+
+  /// Pause background auto-connect while the device picker owns the scanner.
+  void pauseBleAutoConnect() {
+    _autoConnectSuppressed = false;
+    _stopAutoConnectLoop();
   }
 
   void resetRace() {
@@ -629,7 +887,25 @@ class DragyProvider extends ChangeNotifier {
   // --- Local History Methods ---
 
   Future<void> loadSavedRuns() async {
-    _savedRuns = await _historyService.loadRuns();
+    final hiveRuns = await _historyService.loadRuns();
+    final durableMaps = await _durableStorage.pullSavedRuns();
+    final byId = <String, SavedRun>{
+      for (final r in hiveRuns) r.id: r,
+    };
+    for (final map in durableMaps) {
+      try {
+        final run = SavedRun.fromJson(map);
+        byId.putIfAbsent(run.id, () => run);
+      } catch (_) {}
+    }
+    _savedRuns = byId.values.toList()
+      ..sort((a, b) => b.dateTime.compareTo(a.dateTime));
+    // Mirror any durable-only runs into Hive
+    for (final run in _savedRuns) {
+      if (!hiveRuns.any((h) => h.id == run.id)) {
+        await _historyService.saveRun(run);
+      }
+    }
     notifyListeners();
   }
 
@@ -656,6 +932,7 @@ class DragyProvider extends ChangeNotifier {
 
       // Save run locally and show in UI immediately
       await _historyService.saveRun(savedRun);
+      unawaited(_durableStorage.pushSavedRunJson(runId, savedRun.toJson()));
       _savedRuns.insert(0, savedRun);
       _needsUiUpdate = true;
       notifyListeners();
@@ -688,6 +965,9 @@ class DragyProvider extends ChangeNotifier {
         );
         _savedRuns[index] = updatedRun;
         await _historyService.updateRun(updatedRun);
+        unawaited(
+          _durableStorage.pushSavedRunJson(runId, updatedRun.toJson()),
+        );
         _needsUiUpdate = true;
         notifyListeners();
       }
@@ -706,6 +986,9 @@ class DragyProvider extends ChangeNotifier {
       final updatedRun = _savedRuns[index].copyWith(notes: notes);
       _savedRuns[index] = updatedRun;
       await _historyService.updateRun(updatedRun);
+      unawaited(
+        _durableStorage.pushSavedRunJson(id, updatedRun.toJson()),
+      );
       notifyListeners();
     }
   }
@@ -734,7 +1017,7 @@ class DragyProvider extends ChangeNotifier {
       _isArmed = false; // Disarm on target change
       _metrics = _physicsEngine.reset();
       _lastGpsUpdateTime = null;
-      unawaited(PocketForegroundService.stop());
+      unawaited(_releasePocketOrKeepAlive());
       _saveSettings();
       notifyListeners();
     }
@@ -823,12 +1106,7 @@ class DragyProvider extends ChangeNotifier {
       return;
     }
     if (_pocketMode) {
-      if (_isArmed || _metrics.isRunning) {
-        await _startPocketService();
-        if (_metrics.isRunning) {
-          await _updatePocketRunningNotification();
-        }
-      }
+      await _syncPocketStatusNotification();
     } else {
       await PocketForegroundService.stop();
     }
@@ -853,19 +1131,17 @@ class DragyProvider extends ChangeNotifier {
       _isArmed = false;
       _metrics = _physicsEngine.reset();
       _lastGpsUpdateTime = null;
-      await PocketForegroundService.stop();
+      await _releasePocketOrKeepAlive();
     } else {
       _isArmed = !_isArmed;
       if (_isArmed) {
         _metrics = _physicsEngine.reset();
         _lastGpsUpdateTime = null;
-        if (_pocketMode) {
-          await _startPocketService();
-        } else {
-          _applyScreenPolicy();
-          await PocketForegroundService.stop();
-        }
+      }
+      if (_pocketMode) {
+        await _syncPocketStatusNotification();
       } else {
+        _applyScreenPolicy();
         await PocketForegroundService.stop();
       }
     }
@@ -891,25 +1167,220 @@ class DragyProvider extends ChangeNotifier {
     await stopRideRecording();
     _isLoggerMode = false;
     _applyScreenPolicy();
+    if (_pocketMode) {
+      await _syncPocketStatusNotification();
+    }
     notifyListeners();
     return null;
   }
 
-  void setLoggerProject(String? tag) {
-    final normalized =
-        tag == null || tag.isEmpty || tag == 'none' ? null : tag;
-    if (_loggerProject == normalized) return;
-    _loggerProject = normalized;
+  void setLoggerTags(List<String> tags) {
+    setLoggerTagsText(formatLoggerTags(tags));
+  }
+
+  void setLoggerTagsText(String value) {
+    if (_loggerTagsText == value) return;
+    _loggerTagsText = value;
     unawaited(_saveSettings());
     notifyListeners();
   }
 
-  void setLoggerConfiguration(String value) {
-    if (_loggerConfiguration == value) return;
-    _loggerConfiguration = value;
+  void setLoggerNotes(String value) {
+    if (_loggerNotes == value) return;
+    _loggerNotes = value;
     unawaited(_saveSettings());
     notifyListeners();
   }
+
+  void addLoggerTag(String tag) {
+    final tags = parseLoggerTags(_loggerTagsText);
+    if (tags.any((t) => t.toLowerCase() == tag.toLowerCase())) return;
+    tags.add(tag);
+    setLoggerTagsText(formatLoggerTags(tags));
+  }
+
+  Future<void> refreshLoggerTagIndex() async {
+    await _durableStorage.pullRidesFromSaf();
+    final manifests = await RideRecorder.listSessionManifests();
+    final tagLists = <List<String>>[];
+    for (final file in manifests) {
+      try {
+        final map = jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+        tagLists.add(RideRecorder.tagsFromManifest(map));
+      } catch (_) {}
+    }
+    _rankedLoggerTags = rankTagsByFrequency(tagLists);
+    notifyListeners();
+  }
+
+  /// Ordered startup: local cache, then durable OpenDragy/ overlay (settings included).
+  Future<void> _bootstrapAppState() async {
+    await _durableStorage.init();
+    await _loadSettings();
+    await _loadGarage();
+    await loadSavedRuns();
+
+    if (_durableStorage.hasDataFolder) {
+      await _durableStorage.pullAllFromSaf();
+      // Durable settings win (metric, pocket mode, targets, …).
+      await _mergeSettingsFromDurable();
+      await _loadGarageFromDurableIfPresent();
+      await loadSavedRuns();
+      // Keep durable copy in sync with anything only in Hive.
+      await _pushSettingsToDurable();
+      await _pushGarageToDurable();
+    }
+
+    await refreshLoggerTagIndex();
+    _applyScreenPolicy();
+    if (_pocketMode && !_isLoggerMode && !_isRideRecording) {
+      await _syncPocketStatusNotification();
+    }
+    _listenBleAdapterAndAutoConnect();
+    notifyListeners();
+  }
+
+  /// Prefer automatic `/storage/emulated/0/OpenDragy`; SAF picker as fallback.
+  Future<bool> pickDurableDataFolder({bool allowSafFallback = true}) async {
+    final ok = await _durableStorage.setupDataFolder(
+      allowSafFallback: allowSafFallback,
+    );
+    if (!ok) return false;
+    await _durableStorage.pullAllFromSaf();
+    await loadSavedRuns();
+    await _loadGarageFromDurableIfPresent();
+    await _mergeSettingsFromDurable();
+    await _pushGarageToDurable();
+    await _pushSettingsToDurable();
+    for (final run in _savedRuns) {
+      await _durableStorage.pushSavedRunJson(run.id, run.toJson());
+    }
+    await refreshLoggerTagIndex();
+    notifyListeners();
+    return true;
+  }
+
+  Future<void> _loadGarageFromDurableIfPresent() async {
+    final data = await _durableStorage.pullJsonFile('garage.json');
+    if (data == null) return;
+    try {
+      final list = data['vehicles'] as List<dynamic>? ?? [];
+      if (list.isEmpty && _vehicles.isNotEmpty) return;
+      _vehicles = list
+          .map((e) => Vehicle.fromJson(Map<String, dynamic>.from(e as Map)))
+          .toList();
+      _activeVehicleId = data['activeVehicleId'] as String?;
+      await _garageService.save(_vehicles, _activeVehicleId);
+    } catch (_) {}
+  }
+
+  Future<void> _mergeSettingsFromDurable() async {
+    final data = await _durableStorage.pullJsonFile('settings.json');
+    if (data == null || data.isEmpty) return;
+    _applySettingsMap(data);
+    // Mirror into app-private settings.json for next cold start.
+    await _settingsService.save(_settingsMap());
+  }
+
+  void _applySettingsMap(Map<String, dynamic> data) {
+    if (data.containsKey('isMetric')) {
+      _isMetric = data['isMetric'] as bool? ?? _isMetric;
+    }
+    if (data.containsKey('tempInCelsius')) {
+      _tempInCelsius = data['tempInCelsius'] as bool? ?? _tempInCelsius;
+    }
+    if (data.containsKey('useNhraRules')) {
+      _useNhraRules = data['useNhraRules'] as bool? ?? _useNhraRules;
+    }
+    if (data.containsKey('pocketMode')) {
+      _pocketMode = data['pocketMode'] as bool? ?? _pocketMode;
+    }
+    if (data.containsKey('loggerTagsText') ||
+        data.containsKey('loggerConfiguration')) {
+      _loggerTagsText = data['loggerTagsText'] as String? ??
+          data['loggerConfiguration'] as String? ??
+          _loggerTagsText;
+    }
+    if (data.containsKey('loggerNotes')) {
+      _loggerNotes = data['loggerNotes'] as String? ?? _loggerNotes;
+    }
+    if (data.containsKey('runMode')) {
+      _runMode = data['runMode'] as String? ?? _runMode;
+    }
+
+    final dragTargetName = data['activeDragTarget'] as String?;
+    if (dragTargetName != null) {
+      _activeDragTarget = RaceDragTarget.values.firstWhere(
+        (e) => e.name == dragTargetName,
+        orElse: () => _activeDragTarget,
+      );
+    }
+    final intervalTargetName = data['activeIntervalTarget'] as String?;
+    if (intervalTargetName != null) {
+      _activeIntervalTarget = RaceIntervalTarget.values.firstWhere(
+        (e) => e.name == intervalTargetName,
+        orElse: () => _activeIntervalTarget,
+      );
+    }
+    if (data['customIntervalStartSpeed'] != null) {
+      _customIntervalStartSpeed =
+          (data['customIntervalStartSpeed'] as num).toDouble();
+    }
+    if (data['customIntervalEndSpeed'] != null) {
+      _customIntervalEndSpeed =
+          (data['customIntervalEndSpeed'] as num).toDouble();
+    }
+    _loadAidingFromMap(data);
+    final lastBle = data['lastBleDeviceId'] as String?;
+    if (lastBle != null && lastBle.isNotEmpty) {
+      _bleReconnectId = lastBle;
+    }
+    _syncActiveTargetToUnit();
+  }
+
+  void _loadAidingFromMap(Map<String, dynamic> data) {
+    final lat = (data['aidingLatitude'] as num?)?.toDouble();
+    final lon = (data['aidingLongitude'] as num?)?.toDouble();
+    if (lat == null || lon == null) return;
+    _aidingLatitude = lat;
+    _aidingLongitude = lon;
+    _aidingAltitude = (data['aidingAltitude'] as num?)?.toDouble() ?? 0;
+    final atMs = data['aidingSavedAtMs'] as int?;
+    if (atMs != null) {
+      _aidingSavedAt = DateTime.fromMillisecondsSinceEpoch(atMs);
+    }
+  }
+
+  Future<void> _pushGarageToDurable() async {
+    await _durableStorage.pushJsonFile('garage.json', {
+      'vehicles': _vehicles.map((v) => v.toJson()).toList(),
+      'activeVehicleId': _activeVehicleId,
+    });
+  }
+
+  Future<void> _pushSettingsToDurable() async {
+    await _durableStorage.pushJsonFile('settings.json', _settingsMap());
+  }
+
+  Map<String, dynamic> _settingsMap() => {
+        'isMetric': _isMetric,
+        'tempInCelsius': _tempInCelsius,
+        'useNhraRules': _useNhraRules,
+        'pocketMode': _pocketMode,
+        'loggerTagsText': _loggerTagsText,
+        'loggerNotes': _loggerNotes,
+        'runMode': _runMode,
+        'activeDragTarget': _activeDragTarget.name,
+        'activeIntervalTarget': _activeIntervalTarget.name,
+        'customIntervalStartSpeed': _customIntervalStartSpeed.round(),
+        'customIntervalEndSpeed': _customIntervalEndSpeed.round(),
+        if (_bleReconnectId != null) 'lastBleDeviceId': _bleReconnectId,
+        if (_aidingLatitude != null) 'aidingLatitude': _aidingLatitude,
+        if (_aidingLongitude != null) 'aidingLongitude': _aidingLongitude,
+        if (_aidingLatitude != null) 'aidingAltitude': _aidingAltitude,
+        if (_aidingSavedAt != null)
+          'aidingSavedAtMs': _aidingSavedAt!.millisecondsSinceEpoch,
+      };
 
   Future<String?> startRideRecording() async {
     if (_isRideRecording) return null;
@@ -920,8 +1391,9 @@ class DragyProvider extends ChangeNotifier {
     await PocketForegroundService.requestPermissions();
     await _rideRecorder.start(
       vehicleName: activeVehicle?.displayName,
-      projectTag: _loggerProject,
-      configuration: _loggerConfiguration,
+      vehicleId: activeVehicle?.id,
+      tags: parseLoggerTags(_loggerTagsText),
+      notes: _loggerNotes,
     );
     await PocketForegroundService.startLogging(
       subtitle: 'Logger · 0 pts',
@@ -936,20 +1408,29 @@ class DragyProvider extends ChangeNotifier {
   Future<File?> stopRideRecording() async {
     if (!_isRideRecording) return null;
     _stopReconnectLoop();
+    final sessionId = _rideRecorder.sessionId;
     final file = await _rideRecorder.stop(
       vehicleName: activeVehicle?.displayName,
     );
+    if (sessionId != null) {
+      await _durableStorage.pushSessionFiles(sessionId);
+    }
     await PocketForegroundService.stop();
     _isRideRecording = false;
     _applyScreenPolicy();
+    if (_pocketMode && !_isLoggerMode) {
+      await _syncPocketStatusNotification();
+    }
+    await refreshLoggerTagIndex();
     _needsUiUpdate = true;
     notifyListeners();
     return file;
   }
 
   void _startReconnectLoop() {
-    _reconnectTimer?.cancel();
+    // Kept for logger sessions — same path as auto-connect (last ID).
     if (!_isRideRecording || _bleReconnectId == null) return;
+    _reconnectTimer?.cancel();
     _reconnectTimer = Timer.periodic(const Duration(seconds: 8), (_) {
       unawaited(_tryReconnectBle());
     });
@@ -970,47 +1451,208 @@ class DragyProvider extends ChangeNotifier {
     } catch (_) {}
   }
 
+  void _listenBleAdapterAndAutoConnect() {
+    _adapterStateSubscription?.cancel();
+    _adapterStateSubscription = FlutterBluePlus.adapterState.listen((state) {
+      if (state == BluetoothAdapterState.on &&
+          !_isConnected &&
+          !_autoConnectSuppressed) {
+        _startAutoConnectLoop();
+      } else if (state != BluetoothAdapterState.on) {
+        _stopAutoConnectLoop();
+      }
+    });
+    if (!_isConnected && !_autoConnectSuppressed) {
+      _startAutoConnectLoop();
+    }
+  }
+
+  void _startAutoConnectLoop() {
+    if (_autoConnectSuppressed || _isConnected) return;
+    _autoConnectTimer?.cancel();
+    // Immediate attempt, then retry while OpenDragy is away / BT warming up.
+    unawaited(_tickAutoConnect());
+    _autoConnectTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+      unawaited(_tickAutoConnect());
+    });
+    if (_isRideRecording) {
+      _startReconnectLoop();
+    }
+  }
+
+  void _stopAutoConnectLoop() {
+    _autoConnectTimer?.cancel();
+    _autoConnectTimer = null;
+  }
+
+  Future<bool> _ensureBlePermissions() async {
+    if (_blePermissionsGranted) return true;
+    try {
+      final statuses = await [
+        Permission.bluetoothScan,
+        Permission.bluetoothConnect,
+        Permission.location,
+      ].request();
+      _blePermissionsGranted = statuses.values.every((s) => s.isGranted);
+    } catch (_) {
+      _blePermissionsGranted = false;
+    }
+    return _blePermissionsGranted;
+  }
+
+  Future<void> _tickAutoConnect() async {
+    if (_isConnected ||
+        _autoConnectSuppressed ||
+        _autoConnectBusy ||
+        _isDisposed) {
+      return;
+    }
+    _autoConnectBusy = true;
+    try {
+      if (!await _ensureBlePermissions()) {
+        _stopAutoConnectLoop();
+        return;
+      }
+      if (!await _bleService.isAdapterOn) return;
+
+      // 1) Fast path: last known remote ID (works even with weak advertising).
+      final lastId = _bleReconnectId;
+      if (lastId != null && lastId.isNotEmpty) {
+        // ignore: avoid_print
+        print('[BLE] Auto-connect try lastId=$lastId');
+        final ok = await connect(BluetoothDevice.fromId(lastId));
+        if (ok || _isConnected) return;
+      }
+
+      // 2) Scan for advertised name "OpenDragy".
+      // ignore: avoid_print
+      print('[BLE] Auto-connect scanning for $_openDragyBleName…');
+      final device = await _scanForOpenDragy(
+        timeout: const Duration(seconds: 7),
+      );
+      if (device == null || _isConnected || _autoConnectSuppressed) return;
+      // ignore: avoid_print
+      print('[BLE] Auto-connect found ${device.platformName} '
+          '${device.remoteId.str}');
+      await connect(device);
+    } catch (e) {
+      // ignore: avoid_print
+      print('[BLE] Auto-connect tick failed: $e');
+    } finally {
+      _autoConnectBusy = false;
+    }
+  }
+
+  Future<BluetoothDevice?> _scanForOpenDragy({
+    required Duration timeout,
+  }) async {
+    final completer = Completer<BluetoothDevice?>();
+    late final StreamSubscription<List<ScanResult>> sub;
+    sub = _bleService.scanResults.listen((results) {
+      for (final r in results) {
+        final name = r.device.platformName.trim();
+        if (name.toLowerCase() == _openDragyBleName.toLowerCase() ||
+            name.toLowerCase().contains('opendragy')) {
+          if (!completer.isCompleted) completer.complete(r.device);
+          return;
+        }
+      }
+    });
+    try {
+      _bleService.startScan(
+        withNames: [_openDragyBleName],
+        timeout: timeout,
+      );
+      return await completer.future.timeout(
+        timeout + const Duration(milliseconds: 800),
+        onTimeout: () => null,
+      );
+    } finally {
+      await sub.cancel();
+      await _bleService.stopScan();
+    }
+  }
+
   Future<void> _updateLoggerNotification() async {
     if (!_isRideRecording) return;
     final status = _isConnected ? 'GPS live' : 'GPS paused';
     final pts = _rideRecorder.trackPointCount;
-    final project = _loggerProject != null ? ' · proj $_loggerProject' : '';
+    final tags = parseLoggerTags(_loggerTagsText);
+    final tagHint = tags.isEmpty ? '' : ' · ${tags.first}';
     await PocketForegroundService.update(
       title: 'OpenDragy — Logger',
-      subtitle: '$status · $pts pts$project',
+      subtitle: '$status · $pts pts$tagHint',
       showStop: true,
       showDisarm: false,
     );
   }
 
-  Future<void> _startPocketService() async {
+  Future<void> _syncPocketStatusNotification() async {
     if (!_pocketMode || _isLoggerMode || _isRideRecording) return;
     await PocketForegroundService.requestPermissions();
-    await PocketForegroundService.startArmed(
-      subtitle: 'Target: $_pocketTargetLabel — screen may turn off',
+
+    if (_metrics.isRunning) {
+      await PocketForegroundService.startOrUpdate(
+        title: 'OpenDragy — Running',
+        subtitle:
+            '$_pocketTargetLabel · ${_metrics.elapsedTime.toStringAsFixed(2)} s',
+        showStop: true,
+      );
+      return;
+    }
+    if (_isArmed) {
+      await PocketForegroundService.startOrUpdate(
+        title: 'OpenDragy — Armed',
+        subtitle: 'Target: $_pocketTargetLabel — screen may turn off',
+        showDisarm: true,
+      );
+      return;
+    }
+    if (!_isConnected) {
+      await PocketForegroundService.startOrUpdate(
+        title: 'OpenDragy — Pocket',
+        subtitle: 'Disconnected — connect OpenDragy',
+      );
+      return;
+    }
+    await PocketForegroundService.startOrUpdate(
+      title: 'OpenDragy — Pocket',
+      subtitle: 'Ready · $_pocketTargetLabel · $_satellites SAT',
     );
+  }
+
+  Future<void> _releasePocketOrKeepAlive() async {
+    if (_isRideRecording) return;
+    if (_pocketMode && !_isLoggerMode) {
+      await _syncPocketStatusNotification();
+    } else {
+      await PocketForegroundService.stop();
+    }
   }
 
   Future<void> _updatePocketRunningNotification() async {
-    if (!await PocketForegroundService.isRunning) return;
-    await PocketForegroundService.update(
-      title: 'OpenDragy — Running',
-      subtitle:
-          '$_pocketTargetLabel · ${_metrics.elapsedTime.toStringAsFixed(2)} s',
-      showStop: true,
-      showDisarm: false,
-    );
+    await _syncPocketStatusNotification();
   }
 
   Future<void> _finalizeCompletedRun(RaceMetrics metrics) async {
     await _saveRunToHistory(metrics);
+    if (_pocketMode && !_isLoggerMode) {
+      await PocketForegroundService.startOrUpdate(
+        title: 'OpenDragy — Saved',
+        subtitle:
+            '${metrics.elapsedTime.toStringAsFixed(2)} s · $_pocketTargetLabel',
+      );
+      await Future<void>.delayed(const Duration(seconds: 5));
+      if (!_metrics.isRunning) {
+        await _syncPocketStatusNotification();
+      }
+      return;
+    }
     if (!await PocketForegroundService.isRunning) return;
     await PocketForegroundService.update(
       title: 'OpenDragy — Saved',
       subtitle:
           '${metrics.elapsedTime.toStringAsFixed(2)} s · $_pocketTargetLabel',
-      showDisarm: false,
-      showStop: false,
     );
     await Future<void>.delayed(const Duration(seconds: 8));
     if (!_isArmed && !_metrics.isRunning) {
@@ -1024,6 +1666,8 @@ class DragyProvider extends ChangeNotifier {
       if (_isRideRecording) {
         unawaited(_rideRecorder.flush());
         unawaited(_updateLoggerNotification());
+      } else if (_pocketMode) {
+        unawaited(_syncPocketStatusNotification());
       }
       return;
     }
@@ -1051,7 +1695,7 @@ class DragyProvider extends ChangeNotifier {
       _lastGpsUpdateTime = null;
       notifyListeners();
     }
-    await PocketForegroundService.stop();
+    await _releasePocketOrKeepAlive();
     await PocketForegroundService.bringAppToForeground();
   }
 
@@ -1062,7 +1706,7 @@ class DragyProvider extends ChangeNotifier {
       _lastGpsUpdateTime = null;
     }
     notifyListeners();
-    await PocketForegroundService.stop();
+    await _releasePocketOrKeepAlive();
     await PocketForegroundService.bringAppToForeground();
   }
 
@@ -1072,7 +1716,7 @@ class DragyProvider extends ChangeNotifier {
       _isArmed = false; // Disarm on mode change
       _metrics = _physicsEngine.reset();
       _lastGpsUpdateTime = null;
-      unawaited(PocketForegroundService.stop());
+      unawaited(_releasePocketOrKeepAlive());
       _saveSettings();
       notifyListeners();
     }
@@ -1084,7 +1728,7 @@ class DragyProvider extends ChangeNotifier {
       _isArmed = false; // Disarm on target change
       _metrics = _physicsEngine.reset();
       _lastGpsUpdateTime = null;
-      unawaited(PocketForegroundService.stop());
+      unawaited(_releasePocketOrKeepAlive());
       _saveSettings();
       notifyListeners();
     }
@@ -1096,7 +1740,7 @@ class DragyProvider extends ChangeNotifier {
     _isArmed = false; // Disarm on range change
     _metrics = _physicsEngine.reset();
     _lastGpsUpdateTime = null;
-    unawaited(PocketForegroundService.stop());
+    unawaited(_releasePocketOrKeepAlive());
     _saveSettings();
     notifyListeners();
   }
@@ -1107,8 +1751,10 @@ class DragyProvider extends ChangeNotifier {
     _tempInCelsius = data['tempInCelsius'] as bool? ?? true;
     _useNhraRules = data['useNhraRules'] as bool? ?? true;
     _pocketMode = data['pocketMode'] as bool? ?? false;
-    _loggerProject = data['loggerProject'] as String?;
-    _loggerConfiguration = data['loggerConfiguration'] as String? ?? '';
+    _loggerTagsText = data['loggerTagsText'] as String? ??
+        data['loggerConfiguration'] as String? ??
+        '';
+    _loggerNotes = data['loggerNotes'] as String? ?? '';
     _runMode = data['runMode'] as String? ?? 'drag';
     _applyScreenPolicy();
 
@@ -1128,24 +1774,19 @@ class DragyProvider extends ChangeNotifier {
         (data['customIntervalStartSpeed'] as num?)?.toDouble() ?? 100.0;
     _customIntervalEndSpeed =
         (data['customIntervalEndSpeed'] as num?)?.toDouble() ?? 200.0;
+    _loadAidingFromMap(data);
+    final lastBle = data['lastBleDeviceId'] as String?;
+    if (lastBle != null && lastBle.isNotEmpty) {
+      _bleReconnectId = lastBle;
+    }
     _syncActiveTargetToUnit();
     notifyListeners();
   }
 
   Future<void> _saveSettings() async {
-    await _settingsService.save({
-      'isMetric': _isMetric,
-      'tempInCelsius': _tempInCelsius,
-      'useNhraRules': _useNhraRules,
-      'pocketMode': _pocketMode,
-      'loggerProject': _loggerProject,
-      'loggerConfiguration': _loggerConfiguration,
-      'runMode': _runMode,
-      'activeDragTarget': _activeDragTarget.name,
-      'activeIntervalTarget': _activeIntervalTarget.name,
-      'customIntervalStartSpeed': _customIntervalStartSpeed.round(),
-      'customIntervalEndSpeed': _customIntervalEndSpeed.round(),
-    });
+    final map = _settingsMap();
+    await _settingsService.save(map);
+    unawaited(_pushSettingsToDurable());
   }
 
   // --- Garage Methods ---
@@ -1158,6 +1799,7 @@ class DragyProvider extends ChangeNotifier {
 
   Future<void> _saveGarage() async {
     await _garageService.save(_vehicles, _activeVehicleId);
+    unawaited(_pushGarageToDurable());
   }
 
   Future<void> addVehicle(Vehicle vehicle) async {
@@ -1196,8 +1838,11 @@ class DragyProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    _isDisposed = true;
     FlutterForegroundTask.removeTaskDataCallback(_onPocketTaskData);
+    _stopAutoConnectLoop();
     _stopReconnectLoop();
+    _adapterStateSubscription?.cancel();
     _uiTimer?.cancel();
     _nmeaSubscription?.cancel();
     _imuSubscription?.cancel();

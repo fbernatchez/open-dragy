@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -10,6 +12,9 @@ import 'run_history_screen.dart';
 import 'garage_screen.dart';
 import 'settings_screen.dart';
 import 'ride_logs_screen.dart';
+import 'satellite_status_screen.dart';
+import '../widgets/logger_tags_input.dart';
+import '../utils/logger_tags.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -20,15 +25,78 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   final ScrollController _scrollController = ScrollController();
-  final TextEditingController _loggerConfigController = TextEditingController();
-  bool _loggerConfigSynced = false;
+  final TextEditingController _loggerNotesController = TextEditingController();
+  bool _loggerFieldsSynced = false;
+  bool _storagePromptScheduled = false;
   int _previousMilestoneCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _maybeAskStorageOnLaunch();
+    });
+  }
 
   @override
   void dispose() {
     _scrollController.dispose();
-    _loggerConfigController.dispose();
+    _loggerNotesController.dispose();
     super.dispose();
+  }
+
+  Future<void> _maybeAskStorageOnLaunch() async {
+    if (_storagePromptScheduled) return;
+    _storagePromptScheduled = true;
+    // Let provider finish durable bootstrap first.
+    await Future<void>.delayed(const Duration(milliseconds: 500));
+    if (!mounted) return;
+    final dragy = context.read<DragyProvider>();
+    if (dragy.hasDurableDataFolder) return;
+    await _ensureDurableFolder(context, dragy);
+  }
+
+  Future<void> _ensureDurableFolder(BuildContext context, DragyProvider dragy) async {
+    if (dragy.hasDurableDataFolder) return;
+    final pick = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.grey.shade900,
+        title: const Text('Save data on phone'),
+        content: const Text(
+          'OpenDragy needs access to files to create the OpenDragy folder '
+          'at storage root. Sessions, garage and runs will survive uninstall.\n\n'
+          'Allow “All files access” on the next screen.',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Later'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Allow & create'),
+          ),
+        ],
+      ),
+    );
+    if (pick == true && context.mounted) {
+      final ok = await dragy.pickDurableDataFolder();
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              ok
+                  ? (dragy.usesPublicDataFolder
+                      ? 'Using ${dragy.durableDataFolderPath}'
+                      : 'Data folder linked.')
+                  : 'Storage access not granted.',
+            ),
+          ),
+        );
+      }
+    }
   }
 
   void _showDeviceSelector(BuildContext context) {
@@ -50,11 +118,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final isConnected = dragy.isConnected;
     final metrics = dragy.metrics;
 
-    if (dragy.isLoggerMode && !_loggerConfigSynced) {
-      _loggerConfigController.text = dragy.loggerConfiguration;
-      _loggerConfigSynced = true;
+    if (dragy.isLoggerMode && !_loggerFieldsSynced) {
+      _loggerNotesController.text = dragy.loggerNotes;
+      _loggerFieldsSynced = true;
+      unawaited(dragy.refreshLoggerTagIndex());
     } else if (!dragy.isLoggerMode) {
-      _loggerConfigSynced = false;
+      _loggerFieldsSynced = false;
     }
 
     // Determine the main highlighted time or status message
@@ -282,312 +351,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ),
 
-          // Top Bar (Signal Confidence and Connection)
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 20.0,
-                vertical: 16.0,
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  // Signal Confidence (Top Left)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: isConnected
-                          ? Colors.amberAccent.withOpacity(0.1)
-                          : Colors.white.withOpacity(0.04),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: isConnected
-                            ? Colors.amberAccent.withOpacity(0.5)
-                            : Colors.white.withOpacity(0.12),
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.satellite_alt,
-                              color: isConnected
-                                  ? Colors.amberAccent
-                                  : Colors.white30,
-                              size: 16,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              isConnected
-                                  ? '${dragy.satellites} SAT'
-                                  : 'NO GPS',
-                              style: GoogleFonts.robotoMono(
-                                color: isConnected
-                                    ? Colors.amberAccent
-                                    : Colors.white30,
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          isConnected
-                              ? 'HDOP: ${dragy.hdop.toStringAsFixed(1)}'
-                              : 'Offline',
-                          style: GoogleFonts.robotoMono(
-                            color: isConnected
-                                ? Colors.amberAccent.withOpacity(0.8)
-                                : Colors.white24,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // Action buttons (Garage, History, Settings & Connection)
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Garage Button
-                      InkWell(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const GarageScreen(),
-                            ),
-                          );
-                        },
-                        borderRadius: BorderRadius.circular(20),
-                        child: Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: dragy.activeVehicle != null
-                                ? const Color(0xFFFFBF00).withOpacity(0.12)
-                                : Colors.white10,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: dragy.activeVehicle != null
-                                  ? const Color(0xFFFFBF00).withOpacity(0.5)
-                                  : Colors.white24,
-                            ),
-                          ),
-                          child: Icon(
-                            Icons.directions_car_outlined,
-                            color: dragy.activeVehicle != null
-                                ? const Color(0xFFFFBF00)
-                                : Colors.white54,
-                            size: 16,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      // History Button
-                      InkWell(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const RunHistoryScreen(),
-                            ),
-                          );
-                        },
-                        borderRadius: BorderRadius.circular(20),
-                        child: Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: Colors.white10,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: Colors.white24),
-                          ),
-                          child: const Icon(
-                            Icons.history,
-                            color: Colors.white70,
-                            size: 16,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      // Logger toggle (long-press → sessions)
-                      InkWell(
-                        onTap: () async {
-                          if (dragy.isLoggerMode) {
-                            await dragy.setLoggerMode(false);
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'Logger off — session saved (GPX + CSV).',
-                                  ),
-                                ),
-                              );
-                            }
-                          } else {
-                            await dragy.setLoggerMode(true);
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'Logger on — connect OpenDragy, then pocket the phone.',
-                                  ),
-                                  duration: Duration(seconds: 4),
-                                ),
-                              );
-                            }
-                          }
-                        },
-                        onLongPress: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const RideLogsScreen(),
-                            ),
-                          );
-                        },
-                        borderRadius: BorderRadius.circular(20),
-                        child: Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: dragy.isLoggerMode
-                                ? Colors.redAccent.withOpacity(0.15)
-                                : Colors.white10,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: dragy.isLoggerMode
-                                  ? Colors.redAccent.withOpacity(0.55)
-                                  : Colors.white24,
-                            ),
-                          ),
-                          child: Icon(
-                            dragy.isLoggerMode
-                                ? Icons.fiber_manual_record
-                                : Icons.timeline,
-                            color: dragy.isLoggerMode
-                                ? Colors.redAccent
-                                : Colors.white54,
-                            size: 16,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      // Settings Button
-                      InkWell(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const SettingsScreen(),
-                            ),
-                          );
-                        },
-                        borderRadius: BorderRadius.circular(20),
-                        child: Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: Colors.white10,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: Colors.white24),
-                          ),
-                          child: const Icon(
-                            Icons.settings_outlined,
-                            color: Colors.white54,
-                            size: 16,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      // Connection Button
-                      InkWell(
-                        onTap: () {
-                          if (isConnected) {
-                            if (dragy.isLoggerMode) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'Turn off Logger before disconnecting.',
-                                  ),
-                                ),
-                              );
-                              return;
-                            }
-                            showDialog(
-                              context: context,
-                              builder: (context) => AlertDialog(
-                                backgroundColor: Colors.grey.shade900,
-                                title: const Text(
-                                  'Disconnect',
-                                  style: TextStyle(color: Colors.white),
-                                ),
-                                content: Text(
-                                  'Disconnect from ${dragy.connectedDevice?.platformName ?? "device"}?',
-                                  style: const TextStyle(color: Colors.white70),
-                                ),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(context),
-                                    child: const Text(
-                                      'Cancel',
-                                      style: TextStyle(color: Colors.white54),
-                                    ),
-                                  ),
-                                  TextButton(
-                                    onPressed: () {
-                                      dragy.disconnect();
-                                      Navigator.pop(context);
-                                    },
-                                    child: const Text(
-                                      'Disconnect',
-                                      style: TextStyle(color: Colors.redAccent),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          } else {
-                            _showDeviceSelector(context);
-                          }
-                        },
-                        borderRadius: BorderRadius.circular(20),
-                        child: Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: isConnected
-                                ? Colors.greenAccent.withOpacity(0.12)
-                                : Colors.white10,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: isConnected
-                                  ? Colors.greenAccent.withOpacity(0.5)
-                                  : Colors.white24,
-                            ),
-                          ),
-                          child: Icon(
-                            isConnected
-                                ? Icons.bluetooth_connected
-                                : Icons.bluetooth_disabled,
-                            color: isConnected
-                                ? Colors.greenAccent
-                                : Colors.white54,
-                            size: 16,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
 
           SafeArea(
             child: Column(
@@ -601,8 +364,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       mainAxisAlignment: MainAxisAlignment.start,
                       mainAxisSize: MainAxisSize.max,
                       children: [
-                        const SizedBox(height: 72), // Clearance for top icons
-                        const SizedBox(height: 12),
+                        // Let taps pass through to the top-bar controls above.
+                        const IgnorePointer(child: SizedBox(height: 72)),
+                        const IgnorePointer(child: SizedBox(height: 12)),
                         // Dragy Logo Text
                           Text(
                             'OpenDragy',
@@ -923,20 +687,76 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 fontSize: 13,
                               ),
                             ),
+                            const SizedBox(height: 8),
+                            InkWell(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const GarageScreen(),
+                                  ),
+                                );
+                              },
+                              child: Text(
+                                dragy.activeVehicle != null
+                                    ? 'Vehicle: ${dragy.activeVehicle!.displayName}'
+                                    : 'Vehicle: none (tap to open Garage)',
+                                style: GoogleFonts.roboto(
+                                  color: const Color(0xFFFFBF00),
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
                             const SizedBox(height: 12),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 4),
+                              child: LoggerTagsInput(
+                                enabled: !dragy.isRideRecording,
+                                tags: parseLoggerTags(dragy.loggerTagsText),
+                                hintText: '98, Velocity Stack',
+                                onTagsChanged: dragy.setLoggerTags,
+                              ),
+                            ),
+                            if (dragy.loggerSuggestedTags.isNotEmpty) ...[
+                              const SizedBox(height: 8),
+                              Wrap(
+                                spacing: 6,
+                                runSpacing: 6,
+                                alignment: WrapAlignment.center,
+                                children: [
+                                  for (final tag in dragy.loggerSuggestedTags)
+                                    ActionChip(
+                                      label: Text(
+                                        tag,
+                                        style: GoogleFonts.roboto(fontSize: 12),
+                                      ),
+                                      backgroundColor: Colors.white10,
+                                      side: const BorderSide(color: Colors.white24),
+                                      onPressed: dragy.isRideRecording
+                                          ? null
+                                          : () => dragy.addLoggerTag(tag),
+                                    ),
+                                ],
+                              ),
+                            ],
+                            const SizedBox(height: 8),
                             Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 4),
                               child: TextField(
                                 enabled: !dragy.isRideRecording,
-                                controller: _loggerConfigController,
-                                onChanged: dragy.setLoggerConfiguration,
+                                controller: _loggerNotesController,
+                                onChanged: dragy.setLoggerNotes,
                                 style: GoogleFonts.roboto(
                                   color: Colors.white,
                                   fontSize: 14,
                                 ),
                                 decoration: InputDecoration(
-                                  hintText:
-                                      'Setup label, e.g. Intake mod, Natural 98',
+                                  labelText: 'Notes',
+                                  labelStyle: GoogleFonts.roboto(
+                                    color: Colors.white38,
+                                  ),
+                                  hintText: 'Optional session notes',
                                   hintStyle: GoogleFonts.roboto(
                                     color: Colors.white24,
                                     fontSize: 13,
@@ -955,29 +775,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   ),
                                 ),
                               ),
-                            ),
-                            const SizedBox(height: 8),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                _ProjectChip(
-                                  label: '—',
-                                  selected: dragy.loggerProject == null,
-                                  onTap: () => dragy.setLoggerProject(null),
-                                ),
-                                const SizedBox(width: 8),
-                                _ProjectChip(
-                                  label: 'A',
-                                  selected: dragy.loggerProject == 'A',
-                                  onTap: () => dragy.setLoggerProject('A'),
-                                ),
-                                const SizedBox(width: 8),
-                                _ProjectChip(
-                                  label: 'B',
-                                  selected: dragy.loggerProject == 'B',
-                                  onTap: () => dragy.setLoggerProject('B'),
-                                ),
-                              ],
                             ),
                             const SizedBox(height: 8),
                             TextButton(
@@ -1323,6 +1120,330 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ],
             ),
           ),
+
+          // Top Bar (Signal Confidence and Connection)
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 20.0,
+                vertical: 16.0,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // Signal Confidence (Top Left) → satellite detail
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const SatelliteStatusScreen(),
+                          ),
+                        );
+                      },
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isConnected
+                              ? Colors.amberAccent.withOpacity(0.1)
+                              : Colors.white.withOpacity(0.04),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: isConnected
+                                ? Colors.amberAccent.withOpacity(0.5)
+                                : Colors.white.withOpacity(0.12),
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.satellite_alt,
+                                  color: isConnected
+                                      ? Colors.amberAccent
+                                      : Colors.white30,
+                                  size: 16,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  isConnected
+                                      ? '${dragy.satellites} SAT'
+                                      : 'NO GPS',
+                                  style: GoogleFonts.robotoMono(
+                                    color: isConnected
+                                        ? Colors.amberAccent
+                                        : Colors.white30,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              isConnected
+                                  ? 'HDOP: ${dragy.hdop.toStringAsFixed(1)}'
+                                  : 'Offline',
+                              style: GoogleFonts.robotoMono(
+                                color: isConnected
+                                    ? Colors.amberAccent.withOpacity(0.8)
+                                    : Colors.white24,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // Action buttons (Garage, History, Settings & Connection)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Garage Button
+                      InkWell(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const GarageScreen(),
+                            ),
+                          );
+                        },
+                        borderRadius: BorderRadius.circular(20),
+                        child: Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: dragy.activeVehicle != null
+                                ? const Color(0xFFFFBF00).withOpacity(0.12)
+                                : Colors.white10,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: dragy.activeVehicle != null
+                                  ? const Color(0xFFFFBF00).withOpacity(0.5)
+                                  : Colors.white24,
+                            ),
+                          ),
+                          child: Icon(
+                            Icons.directions_car_outlined,
+                            color: dragy.activeVehicle != null
+                                ? const Color(0xFFFFBF00)
+                                : Colors.white54,
+                            size: 16,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      // History Button
+                      InkWell(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const RunHistoryScreen(),
+                            ),
+                          );
+                        },
+                        borderRadius: BorderRadius.circular(20),
+                        child: Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.white10,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: Colors.white24),
+                          ),
+                          child: const Icon(
+                            Icons.history,
+                            color: Colors.white70,
+                            size: 16,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      // Logger toggle (long-press → sessions)
+                      InkWell(
+                        onTap: () async {
+                          if (dragy.isLoggerMode) {
+                            await dragy.setLoggerMode(false);
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Logger off — session saved (GPX + CSV).',
+                                  ),
+                                ),
+                              );
+                            }
+                          } else {
+                            if (!dragy.hasDurableDataFolder) {
+                              await _ensureDurableFolder(context, dragy);
+                            }
+                            await dragy.setLoggerMode(true);
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Logger on — set tags, connect OpenDragy, then pocket.',
+                                  ),
+                                  duration: Duration(seconds: 4),
+                                ),
+                              );
+                            }
+                          }
+                        },
+                        onLongPress: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const RideLogsScreen(),
+                            ),
+                          );
+                        },
+                        borderRadius: BorderRadius.circular(20),
+                        child: Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: dragy.isLoggerMode
+                                ? Colors.redAccent.withOpacity(0.15)
+                                : Colors.white10,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: dragy.isLoggerMode
+                                  ? Colors.redAccent.withOpacity(0.55)
+                                  : Colors.white24,
+                            ),
+                          ),
+                          child: Icon(
+                            dragy.isLoggerMode
+                                ? Icons.fiber_manual_record
+                                : Icons.timeline,
+                            color: dragy.isLoggerMode
+                                ? Colors.redAccent
+                                : Colors.white54,
+                            size: 16,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      // Settings Button
+                      InkWell(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const SettingsScreen(),
+                            ),
+                          );
+                        },
+                        borderRadius: BorderRadius.circular(20),
+                        child: Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.white10,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: Colors.white24),
+                          ),
+                          child: const Icon(
+                            Icons.settings_outlined,
+                            color: Colors.white54,
+                            size: 16,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      // Connection Button
+                      InkWell(
+                        onTap: () {
+                          if (isConnected) {
+                            if (dragy.isLoggerMode) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Turn off Logger before disconnecting.',
+                                  ),
+                                ),
+                              );
+                              return;
+                            }
+                            showDialog(
+                              context: context,
+                              builder: (context) => AlertDialog(
+                                backgroundColor: Colors.grey.shade900,
+                                title: const Text(
+                                  'Disconnect',
+                                  style: TextStyle(color: Colors.white),
+                                ),
+                                content: Text(
+                                  'Disconnect from ${dragy.connectedDevice?.platformName ?? "device"}?',
+                                  style: const TextStyle(color: Colors.white70),
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(context),
+                                    child: const Text(
+                                      'Cancel',
+                                      style: TextStyle(color: Colors.white54),
+                                    ),
+                                  ),
+                                  TextButton(
+                                    onPressed: () {
+                                      dragy.disconnect();
+                                      Navigator.pop(context);
+                                    },
+                                    child: const Text(
+                                      'Disconnect',
+                                      style: TextStyle(color: Colors.redAccent),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          } else {
+                            _showDeviceSelector(context);
+                          }
+                        },
+                        borderRadius: BorderRadius.circular(20),
+                        child: Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: isConnected
+                                ? Colors.greenAccent.withOpacity(0.12)
+                                : Colors.white10,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: isConnected
+                                  ? Colors.greenAccent.withOpacity(0.5)
+                                  : Colors.white24,
+                            ),
+                          ),
+                          child: Icon(
+                            isConnected
+                                ? Icons.bluetooth_connected
+                                : Icons.bluetooth_disabled,
+                            color: isConnected
+                                ? Colors.greenAccent
+                                : Colors.white54,
+                            size: 16,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -1512,48 +1633,5 @@ void _showCustomRangeDialog(BuildContext context, DragyProvider dragy) {
       ],
     ),
   );
-}
-
-class _ProjectChip extends StatelessWidget {
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _ProjectChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            color: selected
-                ? const Color(0xFFFFBF00).withOpacity(0.15)
-                : Colors.white.withOpacity(0.04),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: selected ? const Color(0xFFFFBF00) : Colors.white24,
-            ),
-          ),
-          child: Text(
-            label == '—' ? 'No tag' : 'Project $label',
-            style: GoogleFonts.roboto(
-              color: selected ? const Color(0xFFFFBF00) : Colors.white54,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }
 

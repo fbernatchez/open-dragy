@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -7,6 +8,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'providers/dragy_provider.dart';
 import 'screens/dashboard_screen.dart';
+import 'services/debug_adb_bridge.dart';
 import 'services/pocket_foreground_service.dart';
 
 void main() async {
@@ -18,6 +20,7 @@ void main() async {
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
   ]);
+  DebugAdbBridge.install();
   runApp(const OpenDragyApp());
 }
 
@@ -31,8 +34,9 @@ class OpenDragyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => DragyProvider()),
       ],
       child: MaterialApp(
-        title: 'OpenDragy',
-        debugShowCheckedModeBanner: false,
+        title: kDebugMode ? 'OpenDragy Debug' : 'OpenDragy',
+        navigatorKey: DebugAdbBridge.navigatorKey,
+        debugShowCheckedModeBanner: kDebugMode,
         theme: ThemeData(
           brightness: Brightness.dark,
           scaffoldBackgroundColor: Colors.black, // True OLED black

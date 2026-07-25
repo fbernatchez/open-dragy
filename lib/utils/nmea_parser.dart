@@ -1,20 +1,50 @@
+import '../models/satellite_sv.dart';
+
 class NmeaData {
   final double? speedKmh;
   final int? satellites;
   final double? hdop;
+  final double? pdop;
+  final double? vdop;
   final double? altitude;
   final double? latitude;
   final double? longitude;
   final double? timeSeconds;
+  final int? fixQuality;
+  final int? fixMode; // GSA: 1=none, 2=2D, 3=3D
+  final Set<int>? usedPrns;
+  final NmeaGsvFragment? gsv;
 
   NmeaData({
     this.speedKmh,
     this.satellites,
     this.hdop,
+    this.pdop,
+    this.vdop,
     this.altitude,
     this.latitude,
     this.longitude,
     this.timeSeconds,
+    this.fixQuality,
+    this.fixMode,
+    this.usedPrns,
+    this.gsv,
+  });
+}
+
+class NmeaGsvFragment {
+  final String talker;
+  final int totalMessages;
+  final int messageNumber;
+  final int satsInView;
+  final List<SatelliteSv> satellites;
+
+  const NmeaGsvFragment({
+    required this.talker,
+    required this.totalMessages,
+    required this.messageNumber,
+    required this.satsInView,
+    required this.satellites,
   });
 }
 
@@ -23,6 +53,11 @@ class NmeaParser {
   static bool _matches(String sentence, String type) {
     if (sentence.length < 6 || !sentence.startsWith('\$')) return false;
     return sentence.substring(3, 6) == type;
+  }
+
+  static String? _talker(String sentence) {
+    if (sentence.length < 3 || !sentence.startsWith('\$')) return null;
+    return sentence.substring(1, 3);
   }
 
   /// Validates the NMEA checksum.
@@ -42,6 +77,11 @@ class NmeaParser {
     final calculatedChecksumStr =
         calculatedChecksum.toRadixString(16).toUpperCase().padLeft(2, '0');
     return checksumStr.toUpperCase() == calculatedChecksumStr;
+  }
+
+  static String _field(String raw) {
+    final star = raw.indexOf('*');
+    return star == -1 ? raw : raw.substring(0, star);
   }
 
   static double? _parseLatitude(String val, String hemi) {
@@ -143,12 +183,10 @@ class NmeaParser {
 
       try {
         if (parts[7].isNotEmpty) satellites = int.parse(parts[7]);
-        // parts[8] may end with checksum e.g. "0.9*47" — strip it
-        final hdopStr = parts[8].contains('*') ? parts[8].split('*')[0] : parts[8];
+        final hdopStr = _field(parts[8]);
         if (hdopStr.isNotEmpty) hdop = double.parse(hdopStr);
         if (parts.length > 9 && parts[9].isNotEmpty) {
-          final altitudeStr = parts[9].contains('*') ? parts[9].split('*')[0] : parts[9];
-          altitude = double.tryParse(altitudeStr);
+          altitude = double.tryParse(_field(parts[9]));
         }
         lat = _parseLatitude(parts[2], parts[3]);
         lon = _parseLongitude(parts[4], parts[5]);
@@ -156,39 +194,122 @@ class NmeaParser {
         return null;
       }
 
-      if (satellites != null || hdop != null || altitude != null || lat != null || lon != null) {
+      if (satellites != null ||
+          hdop != null ||
+          altitude != null ||
+          lat != null ||
+          lon != null) {
         return NmeaData(
           satellites: satellites,
           hdop: hdop,
           altitude: altitude,
           latitude: lat,
           longitude: lon,
+          fixQuality: fixQuality,
         );
       }
     }
 
-    // --- Satellites (fallback): GSA (GNSS DOP and Active Satellites) ---
+    // --- Active SVs + DOP: GSA ---
     // $GNGSA,A,3,04,05,...,1.5,1.0,1.2*05
-    // parts[2] = mode (1=no fix, 2=2D, 3=3D) — use as sanity check
     if (_matches(sentence, 'GSA')) {
       final parts = sentence.split(',');
       if (parts.length < 18) return null;
 
       final mode = int.tryParse(parts[2]) ?? 1;
-      if (mode < 2) return null; // No fix
+      final used = <int>{};
+      for (var i = 3; i <= 14; i++) {
+        final id = int.tryParse(parts[i]);
+        if (id != null && id > 0) used.add(id);
+      }
 
-      // HDOP is parts[16], strip checksum
+      double? pdop;
       double? hdop;
+      double? vdop;
       try {
-        final hdopStr = parts[16].contains('*') ? parts[16].split('*')[0] : parts[16];
-        if (hdopStr.isNotEmpty) hdop = double.parse(hdopStr);
+        final pdopStr = _field(parts[15]);
+        final hdopStr = _field(parts[16]);
+        final vdopStr = _field(parts[17]);
+        if (pdopStr.isNotEmpty) pdop = double.tryParse(pdopStr);
+        if (hdopStr.isNotEmpty) hdop = double.tryParse(hdopStr);
+        if (vdopStr.isNotEmpty) vdop = double.tryParse(vdopStr);
       } catch (_) {}
 
-      if (hdop != null) {
-        return NmeaData(hdop: hdop);
+      return NmeaData(
+        fixMode: mode,
+        usedPrns: used.isEmpty ? null : used,
+        pdop: pdop,
+        hdop: hdop,
+        vdop: vdop,
+      );
+    }
+
+    // --- Sky view: GSV ---
+    // $GPGSV,3,1,12,01,40,083,41,02,17,308,45,12,07,297,42,14,22,157,41*78
+    if (_matches(sentence, 'GSV')) {
+      final parts = sentence.split(',');
+      if (parts.length < 4) return null;
+      final talker = _talker(sentence) ?? 'GN';
+      final total = int.tryParse(parts[1]) ?? 0;
+      final msgNum = int.tryParse(parts[2]) ?? 0;
+      final inView = int.tryParse(_field(parts[3])) ?? 0;
+      if (total <= 0 || msgNum <= 0) return null;
+
+      final sats = <SatelliteSv>[];
+      // Up to 4 satellite blocks: prn, elev, az, snr
+      var i = 4;
+      while (i + 3 < parts.length) {
+        final prnStr = parts[i];
+        if (prnStr.isEmpty) break;
+        final prn = int.tryParse(prnStr);
+        final elev = int.tryParse(parts[i + 1]);
+        final az = int.tryParse(parts[i + 2]);
+        final snrRaw = _field(parts[i + 3]);
+        final snr = snrRaw.isEmpty ? null : int.tryParse(snrRaw);
+        if (prn != null && elev != null && az != null) {
+          sats.add(
+            SatelliteSv(
+              talker: talker,
+              prn: prn,
+              elevationDeg: elev.clamp(0, 90),
+              azimuthDeg: az % 360,
+              snrDbHz: snr,
+            ),
+          );
+        }
+        i += 4;
       }
+
+      return NmeaData(
+        gsv: NmeaGsvFragment(
+          talker: talker,
+          totalMessages: total,
+          messageNumber: msgNum,
+          satsInView: inView,
+          satellites: sats,
+        ),
+      );
     }
 
     return null;
+  }
+
+  static String fixQualityLabel(int? q) {
+    switch (q) {
+      case 1:
+        return 'GPS';
+      case 2:
+        return 'DGPS';
+      case 3:
+        return 'PPS';
+      case 4:
+        return 'RTK fixed';
+      case 5:
+        return 'RTK float';
+      case 6:
+        return 'Estimated';
+      default:
+        return q == null ? '—' : 'Fix $q';
+    }
   }
 }

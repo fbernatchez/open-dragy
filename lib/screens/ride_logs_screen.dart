@@ -3,9 +3,26 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../providers/dragy_provider.dart';
 import '../services/ride_recorder.dart';
+import '../utils/logger_tags.dart';
+
+class _SessionItem {
+  final String sessionId;
+  final File manifestFile;
+  final Map<String, dynamic> manifest;
+  final List<String> tags;
+
+  _SessionItem({
+    required this.sessionId,
+    required this.manifestFile,
+    required this.manifest,
+    required this.tags,
+  });
+}
 
 class RideLogsScreen extends StatefulWidget {
   const RideLogsScreen({super.key});
@@ -15,7 +32,9 @@ class RideLogsScreen extends StatefulWidget {
 }
 
 class _RideLogsScreenState extends State<RideLogsScreen> {
-  List<File> _files = [];
+  List<_SessionItem> _sessions = [];
+  List<String> _allTagsRanked = [];
+  final Set<String> _selectedFilterTags = {};
   bool _loading = true;
 
   @override
@@ -26,27 +45,69 @@ class _RideLogsScreenState extends State<RideLogsScreen> {
 
   Future<void> _reload() async {
     setState(() => _loading = true);
+    final dragy = context.read<DragyProvider>();
+    await dragy.durableStorage.pullRidesFromSaf();
+    await dragy.refreshLoggerTagIndex();
+
     final manifests = await RideRecorder.listSessionManifests();
     final gpxOnly = await RideRecorder.listGpxFiles();
-    final files = manifests.isNotEmpty ? manifests : gpxOnly;
+    final items = <_SessionItem>[];
+    final tagLists = <List<String>>[];
+
+    if (manifests.isNotEmpty) {
+      for (final file in manifests) {
+        final sessionId =
+            RideRecorder.sessionIdFromRideFile(file) ?? file.uri.pathSegments.last;
+        Map<String, dynamic> manifest = {};
+        try {
+          manifest =
+              jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+        } catch (_) {}
+        final tags = RideRecorder.tagsFromManifest(manifest);
+        tagLists.add(tags);
+        items.add(
+          _SessionItem(
+            sessionId: sessionId,
+            manifestFile: file,
+            manifest: manifest,
+            tags: tags,
+          ),
+        );
+      }
+    } else {
+      for (final file in gpxOnly) {
+        final sessionId =
+            RideRecorder.sessionIdFromRideFile(file) ?? file.uri.pathSegments.last;
+        items.add(
+          _SessionItem(
+            sessionId: sessionId,
+            manifestFile: file,
+            manifest: const {},
+            tags: const [],
+          ),
+        );
+      }
+    }
+
     if (mounted) {
       setState(() {
-        _files = files;
+        _sessions = items;
+        _allTagsRanked = rankTagsByFrequency(tagLists);
         _loading = false;
       });
     }
   }
 
-  Future<Map<String, dynamic>?> _readManifest(String sessionId) async {
-    final dir = await RideRecorder.ridesDirectory();
-    final f = File('${dir.path}/$sessionId.odlog.json');
-    if (!await f.exists()) return null;
-    return jsonDecode(await f.readAsString()) as Map<String, dynamic>;
+  List<_SessionItem> get _filtered {
+    final selected = _selectedFilterTags.map((t) => t.toLowerCase()).toSet();
+    return _sessions
+        .where((s) => sessionMatchesTagFilter(s.tags, selected))
+        .toList();
   }
 
   Future<List<XFile>> _sessionXFiles(String sessionId) async {
     final dir = await RideRecorder.ridesDirectory();
-    final manifest = await _readManifest(sessionId);
+    final manifest = await RideRecorder.readManifest(sessionId);
     final names = <String>{
       '$sessionId.gpx',
       '${sessionId}_gps.csv',
@@ -126,12 +187,6 @@ class _RideLogsScreenState extends State<RideLogsScreen> {
     if (ok != true) return;
 
     final dir = await RideRecorder.ridesDirectory();
-    final toDelete = await _sessionXFiles(sessionId);
-    for (final xf in toDelete) {
-      final f = File(xf.path);
-      if (await f.exists()) await f.delete();
-    }
-    // Also remove any leftover named files
     for (final name in [
       '$sessionId.odlog.json',
       '$sessionId.gpx',
@@ -141,11 +196,16 @@ class _RideLogsScreenState extends State<RideLogsScreen> {
       final f = File('${dir.path}/$name');
       if (await f.exists()) await f.delete();
     }
+    await context.read<DragyProvider>().durableStorage.deleteSessionFromSaf(
+          sessionId,
+        );
     await _reload();
   }
 
   @override
   Widget build(BuildContext context) {
+    final filtered = _filtered;
+
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
@@ -158,71 +218,156 @@ class _RideLogsScreenState extends State<RideLogsScreen> {
             fontWeight: FontWeight.bold,
           ),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _reload,
+          ),
+        ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : _files.isEmpty
-              ? Center(
-                  child: Text(
-                    'No logger sessions yet.\n'
-                    'Tap the timeline icon on the dashboard to record.',
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.roboto(color: Colors.white38),
-                  ),
-                )
-              : RefreshIndicator(
-                  onRefresh: _reload,
-                  child: ListView.builder(
-                    itemCount: _files.length,
-                    itemBuilder: (context, index) {
-                      final file = _files[index];
-                      final sessionId =
-                          RideRecorder.sessionIdFromRideFile(file) ??
-                              file.uri.pathSegments.last;
-                      final modified = file.lastModifiedSync();
-                      final sizeKb =
-                          (file.lengthSync() / 1024).toStringAsFixed(1);
-
-                      return ListTile(
-                        title: Text(
-                          sessionId,
-                          style: GoogleFonts.robotoMono(
-                            color: Colors.white,
-                            fontSize: 13,
-                          ),
-                        ),
-                        subtitle: Text(
-                          '${modified.toLocal()} · $sizeKb KB',
-                          style: const TextStyle(color: Colors.white38),
-                        ),
-                        trailing: PopupMenuButton<String>(
-                          onSelected: (v) {
-                            if (v == 'gpx') _shareGpx(sessionId);
-                            if (v == 'session') _shareSession(sessionId);
-                            if (v == 'delete') _deleteSession(sessionId);
-                          },
-                          itemBuilder: (_) => const [
-                            PopupMenuItem(
-                              value: 'gpx',
-                              child: Text('Share GPX'),
+          : Column(
+              children: [
+                if (_allTagsRanked.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: [
+                          for (final tag in _allTagsRanked)
+                            FilterChip(
+                              label: Text(
+                                tag,
+                                style: GoogleFonts.roboto(fontSize: 12),
+                              ),
+                              selected: _selectedFilterTags.contains(tag),
+                              selectedColor:
+                                  const Color(0xFFFFBF00).withOpacity(0.25),
+                              checkmarkColor: const Color(0xFFFFBF00),
+                              backgroundColor: Colors.white10,
+                              labelStyle: TextStyle(
+                                color: _selectedFilterTags.contains(tag)
+                                    ? const Color(0xFFFFBF00)
+                                    : Colors.white70,
+                              ),
+                              side: BorderSide(
+                                color: _selectedFilterTags.contains(tag)
+                                    ? const Color(0xFFFFBF00)
+                                    : Colors.white24,
+                              ),
+                              onSelected: (sel) {
+                                setState(() {
+                                  if (sel) {
+                                    _selectedFilterTags.add(tag);
+                                  } else {
+                                    _selectedFilterTags.remove(tag);
+                                  }
+                                });
+                              },
                             ),
-                            PopupMenuItem(
-                              value: 'session',
-                              child: Text('Share session (GPX+CSV)'),
-                            ),
-                            PopupMenuItem(
-                              value: 'delete',
+                          if (_selectedFilterTags.isNotEmpty)
+                            TextButton(
+                              onPressed: () =>
+                                  setState(() => _selectedFilterTags.clear()),
                               child: Text(
-                                'Delete session',
-                                style: TextStyle(color: Colors.red),
+                                'Clear',
+                                style: GoogleFonts.roboto(
+                                  color: Colors.white38,
+                                  fontSize: 12,
+                                ),
                               ),
                             ),
-                          ],
-                        ),
-                      );
-                    },
+                        ],
+                      ),
+                    ),
                   ),
+                Expanded(
+                  child: filtered.isEmpty
+                      ? Center(
+                          child: Text(
+                            _sessions.isEmpty
+                                ? 'No logger sessions yet.\n'
+                                    'Tap the timeline icon on the dashboard to record.'
+                                : 'No sessions match the selected tags.',
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.roboto(color: Colors.white38),
+                          ),
+                        )
+                      : RefreshIndicator(
+                          onRefresh: _reload,
+                          child: ListView.builder(
+                            itemCount: filtered.length,
+                            itemBuilder: (context, index) {
+                              final item = filtered[index];
+                              final modified =
+                                  item.manifestFile.lastModifiedSync();
+                              final vehicle =
+                                  item.manifest['vehicle'] as String?;
+                              final notes = item.manifest['notes'] as String?;
+                              final subtitleParts = <String>[
+                                modified.toLocal().toString(),
+                                if (vehicle != null && vehicle.isNotEmpty)
+                                  vehicle,
+                                if (item.tags.isNotEmpty)
+                                  item.tags.join(', '),
+                                if (notes != null && notes.isNotEmpty) notes,
+                              ];
+
+                              return ListTile(
+                                title: Text(
+                                  item.sessionId,
+                                  style: GoogleFonts.robotoMono(
+                                    color: Colors.white,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  subtitleParts.join(' · '),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(color: Colors.white38),
+                                ),
+                                trailing: PopupMenuButton<String>(
+                                  onSelected: (v) {
+                                    if (v == 'gpx') {
+                                      _shareGpx(item.sessionId);
+                                    }
+                                    if (v == 'session') {
+                                      _shareSession(item.sessionId);
+                                    }
+                                    if (v == 'delete') {
+                                      _deleteSession(item.sessionId);
+                                    }
+                                  },
+                                  itemBuilder: (_) => const [
+                                    PopupMenuItem(
+                                      value: 'gpx',
+                                      child: Text('Share GPX'),
+                                    ),
+                                    PopupMenuItem(
+                                      value: 'session',
+                                      child: Text('Share session (GPX+CSV)'),
+                                    ),
+                                    PopupMenuItem(
+                                      value: 'delete',
+                                      child: Text(
+                                        'Delete session',
+                                        style: TextStyle(color: Colors.red),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                        ),
                 ),
+              ],
+            ),
     );
   }
 }

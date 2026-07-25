@@ -53,7 +53,14 @@ android {
     }
 
     buildTypes {
+        getByName("debug") {
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
+            isDebuggable = true
+            resValue("string", "app_name", "OpenDragy Debug")
+        }
         release {
+            resValue("string", "app_name", "OpenDragy")
             signingConfig = if (keystorePropertiesFile.exists()) {
                 signingConfigs.getByName("release")
             } else {
