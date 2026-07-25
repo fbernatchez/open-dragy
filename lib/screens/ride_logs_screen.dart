@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../providers/dragy_provider.dart';
+import '../services/odpkg.dart';
 import '../services/ride_recorder.dart';
 import '../utils/logger_tags.dart';
 
@@ -145,6 +146,17 @@ class _RideLogsScreenState extends State<RideLogsScreen> {
   }
 
   Future<void> _shareSession(String sessionId) async {
+    // Prefer a single .odpkg for PC analyzer; fall back to loose files.
+    final pkg = await OdPkg.packSession(sessionId);
+    if (pkg != null) {
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(pkg.path)],
+          text: 'OpenDragy session $sessionId (.odpkg)',
+        ),
+      );
+      return;
+    }
     final files = await _sessionXFiles(sessionId);
     if (files.isEmpty) {
       if (mounted) {

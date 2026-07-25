@@ -14,7 +14,7 @@ OpenDragy is a high-precision, open-source vehicle performance timer that measur
 * **Pocket Mode**: Built primarily for motorcycle use — the phone screen may turn off while a foreground service keeps timing / logger alive with the phone in a pocket or tank bag.
 * **BLE Auto-Connect**: Automatically scans for and reconnects to an advertising `OpenDragy` unit (remembers the last device). Manual disconnect pauses auto-connect until you open the device picker again.
 * **A-GPS Cold-Start Aiding**: On BLE connect, injects phone UTC time and the last known coarse position into the u-blox M10 to speed up time-to-first-fix.
-* **Continuous Logger Mode**: Records a full session to GPX + GPS/IMU CSV (with tags & notes) for offline PC analysis; sessions sync into a durable `/OpenDragy` folder on the phone.
+* **Continuous Logger Mode**: Records a full session to GPX + GPS/IMU CSV (with tags & notes) for offline PC analysis; sessions sync into a durable `/OpenDragy` folder on the phone. Share as a single `.odpkg` package for the PC analyzer.
 * **Logger Tags**: Chip-style tag editor with suggestions from previous rides; filter and share sessions from the ride logs screen.
 * **Live OSM Map**: Tap the yellow SAT chip on the dashboard to open an OpenStreetMap view of the current fix (coords, speed, altitude, HDOP).
 * **Aesthetic Companion App**: Built with Flutter featuring a premium OLED black design with Neon Amber and Neon Green styling, utilizing the Inter font family.
@@ -121,6 +121,56 @@ The companion application is written in Flutter and is located in the root direc
    flutter run --release
    ```
    *(Running in release mode is recommended for accurate performance and UI timing).*
+
+---
+
+## 🚀 Releasing (Android APK)
+
+GitHub Actions builds a **release** APK (no debug suffix / no DEBUG ribbon) and attaches it to a [GitHub Release](https://github.com/stewe12/open-dragy/releases).
+
+### One-time: signing secrets
+
+Create an upload keystore locally (keep the `.jks` out of git — already gitignored):
+
+```bash
+keytool -genkey -v -keystore upload-keystore.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload
+```
+
+Encode the keystore (Linux/macOS / Git Bash):
+
+```bash
+base64 -w0 upload-keystore.jks
+```
+
+PowerShell:
+
+```powershell
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("upload-keystore.jks"))
+```
+
+In the GitHub repo go to **Settings → Secrets and variables → Actions** and add:
+
+| Secret | Value |
+| :--- | :--- |
+| `ANDROID_KEYSTORE_BASE64` | Base64 of `upload-keystore.jks` |
+| `ANDROID_KEY_ALIAS` | Key alias (e.g. `upload`) |
+| `ANDROID_KEY_PASSWORD` | Key password |
+| `ANDROID_STORE_PASSWORD` | Keystore password |
+
+Without these secrets the Android release job **fails** (no debug-signed APK on Releases).
+
+### Publish a release
+
+1. Bump `version:` in [`pubspec.yaml`](pubspec.yaml) (e.g. `1.0.7+39`).
+2. Commit and push to `main`.
+3. Tag and push:
+   ```bash
+   git tag v1.0.7
+   git push origin v1.0.7
+   ```
+4. Wait for the **Build Mobile Apps** workflow, then download `OpenDragy_v1.0.7.apk` from **Releases**.
+
+You can also run the workflow manually (**Actions → Build Mobile Apps → Run workflow**); it creates/updates a release tagged `v{version}` from `pubspec.yaml`.
 
 ---
 
