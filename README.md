@@ -50,18 +50,17 @@ OpenDragy is a high-precision, open-source vehicle performance timer that measur
 
 ## 📸 Screenshots
 
-![Logger mode](docs/screenshots/pocket_logger.png)
+| Dashboard | Logger (manual Start Rec) | Audio cues |
+| :---: | :---: | :---: |
+| ![Dashboard](docs/screenshots/dashboard.png) | ![Logger](docs/screenshots/logger.png) | ![Settings audio](docs/screenshots/settings_audio.png) |
 
-Still useful to add (portrait, into [`docs/screenshots/`](docs/screenshots/)):
+| Milestone cues | Run history | Run detail |
+| :---: | :---: | :---: |
+| ![Milestones](docs/screenshots/settings_milestones.png) | ![History](docs/screenshots/run_history.png) | ![Run detail](docs/screenshots/run_detail.png) |
 
-| File | What to capture |
-| :--- | :--- |
-| `dashboard.png` | Main dashboard with BLE connected (speed, SAT chip, arm controls) |
-| `map.png` | OSM map screen opened from the SAT chip (with a GPS fix) |
-| `ride_logs.png` | Ride logs list with tags / share |
-| `run_detail.png` | Post-run chart (speed + G-force) |
-| `settings_audio.png` | Settings → Audio cues / Milestone cues |
-| `garage.png` | Garage / vehicle list |
+| Telemetry chart | Garage | Map |
+| :---: | :---: | :---: |
+| ![Chart](docs/screenshots/run_detail_chart.png) | ![Garage](docs/screenshots/garage.png) | ![Map](docs/screenshots/map.jpg) |
 
 ---
 
