@@ -9,6 +9,7 @@ import '../widgets/device_selector_modal.dart';
 import 'run_history_screen.dart';
 import 'garage_screen.dart';
 import 'settings_screen.dart';
+import 'ride_logs_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -19,11 +20,14 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   final ScrollController _scrollController = ScrollController();
+  final TextEditingController _loggerConfigController = TextEditingController();
+  bool _loggerConfigSynced = false;
   int _previousMilestoneCount = 0;
 
   @override
   void dispose() {
     _scrollController.dispose();
+    _loggerConfigController.dispose();
     super.dispose();
   }
 
@@ -46,13 +50,37 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final isConnected = dragy.isConnected;
     final metrics = dragy.metrics;
 
+    if (dragy.isLoggerMode && !_loggerConfigSynced) {
+      _loggerConfigController.text = dragy.loggerConfiguration;
+      _loggerConfigSynced = true;
+    } else if (!dragy.isLoggerMode) {
+      _loggerConfigSynced = false;
+    }
+
     // Determine the main highlighted time or status message
     String mainTime = "0.00s";
     double fontSize = 80.0;
     Color textColor = Colors.white;
     String statusKey = "ready";
 
-    if (!isConnected) {
+    if (dragy.isLoggerMode) {
+      if (!isConnected) {
+        mainTime = "Logger — connect";
+        fontSize = 32.0;
+        textColor = Colors.white38;
+        statusKey = "logger_start";
+      } else if (dragy.isRideRecording) {
+        mainTime = "REC ${dragy.rideTrackPointCount}";
+        fontSize = 48.0;
+        textColor = Colors.redAccent;
+        statusKey = "logger_rec";
+      } else {
+        mainTime = "Logger ready";
+        fontSize = 36.0;
+        textColor = Colors.white70;
+        statusKey = "logger_wait";
+      }
+    } else if (!isConnected) {
       mainTime = "Disconnected";
       fontSize = 40.0;
       textColor = Colors.white38;
@@ -390,6 +418,68 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         ),
                       ),
                       const SizedBox(width: 8),
+                      // Logger toggle (long-press → sessions)
+                      InkWell(
+                        onTap: () async {
+                          if (dragy.isLoggerMode) {
+                            await dragy.setLoggerMode(false);
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Logger off — session saved (GPX + CSV).',
+                                  ),
+                                ),
+                              );
+                            }
+                          } else {
+                            await dragy.setLoggerMode(true);
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Logger on — connect OpenDragy, then pocket the phone.',
+                                  ),
+                                  duration: Duration(seconds: 4),
+                                ),
+                              );
+                            }
+                          }
+                        },
+                        onLongPress: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const RideLogsScreen(),
+                            ),
+                          );
+                        },
+                        borderRadius: BorderRadius.circular(20),
+                        child: Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: dragy.isLoggerMode
+                                ? Colors.redAccent.withOpacity(0.15)
+                                : Colors.white10,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: dragy.isLoggerMode
+                                  ? Colors.redAccent.withOpacity(0.55)
+                                  : Colors.white24,
+                            ),
+                          ),
+                          child: Icon(
+                            dragy.isLoggerMode
+                                ? Icons.fiber_manual_record
+                                : Icons.timeline,
+                            color: dragy.isLoggerMode
+                                ? Colors.redAccent
+                                : Colors.white54,
+                            size: 16,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
                       // Settings Button
                       InkWell(
                         onTap: () {
@@ -420,6 +510,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       InkWell(
                         onTap: () {
                           if (isConnected) {
+                            if (dragy.isLoggerMode) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Turn off Logger before disconnecting.',
+                                  ),
+                                ),
+                              );
+                              return;
+                            }
                             showDialog(
                               context: context,
                               builder: (context) => AlertDialog(
@@ -551,7 +651,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               ),
                             ),
                           ],
-                          if (!metrics.isRunning &&
+                          if (!dragy.isLoggerMode &&
+                              !metrics.isRunning &&
                               metrics.history.isEmpty) ...[
                             const SizedBox(height: 16),
                             // Mode Selector
@@ -808,12 +909,99 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               ),
                             ),
                           ),
-                          if (isConnected &&
+                          if (dragy.isLoggerMode) ...[
+                            const SizedBox(height: 16),
+                            Text(
+                              dragy.isRideRecording
+                                  ? 'REC · ${dragy.rideTrackPointCount} GPS · '
+                                      '${dragy.isConnected ? "live" : "reconnecting"}'
+                                  : 'Connect OpenDragy to record',
+                              style: GoogleFonts.robotoMono(
+                                color: dragy.isRideRecording
+                                    ? Colors.redAccent
+                                    : Colors.white38,
+                                fontSize: 13,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 4),
+                              child: TextField(
+                                enabled: !dragy.isRideRecording,
+                                controller: _loggerConfigController,
+                                onChanged: dragy.setLoggerConfiguration,
+                                style: GoogleFonts.roboto(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                ),
+                                decoration: InputDecoration(
+                                  hintText:
+                                      'Setup label, e.g. Intake mod, Natural 98',
+                                  hintStyle: GoogleFonts.roboto(
+                                    color: Colors.white24,
+                                    fontSize: 13,
+                                  ),
+                                  filled: true,
+                                  fillColor: Colors.white.withOpacity(0.05),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: const BorderSide(
+                                      color: Colors.white24,
+                                    ),
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 12,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                _ProjectChip(
+                                  label: '—',
+                                  selected: dragy.loggerProject == null,
+                                  onTap: () => dragy.setLoggerProject(null),
+                                ),
+                                const SizedBox(width: 8),
+                                _ProjectChip(
+                                  label: 'A',
+                                  selected: dragy.loggerProject == 'A',
+                                  onTap: () => dragy.setLoggerProject('A'),
+                                ),
+                                const SizedBox(width: 8),
+                                _ProjectChip(
+                                  label: 'B',
+                                  selected: dragy.loggerProject == 'B',
+                                  onTap: () => dragy.setLoggerProject('B'),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            TextButton(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const RideLogsScreen(),
+                                  ),
+                                );
+                              },
+                              child: Text(
+                                'Logger sessions',
+                                style: GoogleFonts.roboto(color: Colors.white54),
+                              ),
+                            ),
+                          ],
+                          if (!dragy.isLoggerMode &&
+                              isConnected &&
                               !(metrics.history.isNotEmpty &&
                                   !metrics.isRunning)) ...[
                             const SizedBox(height: 16),
                             ElevatedButton(
-                              onPressed: dragy.toggleArm,
+                              onPressed: () => dragy.toggleArm(),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: dragy.isArmed
                                     ? Colors.redAccent
@@ -852,6 +1040,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 ],
                               ),
                             ),
+                            if (dragy.pocketMode &&
+                                dragy.isArmed &&
+                                !metrics.isRunning) ...[
+                              const SizedBox(height: 8),
+                              Text(
+                                'Pocket OK — screen may turn off',
+                                style: GoogleFonts.roboto(
+                                  fontSize: 12,
+                                  color: Colors.white54,
+                                ),
+                              ),
+                            ],
                           ],
                           if (metrics.history.isNotEmpty &&
                               !metrics.isRunning) ...[
@@ -1312,5 +1512,48 @@ void _showCustomRangeDialog(BuildContext context, DragyProvider dragy) {
       ],
     ),
   );
+}
+
+class _ProjectChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _ProjectChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: selected
+                ? const Color(0xFFFFBF00).withOpacity(0.15)
+                : Colors.white.withOpacity(0.04),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: selected ? const Color(0xFFFFBF00) : Colors.white24,
+            ),
+          ),
+          child: Text(
+            label == '—' ? 'No tag' : 'Project $label',
+            style: GoogleFonts.roboto(
+              color: selected ? const Color(0xFFFFBF00) : Colors.white54,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 

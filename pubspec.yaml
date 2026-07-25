@@ -44,6 +44,9 @@ dependencies:
   hive: ^2.2.3
   hive_flutter: ^1.1.0
   package_info_plus: ^10.1.0
+  flutter_foreground_task: ^10.0.0
+  share_plus: ^13.2.1
+  path: ^1.9.1
 
 dev_dependencies:
   flutter_test:

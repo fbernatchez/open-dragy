@@ -1,0 +1,191 @@
+import 'dart:io';
+
+import 'package:flutter_foreground_task/flutter_foreground_task.dart';
+
+/// Entry point for the pocket-mode foreground task isolate.
+@pragma('vm:entry-point')
+void pocketForegroundStartCallback() {
+  FlutterForegroundTask.setTaskHandler(PocketForegroundTaskHandler());
+}
+
+class PocketForegroundTaskHandler extends TaskHandler {
+  @override
+  Future<void> onStart(DateTime timestamp, TaskStarter starter) async {}
+
+  @override
+  void onRepeatEvent(DateTime timestamp) {
+    // Keep-alive tick; main isolate owns BLE + physics.
+    FlutterForegroundTask.sendDataToMain({'ping': true});
+  }
+
+  @override
+  Future<void> onDestroy(DateTime timestamp, bool isTimeout) async {}
+
+  @override
+  void onReceiveData(Object data) {}
+
+  @override
+  void onNotificationButtonPressed(String id) {
+    if (id == 'stop') {
+      FlutterForegroundTask.sendDataToMain({
+        'action': 'stop',
+        'bringToForeground': true,
+      });
+    } else if (id == 'disarm') {
+      FlutterForegroundTask.sendDataToMain({
+        'action': 'disarm',
+        'bringToForeground': true,
+      });
+    }
+  }
+
+  @override
+  void onNotificationPressed() {
+    FlutterForegroundTask.launchApp('/');
+  }
+
+  @override
+  void onNotificationDismissed() {}
+}
+
+/// Android foreground service that keeps BLE timing alive with the screen off.
+class PocketForegroundService {
+  static bool _initialized = false;
+
+  static const _channelId = 'open_dragy_pocket';
+  static const _serviceId = 4243;
+
+  static void ensureInitialized() {
+    if (_initialized) return;
+    _initialized = true;
+
+    FlutterForegroundTask.init(
+      androidNotificationOptions: AndroidNotificationOptions(
+        channelId: _channelId,
+        channelName: 'OpenDragy pocket / logger',
+        channelDescription:
+            'Keeps armed timing or logger recording active with the screen off.',
+        onlyAlertOnce: true,
+        // High visibility helps OEM status chips / future Live Updates promotion.
+        priority: NotificationPriority.HIGH,
+      ),
+      iosNotificationOptions: const IOSNotificationOptions(
+        showNotification: false,
+        playSound: false,
+      ),
+      foregroundTaskOptions: ForegroundTaskOptions(
+        eventAction: ForegroundTaskEventAction.repeat(15000),
+        autoRunOnBoot: false,
+        autoRunOnMyPackageReplaced: false,
+        allowWakeLock: true,
+        allowWifiLock: false,
+      ),
+    );
+  }
+
+  static Future<bool> requestPermissions() async {
+    if (!Platform.isAndroid) return true;
+
+    final notificationPermission =
+        await FlutterForegroundTask.checkNotificationPermission();
+    if (notificationPermission != NotificationPermission.granted) {
+      await FlutterForegroundTask.requestNotificationPermission();
+    }
+
+    if (!await FlutterForegroundTask.isIgnoringBatteryOptimizations) {
+      await FlutterForegroundTask.requestIgnoreBatteryOptimization();
+    }
+
+    return true;
+  }
+
+  static Future<bool> get isRunning => FlutterForegroundTask.isRunningService;
+
+  static Future<void> startArmed({required String subtitle}) async {
+    ensureInitialized();
+    if (!Platform.isAndroid) return;
+
+    if (await FlutterForegroundTask.isRunningService) {
+      await update(
+        title: 'OpenDragy — Armed',
+        subtitle: subtitle,
+        showDisarm: true,
+        showStop: false,
+      );
+      return;
+    }
+
+    await FlutterForegroundTask.startService(
+      serviceTypes: [ForegroundServiceTypes.connectedDevice],
+      serviceId: _serviceId,
+      notificationTitle: 'OpenDragy — Armed',
+      notificationText: subtitle,
+      notificationButtons: const [
+        NotificationButton(id: 'disarm', text: 'Disarm'),
+      ],
+      callback: pocketForegroundStartCallback,
+    );
+  }
+
+  static Future<void> startLogging({required String subtitle}) async {
+    ensureInitialized();
+    if (!Platform.isAndroid) return;
+
+    if (await FlutterForegroundTask.isRunningService) {
+      await update(
+        title: 'OpenDragy — Logger',
+        subtitle: subtitle,
+        showDisarm: false,
+        showStop: true,
+      );
+      return;
+    }
+
+    await FlutterForegroundTask.startService(
+      serviceTypes: [ForegroundServiceTypes.connectedDevice],
+      serviceId: _serviceId,
+      notificationTitle: 'OpenDragy — Logger',
+      notificationText: subtitle,
+      notificationButtons: const [
+        NotificationButton(id: 'stop', text: 'Stop'),
+      ],
+      callback: pocketForegroundStartCallback,
+    );
+  }
+
+  static Future<void> update({
+    required String title,
+    required String subtitle,
+    bool showDisarm = false,
+    bool showStop = false,
+  }) async {
+    if (!Platform.isAndroid) return;
+    if (!await FlutterForegroundTask.isRunningService) return;
+
+    final buttons = <NotificationButton>[];
+    if (showStop) {
+      buttons.add(const NotificationButton(id: 'stop', text: 'Stop'));
+    }
+    if (showDisarm) {
+      buttons.add(const NotificationButton(id: 'disarm', text: 'Disarm'));
+    }
+
+    await FlutterForegroundTask.updateService(
+      notificationTitle: title,
+      notificationText: subtitle,
+      notificationButtons: buttons,
+    );
+  }
+
+  static Future<void> stop() async {
+    if (!Platform.isAndroid) return;
+    if (await FlutterForegroundTask.isRunningService) {
+      await FlutterForegroundTask.stopService();
+    }
+  }
+
+  static Future<void> bringAppToForeground() async {
+    if (!Platform.isAndroid) return;
+    FlutterForegroundTask.launchApp('/');
+  }
+}

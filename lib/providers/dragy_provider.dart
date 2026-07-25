@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import '../models/race_metrics.dart';
 import '../models/saved_run.dart';
@@ -12,6 +14,8 @@ import '../services/history_service.dart';
 import '../services/garage_service.dart';
 import '../services/settings_service.dart';
 import '../services/weather_service.dart';
+import '../services/pocket_foreground_service.dart';
+import '../services/ride_recorder.dart';
 import '../utils/nmea_parser.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
@@ -54,6 +58,7 @@ class DragyProvider extends ChangeNotifier {
   final GarageService _garageService = GarageService();
   final SettingsService _settingsService = SettingsService();
   final WeatherService _weatherService = WeatherService();
+  final RideRecorder _rideRecorder = RideRecorder();
 
   double? _latitude;
   double? get latitude => _latitude;
@@ -91,6 +96,30 @@ class DragyProvider extends ChangeNotifier {
 
   bool _useNhraRules = true;
   bool get useNhraRules => _useNhraRules;
+
+  /// When true: screen may turn off; FGS keeps timing alive (pocket / motorcycle).
+  /// When false: keep display awake while connected (classic dash use).
+  bool _pocketMode = false;
+  bool get pocketMode => _pocketMode;
+
+  // --- Logger mode (continuous raw → PC) ---
+  bool _isLoggerMode = false;
+  bool get isLoggerMode => _isLoggerMode;
+
+  bool _isRideRecording = false;
+  bool get isRideRecording => _isRideRecording;
+
+  int get rideTrackPointCount => _rideRecorder.trackPointCount;
+  int get rideGpsRowCount => _rideRecorder.gpsRowCount;
+
+  String? _loggerProject;
+  String? get loggerProject => _loggerProject;
+
+  String _loggerConfiguration = '';
+  String get loggerConfiguration => _loggerConfiguration;
+
+  String? _bleReconnectId;
+  Timer? _reconnectTimer;
 
   // --- Arming & Run Modes ---
   bool _isArmed = false;
@@ -336,9 +365,18 @@ class DragyProvider extends ChangeNotifier {
 
   Timer? _uiTimer;
   bool _needsUiUpdate = false;
+  DateTime? _lastPocketNotifyAt;
 
   String _appVersion = '';
   String get appVersion => _appVersion;
+
+  String get _pocketTargetLabel {
+    if (_runMode == 'drag') return _activeDragTarget.label;
+    if (_activeIntervalTarget == RaceIntervalTarget.custom) {
+      return '${_customIntervalStartSpeed.round()}-${_customIntervalEndSpeed.round()}';
+    }
+    return _activeIntervalTarget.label;
+  }
 
   Future<void> _loadAppVersion() async {
     try {
@@ -354,6 +392,8 @@ class DragyProvider extends ChangeNotifier {
     _loadSettings();
     _loadAppVersion();
 
+    FlutterForegroundTask.addTaskDataCallback(_onPocketTaskData);
+
     _uiTimer = Timer.periodic(const Duration(milliseconds: 16), (_) {
       if (_needsUiUpdate || _metrics.isRunning) {
         notifyListeners();
@@ -367,13 +407,25 @@ class DragyProvider extends ChangeNotifier {
       _isConnected = connected;
       if (!connected) {
         _connectedDevice = null;
-        _isArmed = false;
-        _metrics = _physicsEngine.reset();
-        _lastGpsUpdateTime = null;
-        _recentSpeeds.clear();
-        WakelockPlus.disable();
+        if (!_isRideRecording) {
+          _isArmed = false;
+          _metrics = _physicsEngine.reset();
+          _lastGpsUpdateTime = null;
+          _recentSpeeds.clear();
+          WakelockPlus.disable();
+          unawaited(PocketForegroundService.stop());
+        } else {
+          _startReconnectLoop();
+          unawaited(_updateLoggerNotification());
+        }
       } else {
-        WakelockPlus.enable();
+        _stopReconnectLoop();
+        _applyScreenPolicy();
+        if (_isLoggerMode && !_isRideRecording) {
+          unawaited(startRideRecording());
+        } else if (_isRideRecording) {
+          unawaited(_updateLoggerNotification());
+        }
       }
       _needsUiUpdate = true;
     });
@@ -420,7 +472,7 @@ class DragyProvider extends ChangeNotifier {
             _metrics,
             data.speedKmh!,
             _altitude,
-            isArmed: _isArmed,
+            isArmed: _isArmed && !_isLoggerMode,
             runMode: _runMode,
             targetDistance: targetDistance,
             targetDistanceUnit: targetDistanceUnit,
@@ -435,6 +487,13 @@ class DragyProvider extends ChangeNotifier {
 
           if (isRunning) {
             _lastGpsUpdateTime = DateTime.now();
+            final now = DateTime.now();
+            if (_lastPocketNotifyAt == null ||
+                now.difference(_lastPocketNotifyAt!) >
+                    const Duration(seconds: 1)) {
+              _lastPocketNotifyAt = now;
+              unawaited(_updatePocketRunningNotification());
+            }
           } else {
             _lastGpsUpdateTime = null;
             if (wasRunning) {
@@ -444,10 +503,42 @@ class DragyProvider extends ChangeNotifier {
 
           // Check if run just finished
           if (wasRunning && !isRunning && _metrics.history.isNotEmpty) {
-            _saveRunToHistory(_metrics);
+            unawaited(_finalizeCompletedRun(_metrics));
+          } else if (!wasRunning && isRunning) {
+            unawaited(_updatePocketRunningNotification());
           }
 
           updated = true;
+        }
+
+        if (_isRideRecording &&
+            _latitude != null &&
+            _longitude != null &&
+            (data.latitude != null ||
+                data.longitude != null ||
+                data.speedKmh != null)) {
+          final speed = data.speedKmh ?? _metrics.speedKmh;
+          unawaited(
+            _rideRecorder.appendTrackPoint(
+              latitude: _latitude!,
+              longitude: _longitude!,
+              altitudeMeters: _altitude,
+              speedKmh: speed,
+            ),
+          );
+          unawaited(
+            _rideRecorder.appendGpsRow(
+              latitude: _latitude!,
+              longitude: _longitude!,
+              altitudeMeters: _altitude,
+              speedKmh: speed,
+              hdop: _hdop > 0 ? _hdop : null,
+              satellites: _satellites > 0 ? _satellites : null,
+            ),
+          );
+          if (_rideRecorder.trackPointCount % 25 == 0) {
+            unawaited(_updateLoggerNotification());
+          }
         }
 
         if (updated) {
@@ -461,11 +552,27 @@ class DragyProvider extends ChangeNotifier {
         final parts = csv.split(',');
         if (parts.length >= 3) {
           // Assuming BMI160 format: "X,Y,Z" raw integers
-          // We'll use the Y axis for longitudinal G-force (front to back) after a 90-degree pivot
-          int y = int.parse(parts[1].trim());
+          final ax = int.parse(parts[0].trim()) / 16384.0;
+          final ay = int.parse(parts[1].trim()) / 16384.0;
+          final az = int.parse(parts[2].trim()) / 16384.0;
 
-          // 16384 LSB/g is standard for +/- 2G range on BMI160
-          double gForce = y / 16384.0;
+          // We'll use the Y axis for longitudinal G-force (front to back) after a 90-degree pivot
+          double gForce = ay;
+
+          if (_isRideRecording && _rideRecorder.isRecording) {
+            final started = _rideRecorder.startedAt;
+            if (started != null) {
+              unawaited(
+                _rideRecorder.appendImuSample(
+                  elapsedMs:
+                      DateTime.now().difference(started).inMilliseconds,
+                  axG: ax,
+                  ayG: ay,
+                  azG: az,
+                ),
+              );
+            }
+          }
 
           // Automatic progressive calibration when speed is constant (cruising or stationary) and not in an active run
           if (!_metrics.isRunning && isSpeedConstant) {
@@ -496,7 +603,11 @@ class DragyProvider extends ChangeNotifier {
     final success = await _bleService.connectToDevice(device);
     if (success) {
       _connectedDevice = device;
+      _bleReconnectId = device.remoteId.str;
       notifyListeners();
+      if (_isLoggerMode && !_isRideRecording) {
+        unawaited(startRideRecording());
+      }
     }
     return success;
   }
@@ -623,6 +734,7 @@ class DragyProvider extends ChangeNotifier {
       _isArmed = false; // Disarm on target change
       _metrics = _physicsEngine.reset();
       _lastGpsUpdateTime = null;
+      unawaited(PocketForegroundService.stop());
       _saveSettings();
       notifyListeners();
     }
@@ -700,19 +812,258 @@ class DragyProvider extends ChangeNotifier {
     }
   }
 
-  void toggleArm() {
+  Future<void> setPocketMode(bool value) async {
+    if (_pocketMode == value) return;
+    _pocketMode = value;
+    _saveSettings();
+    _applyScreenPolicy();
+    if (_isRideRecording) {
+      // Logger owns the FGS while recording.
+      notifyListeners();
+      return;
+    }
+    if (_pocketMode) {
+      if (_isArmed || _metrics.isRunning) {
+        await _startPocketService();
+        if (_metrics.isRunning) {
+          await _updatePocketRunningNotification();
+        }
+      }
+    } else {
+      await PocketForegroundService.stop();
+    }
+    notifyListeners();
+  }
+
+  void _applyScreenPolicy() {
+    if (_isRideRecording) {
+      WakelockPlus.disable();
+      return;
+    }
+    if (_isConnected && !_pocketMode) {
+      WakelockPlus.enable();
+    } else {
+      WakelockPlus.disable();
+    }
+  }
+
+  Future<void> toggleArm() async {
+    if (_isLoggerMode) return;
     if (_metrics.isRunning) {
       _isArmed = false;
       _metrics = _physicsEngine.reset();
       _lastGpsUpdateTime = null;
+      await PocketForegroundService.stop();
     } else {
       _isArmed = !_isArmed;
       if (_isArmed) {
         _metrics = _physicsEngine.reset();
         _lastGpsUpdateTime = null;
+        if (_pocketMode) {
+          await _startPocketService();
+        } else {
+          _applyScreenPolicy();
+          await PocketForegroundService.stop();
+        }
+      } else {
+        await PocketForegroundService.stop();
       }
     }
     notifyListeners();
+  }
+
+  Future<String?> setLoggerMode(bool enabled) async {
+    if (_isLoggerMode == enabled) return null;
+
+    if (enabled) {
+      _isLoggerMode = true;
+      _isArmed = false;
+      _metrics = _physicsEngine.reset();
+      _lastGpsUpdateTime = null;
+      await PocketForegroundService.stop();
+      notifyListeners();
+      if (_isConnected) {
+        return await startRideRecording();
+      }
+      return null;
+    }
+
+    await stopRideRecording();
+    _isLoggerMode = false;
+    _applyScreenPolicy();
+    notifyListeners();
+    return null;
+  }
+
+  void setLoggerProject(String? tag) {
+    final normalized =
+        tag == null || tag.isEmpty || tag == 'none' ? null : tag;
+    if (_loggerProject == normalized) return;
+    _loggerProject = normalized;
+    unawaited(_saveSettings());
+    notifyListeners();
+  }
+
+  void setLoggerConfiguration(String value) {
+    if (_loggerConfiguration == value) return;
+    _loggerConfiguration = value;
+    unawaited(_saveSettings());
+    notifyListeners();
+  }
+
+  Future<String?> startRideRecording() async {
+    if (_isRideRecording) return null;
+    if (!_isConnected) {
+      return 'Connect OpenDragy to start logging.';
+    }
+
+    await PocketForegroundService.requestPermissions();
+    await _rideRecorder.start(
+      vehicleName: activeVehicle?.displayName,
+      projectTag: _loggerProject,
+      configuration: _loggerConfiguration,
+    );
+    await PocketForegroundService.startLogging(
+      subtitle: 'Logger · 0 pts',
+    );
+    _isRideRecording = true;
+    _applyScreenPolicy();
+    _needsUiUpdate = true;
+    notifyListeners();
+    return null;
+  }
+
+  Future<File?> stopRideRecording() async {
+    if (!_isRideRecording) return null;
+    _stopReconnectLoop();
+    final file = await _rideRecorder.stop(
+      vehicleName: activeVehicle?.displayName,
+    );
+    await PocketForegroundService.stop();
+    _isRideRecording = false;
+    _applyScreenPolicy();
+    _needsUiUpdate = true;
+    notifyListeners();
+    return file;
+  }
+
+  void _startReconnectLoop() {
+    _reconnectTimer?.cancel();
+    if (!_isRideRecording || _bleReconnectId == null) return;
+    _reconnectTimer = Timer.periodic(const Duration(seconds: 8), (_) {
+      unawaited(_tryReconnectBle());
+    });
+  }
+
+  void _stopReconnectLoop() {
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
+  }
+
+  Future<void> _tryReconnectBle() async {
+    if (!_isRideRecording || _isConnected || _bleReconnectId == null) {
+      return;
+    }
+    try {
+      final device = BluetoothDevice.fromId(_bleReconnectId!);
+      await connect(device);
+    } catch (_) {}
+  }
+
+  Future<void> _updateLoggerNotification() async {
+    if (!_isRideRecording) return;
+    final status = _isConnected ? 'GPS live' : 'GPS paused';
+    final pts = _rideRecorder.trackPointCount;
+    final project = _loggerProject != null ? ' · proj $_loggerProject' : '';
+    await PocketForegroundService.update(
+      title: 'OpenDragy — Logger',
+      subtitle: '$status · $pts pts$project',
+      showStop: true,
+      showDisarm: false,
+    );
+  }
+
+  Future<void> _startPocketService() async {
+    if (!_pocketMode || _isLoggerMode || _isRideRecording) return;
+    await PocketForegroundService.requestPermissions();
+    await PocketForegroundService.startArmed(
+      subtitle: 'Target: $_pocketTargetLabel — screen may turn off',
+    );
+  }
+
+  Future<void> _updatePocketRunningNotification() async {
+    if (!await PocketForegroundService.isRunning) return;
+    await PocketForegroundService.update(
+      title: 'OpenDragy — Running',
+      subtitle:
+          '$_pocketTargetLabel · ${_metrics.elapsedTime.toStringAsFixed(2)} s',
+      showStop: true,
+      showDisarm: false,
+    );
+  }
+
+  Future<void> _finalizeCompletedRun(RaceMetrics metrics) async {
+    await _saveRunToHistory(metrics);
+    if (!await PocketForegroundService.isRunning) return;
+    await PocketForegroundService.update(
+      title: 'OpenDragy — Saved',
+      subtitle:
+          '${metrics.elapsedTime.toStringAsFixed(2)} s · $_pocketTargetLabel',
+      showDisarm: false,
+      showStop: false,
+    );
+    await Future<void>.delayed(const Duration(seconds: 8));
+    if (!_isArmed && !_metrics.isRunning) {
+      await PocketForegroundService.stop();
+    }
+  }
+
+  void _onPocketTaskData(Object data) {
+    if (data is! Map) return;
+    if (data['ping'] == true) {
+      if (_isRideRecording) {
+        unawaited(_rideRecorder.flush());
+        unawaited(_updateLoggerNotification());
+      }
+      return;
+    }
+    final action = data['action']?.toString();
+    if (action == 'stop') {
+      if (_isLoggerMode || _isRideRecording) {
+        unawaited(_handleLoggerStopFromNotification());
+      } else {
+        unawaited(_handlePocketStop());
+      }
+    } else if (action == 'disarm') {
+      unawaited(_handlePocketDisarm());
+    }
+  }
+
+  Future<void> _handleLoggerStopFromNotification() async {
+    await setLoggerMode(false);
+    await PocketForegroundService.bringAppToForeground();
+  }
+
+  Future<void> _handlePocketStop() async {
+    if (_metrics.isRunning) {
+      _isArmed = false;
+      _metrics = _physicsEngine.reset();
+      _lastGpsUpdateTime = null;
+      notifyListeners();
+    }
+    await PocketForegroundService.stop();
+    await PocketForegroundService.bringAppToForeground();
+  }
+
+  Future<void> _handlePocketDisarm() async {
+    _isArmed = false;
+    if (!_metrics.isRunning) {
+      _metrics = _physicsEngine.reset();
+      _lastGpsUpdateTime = null;
+    }
+    notifyListeners();
+    await PocketForegroundService.stop();
+    await PocketForegroundService.bringAppToForeground();
   }
 
   void setRunMode(String mode) {
@@ -721,6 +1072,7 @@ class DragyProvider extends ChangeNotifier {
       _isArmed = false; // Disarm on mode change
       _metrics = _physicsEngine.reset();
       _lastGpsUpdateTime = null;
+      unawaited(PocketForegroundService.stop());
       _saveSettings();
       notifyListeners();
     }
@@ -732,6 +1084,7 @@ class DragyProvider extends ChangeNotifier {
       _isArmed = false; // Disarm on target change
       _metrics = _physicsEngine.reset();
       _lastGpsUpdateTime = null;
+      unawaited(PocketForegroundService.stop());
       _saveSettings();
       notifyListeners();
     }
@@ -743,6 +1096,7 @@ class DragyProvider extends ChangeNotifier {
     _isArmed = false; // Disarm on range change
     _metrics = _physicsEngine.reset();
     _lastGpsUpdateTime = null;
+    unawaited(PocketForegroundService.stop());
     _saveSettings();
     notifyListeners();
   }
@@ -752,7 +1106,11 @@ class DragyProvider extends ChangeNotifier {
     _isMetric = data['isMetric'] as bool? ?? false;
     _tempInCelsius = data['tempInCelsius'] as bool? ?? true;
     _useNhraRules = data['useNhraRules'] as bool? ?? true;
+    _pocketMode = data['pocketMode'] as bool? ?? false;
+    _loggerProject = data['loggerProject'] as String?;
+    _loggerConfiguration = data['loggerConfiguration'] as String? ?? '';
     _runMode = data['runMode'] as String? ?? 'drag';
+    _applyScreenPolicy();
 
     final dragTargetName = data['activeDragTarget'] as String?;
     _activeDragTarget = RaceDragTarget.values.firstWhere(
@@ -779,6 +1137,9 @@ class DragyProvider extends ChangeNotifier {
       'isMetric': _isMetric,
       'tempInCelsius': _tempInCelsius,
       'useNhraRules': _useNhraRules,
+      'pocketMode': _pocketMode,
+      'loggerProject': _loggerProject,
+      'loggerConfiguration': _loggerConfiguration,
       'runMode': _runMode,
       'activeDragTarget': _activeDragTarget.name,
       'activeIntervalTarget': _activeIntervalTarget.name,
@@ -835,11 +1196,17 @@ class DragyProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    FlutterForegroundTask.removeTaskDataCallback(_onPocketTaskData);
+    _stopReconnectLoop();
     _uiTimer?.cancel();
     _nmeaSubscription?.cancel();
     _imuSubscription?.cancel();
     _connectionSubscription?.cancel();
     WakelockPlus.disable();
+    if (_isRideRecording) {
+      unawaited(_rideRecorder.stop(vehicleName: activeVehicle?.displayName));
+    }
+    unawaited(PocketForegroundService.stop());
     super.dispose();
   }
 }

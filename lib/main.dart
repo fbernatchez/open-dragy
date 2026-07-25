@@ -4,11 +4,15 @@ import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'providers/dragy_provider.dart';
 import 'screens/dashboard_screen.dart';
+import 'services/pocket_foreground_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  FlutterForegroundTask.initCommunicationPort();
+  PocketForegroundService.ensureInitialized();
   await Hive.initFlutter();
   FlutterBluePlus.setLogLevel(LogLevel.error);
   await SystemChrome.setPreferredOrientations([
@@ -49,7 +53,9 @@ class OpenDragyApp extends StatelessWidget {
           ),
           useMaterial3: true,
         ),
-        home: const DashboardScreen(),
+        home: WithForegroundTask(
+          child: const DashboardScreen(),
+        ),
       ),
     );
   }
