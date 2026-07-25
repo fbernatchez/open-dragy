@@ -58,7 +58,7 @@ enum RaceIntervalTarget {
   const RaceIntervalTarget(this.label, this.id);
 }
 
-class DragyProvider extends ChangeNotifier {
+class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
   final BleService _bleService = BleService();
   final PhysicsEngine _physicsEngine = PhysicsEngine();
   final HistoryService _historyService = HistoryService();
@@ -180,6 +180,9 @@ class DragyProvider extends ChangeNotifier {
   StreamSubscription<BluetoothAdapterState>? _adapterStateSubscription;
   bool _autoConnectSuppressed = false;
   bool _autoConnectBusy = false;
+  bool _appInForeground = true;
+  static const Duration _autoConnectFgPeriod = Duration(seconds: 3);
+  static const Duration _autoConnectBgPeriod = Duration(seconds: 10);
   bool _blePermissionsGranted = false;
   bool _isDisposed = false;
 
@@ -449,6 +452,7 @@ class DragyProvider extends ChangeNotifier {
   }
 
   DragyProvider() {
+    WidgetsBinding.instance.addObserver(this);
     unawaited(_bootstrapAppState());
     _loadAppVersion();
 
@@ -1467,12 +1471,26 @@ class DragyProvider extends ChangeNotifier {
     }
   }
 
+  Duration get _autoConnectPeriod =>
+      _appInForeground ? _autoConnectFgPeriod : _autoConnectBgPeriod;
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final inForeground = state == AppLifecycleState.resumed;
+    if (inForeground == _appInForeground) return;
+    _appInForeground = inForeground;
+    // Faster retries while the dashboard is visible; slower in background.
+    if (!_isConnected && !_autoConnectSuppressed) {
+      _startAutoConnectLoop();
+    }
+  }
+
   void _startAutoConnectLoop() {
     if (_autoConnectSuppressed || _isConnected) return;
     _autoConnectTimer?.cancel();
     // Immediate attempt, then retry while OpenDragy is away / BT warming up.
     unawaited(_tickAutoConnect());
-    _autoConnectTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+    _autoConnectTimer = Timer.periodic(_autoConnectPeriod, (_) {
       unawaited(_tickAutoConnect());
     });
     if (_isRideRecording) {
@@ -1839,6 +1857,7 @@ class DragyProvider extends ChangeNotifier {
   @override
   void dispose() {
     _isDisposed = true;
+    WidgetsBinding.instance.removeObserver(this);
     FlutterForegroundTask.removeTaskDataCallback(_onPocketTaskData);
     _stopAutoConnectLoop();
     _stopReconnectLoop();
