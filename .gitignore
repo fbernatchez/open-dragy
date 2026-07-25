@@ -127,6 +127,11 @@ tools/arduino-cli/
 tools/_flash_build/
 tools/_gsv_logcat.txt
 
+# Experimental / local-only (not product firmware)
+dragy_ble_emu/
+.agents/
+.claude/
+
 # Analyzer local DB / venv
 analyzer/.venv/
 analyzer/data/

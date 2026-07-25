@@ -2,10 +2,14 @@
 
 OpenDragy is a high-precision, open-source vehicle performance timer that measures acceleration, speed intervals, and distances. It combines custom **ESP32-S3 firmware** reading a 10Hz GPS and a BMI160 accelerometer with a sleek, dark-themed **Flutter companion app** over Bluetooth Low Energy (BLE).
 
+> [!TIP]
+> **RaceChrono compatible.** The same firmware also speaks the official [RaceChrono DIY BLE GPS](https://github.com/aollin/racechrono-ble-diy-device) protocol (`0x1FF8`). Use OpenDragy *or* RaceChrono — one phone/app at a time. Setup: RaceChrono → Settings → **Add other device** → **RaceChrono DIY** → Bluetooth LE → select **`OpenDragy`**.
+
 ---
 
 ## ✨ Features
 
+* **RaceChrono DIY GPS**: Dual BLE stack — Nordic UART for the OpenDragy app, plus RaceChrono DIY service `0x1FF8` (10 Hz GPS main + time). No app changes needed for RaceChrono.
 * **High-Precision Telemetry (10Hz)**: Receives and parses raw NMEA sentences from the GPS module 10 times per second for precise speed and position data.
 * **Sensor Fusion & Glitch Rejection**: Compares GPS speed increments with live accelerometer G-force data (running at 20Hz) from the IMU. Speed anomalies or multipath spikes that violate physical acceleration limits are automatically rejected.
 * **Zero-Crossing Interpolation**: Interpolates the exact start time (down to the millisecond) between the last stationary tick and the first launch tick, guaranteeing highly accurate launch timings.
@@ -94,6 +98,23 @@ The ESP32-S3 firmware is located in [OpenDragy.ino](file:///d:/Projets/open-drag
 4. Open [OpenDragy.ino](file:///d:/Projets/open-dragy/OpenDragy.ino).
 5. Compile and flash the code to your ESP32-S3.
 6. The device will boot and start broadcasting a BLE service named `OpenDragy`.
+
+### RaceChrono (DIY BLE GPS)
+
+The firmware advertises **two** BLE services at once:
+
+| Client | Service | What you get |
+| :--- | :--- | :--- |
+| **OpenDragy app** | Nordic UART (`6e400001-…`) | NMEA + IMU (unchanged) |
+| **RaceChrono** | DIY GPS (`0x1FF8`) | 10 Hz binary GPS (lat/lon/speed/bearing/HDOP) |
+
+In RaceChrono:
+
+1. Settings (gear) → **Add other device** → **RaceChrono DIY**
+2. Choose **GPS**, connection **Bluetooth LE**
+3. Select **`OpenDragy`**
+
+Disconnect the OpenDragy app first (ESP32 Arduino BLE is one client at a time). Do **not** use RaceChrono’s classic “Bluetooth GPS” SPP list — that is for Classic BT mice, not this device.
 
 > [!IMPORTANT]
 > Your u-blox M10 GPS module must be configured before first use to ensure it outputs GGA/RMC messages at 10Hz at 115200 baud. Follow the step-by-step guide in [README_GPS_CONFIG.md](file:///d:/Projets/open-dragy/README_GPS_CONFIG.md) using the **u-center 2** utility.
