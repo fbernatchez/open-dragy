@@ -14,17 +14,37 @@ OpenDragy is a high-precision, open-source vehicle performance timer that measur
 * **Sensor Fusion & Glitch Rejection**: Compares GPS speed increments with live accelerometer G-force data (running at 20Hz) from the IMU. Speed anomalies or multipath spikes that violate physical acceleration limits are automatically rejected.
 * **Zero-Crossing Interpolation**: Interpolates the exact start time (down to the millisecond) between the last stationary tick and the first launch tick, guaranteeing highly accurate launch timings.
 * **Auto-Armed Launch Control**: Automatically starts recording when speed exceeds `3.0 km/h` to bypass GPS drift/wandering, auto-stops when stationary, and auto-disarms upon completion.
+* **Helmet Audio Cues**: Optional beeps or spoken English milestones through Bluetooth / intercom (navigation-style audio routing). The selected drag or interval finish is always announced; extras (60 ft, 0–100 km/h, ⅛ mile, …) are toggled in **Settings → Milestone cues**. Distinct beep patterns: 1 short / 2 short / long+2 short for finish.
+* **Finish Celebration**: Optional full-screen flash or checkered-flag overlay when the selected target completes (only while the display is on).
+* **ARM IMU Zero**: After you tap **ARM**, ~0.5 s of IMU samples set the longitudinal G baseline so a lightly tilted mount reads ~0 G at rest.
+* **Raw Drag Logs**: Every valid timed run saves metrics JSON plus raw GPS/IMU CSV under `/OpenDragy/runs/{id}/` for PC analysis (NHRA / non-NHRA, charts, re-scoring later).
 * **Wakelock Integration**: Intelligently keeps your device screen awake and active during armed and ongoing runs, so you never miss your telemetry.
-* **Pocket Mode**: Built primarily for motorcycle use — the phone screen may turn off while a foreground service keeps timing / logger alive with the phone in a pocket or tank bag.
-* **BLE Auto-Connect**: Automatically scans for and reconnects to an advertising `OpenDragy` unit (remembers the last device). Manual disconnect pauses auto-connect until you open the device picker again.
+* **Pocket Mode**: Built primarily for motorcycle use — the phone screen may turn off while a quiet foreground service keeps timing / logger alive with the phone in a pocket or tank bag.
+* **BLE Auto-Connect**: Automatically scans and reconnects to an advertising `OpenDragy` unit (remembers the last device; faster retries while the app is in the foreground). Manual disconnect pauses auto-connect until you open the device picker again.
 * **A-GPS Cold-Start Aiding**: On BLE connect, injects phone UTC time and the last known coarse position into the u-blox M10 to speed up time-to-first-fix.
-* **Continuous Logger Mode**: Records a full session to GPX + GPS/IMU CSV (with tags & notes) for offline PC analysis; sessions sync into a durable `/OpenDragy` folder on the phone. Share as a single `.odpkg` package for the PC analyzer.
+* **Continuous Logger Mode**: Separate from ARM timing — set tags/notes first, then **Start Rec** / **Stop Rec**. Writes GPX + GPS/IMU CSV into `/OpenDragy/rides/`; share as a single `.odpkg` for the PC analyzer. Leaving logger mode stops recording.
 * **Logger Tags**: Chip-style tag editor with suggestions from previous rides; filter and share sessions from the ride logs screen.
 * **Live OSM Map**: Tap the yellow SAT chip on the dashboard to open an OpenStreetMap view of the current fix (coords, speed, altitude, HDOP).
 * **Aesthetic Companion App**: Built with Flutter featuring a premium OLED black design with Neon Amber and Neon Green styling, utilizing the Inter font family.
 * **Garage & Fleet Management**: Track multiple vehicles locally and link performance runs to specific cars or bikes.
 * **Automated Weather Logging**: Uses coordinates from the GPS at the time of the run to fetch ambient temperature, altitude, and relative humidity from the free Open-Meteo API.
 * **Run Database & Analytics**: View historical runs with detailed interactive charts showing speed curves, G-force mapping, and elevation/slope profiles to ensure valid runs.
+
+---
+
+## 🎧 Riding tips (motorcycle)
+
+1. Pair the phone to your helmet intercom (media / music audio, not only phone calls).
+2. **Settings → Audio cues** on → pick **Beep** or **Voice** → **Test cue now** before you leave.
+3. **Milestone cues**: finish of the selected target is always on; enable 0–100 / ⅛ / etc. if you want mid-run callouts.
+4. Tap **ARM** while staged — wait ~0.5 s for IMU zero, then launch.
+5. After a clean pull, check run detail for `Raw log · … GPS · … IMU`, or pull files from:
+
+```text
+/OpenDragy/runs/{runId}.json      # metrics + embedded raw block
+/OpenDragy/runs/{runId}/gps.csv   # raw GPS
+/OpenDragy/runs/{runId}/imu.csv   # raw IMU (g)
+```
 
 ---
 
@@ -40,6 +60,7 @@ Still useful to add (portrait, into [`docs/screenshots/`](docs/screenshots/)):
 | `map.png` | OSM map screen opened from the SAT chip (with a GPS fix) |
 | `ride_logs.png` | Ride logs list with tags / share |
 | `run_detail.png` | Post-run chart (speed + G-force) |
+| `settings_audio.png` | Settings → Audio cues / Milestone cues |
 | `garage.png` | Garage / vehicle list |
 
 ---
@@ -210,8 +231,14 @@ You can also run the workflow manually (**Actions → Build Mobile Apps → Run 
 * [lib/screens/run_history_screen.dart](file:///d:/Projets/open-dragy/lib/screens/run_history_screen.dart): Displays the history of all recorded runs and allows filtering or selecting runs to view details.
 * [lib/screens/run_detail_screen.dart](file:///d:/Projets/open-dragy/lib/screens/run_detail_screen.dart): Post-run analysis, graphs, G-force curves, and slope validations.
 * [lib/screens/garage_screen.dart](file:///d:/Projets/open-dragy/lib/screens/garage_screen.dart): Interface for adding, editing, and selecting vehicles.
-* [lib/screens/settings_screen.dart](file:///d:/Projets/open-dragy/lib/screens/settings_screen.dart): UI for configuring app preferences.
+* [lib/screens/settings_screen.dart](lib/screens/settings_screen.dart): UI for configuring app preferences (audio, pocket, NHRA, data folder).
+* [lib/screens/audio_milestones_screen.dart](lib/screens/audio_milestones_screen.dart): Optional intermediate audio milestone toggles (target finish always on).
 * [lib/screens/satellite_status_screen.dart](lib/screens/satellite_status_screen.dart): Live OSM map + GPS fix stats (opened from the SAT chip).
 * [lib/screens/ride_logs_screen.dart](lib/screens/ride_logs_screen.dart): Logger sessions browser (tags, share GPX/CSV).
-* [lib/services/open_dragy_storage.dart](lib/services/open_dragy_storage.dart): Durable `/OpenDragy` folder sync for settings, garage, runs, and logger sessions.
+* [lib/services/milestone_audio_service.dart](lib/services/milestone_audio_service.dart): Helmet beeps / TTS cue queue with Bluetooth-friendly audio attributes.
+* [lib/services/open_dragy_storage.dart](lib/services/open_dragy_storage.dart): Durable `/OpenDragy` folder sync for settings, garage, runs, raw CSV sidecars, and logger sessions.
+* [lib/models/raw_run_log.dart](lib/models/raw_run_log.dart): In-run GPS/IMU capture buffer saved with valid drag/interval runs.
+* [lib/widgets/finish_celebration_overlay.dart](lib/widgets/finish_celebration_overlay.dart): Flash / checkered-flag finish overlay.
 * [lib/utils/ubx_mga.dart](lib/utils/ubx_mga.dart): UBX-MGA time/position aiding frames for faster M10 cold starts.
+* [OpenDragy_technical_spec.md](OpenDragy_technical_spec.md): Architecture notes (dual BLE, raw data, PC analyzer direction).
+* [analyzer/](analyzer/): Desktop Streamlit tool for logger `.odpkg` sessions (pull detection, A/B compare, map).
