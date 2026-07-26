@@ -1,32 +1,36 @@
 # OpenDragy — Technická specifikace SW/FW architektury
 
-> Plánovací dokument pro IDE. Navazuje na `OpenDragy_backlog.md`. Popisuje KONKRÉTNÍ architekturu, ne jen seznam featur.
+> Plánovací dokument pro IDE. Navazuje na `OpenDragy_backlog.md`.
+>
+> **Stav (2026-07):** Produktový firmware posílá přes Nordic UART binární **ODGP** (z UBX-NAV-PVT), ne NMEA.
+> Sekce o **RaceChrono DIY (0x1FF8)** níže je historický / nerealizovaný plán — v aktuálním
+> `OpenDragy.ino` **není**. Pro pravdu o chování viz `README.md` a kód.
 
 ---
 
 ## 1. BLE architektura — dvojitá GATT služba
 
 ### Princip
-Jeden GATT server (ESP32-S3), dvě nezávislé služby vystavené současně. Routing dat řeší
-subscribe/notify model BLE samotný — FIRMWARE NEROZLIŠUJE, KDO SE PŘIPOJIL. Notifikace jde
-jen na charakteristiky, které má aktivní centrála skutečně odebrané (CCCD subscribe).
+Jeden GATT server (ESP32-S3). Dříve plánované dvě služby současně; **shipped** je jen služba A
+(OpenDragy NUS). Routing notifikací řeší CCCD subscribe.
 
-### Služba A — OpenDragy vlastní protokol (stávající)
+### Služba A — OpenDragy vlastní protokol (aktuální)
 ```
 SERVICE_UUID           6e400001-b5a3-f393-e0a9-e50e24dcca9e
-CHARACTERISTIC_TX      6e400003-...  (NOTIFY)  — GPS/NMEA passthrough
-CHARACTERISTIC_RX      6e400002-...  (WRITE)   — passthrough do GPS UART
+CHARACTERISTIC_TX      6e400003-...  (NOTIFY)  — ODGP binary GPS fix (~10 Hz)
+CHARACTERISTIC_RX      6e400002-...  (WRITE)   — passthrough do GPS UART (aiding / CFG)
 CHARACTERISTIC_IMU     6e400004-...  (NOTIFY)  — IMU X,Y,Z csv
 ```
 
-### Služba B — RaceChrono DIY BLE API (nová)
+### Služba B — RaceChrono DIY BLE API (NENÍ v aktuálním FW)
 ```
 SERVICE_UUID            0x1FF8  (00001ff8-0000-1000-8000-00805f9b34fb)
 GPS_MAIN                0x0003  (READ + NOTIFY)
 GPS_TIME                0x0004  (READ + NOTIFY)
-CANBUS_MAIN             0x0001  (READ + NOTIFY)  — použito pro G-force jako custom PID
+CANBUS_MAIN             0x0001  (READ + NOTIFY)  — plán: G-force jako custom PID
 CANBUS_FILTER           0x0002  (WRITE)
 ```
+
 
 ### Advertising
 Přidat OBĚ service UUID do advertisement packetu (`pAdvertising->addServiceUUID()` 2×),

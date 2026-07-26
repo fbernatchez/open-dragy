@@ -7,7 +7,7 @@ OpenDragy is a high-precision, open-source vehicle performance timer that measur
 ## ✨ Features
 
 * **UBX-NAV-PVT telemetry (10 Hz)**: Firmware parses u-blox NAV-PVT and sends a compact **ODGP** binary fix over Nordic UART — ground speed + horizontal accuracy (`hAcc`) for Dragy-class timing and GPS-ready gating.
-* **Multi-GNSS + SBAS (Europe)**: Boot config enables GPS / Galileo / GLONASS / BeiDou and SBAS (EGNOS) with Automotive dynamic model.
+* **Multi-GNSS + SBAS (Europe)**: Boot config enables GPS / Galileo / GLONASS and SBAS (EGNOS) with Automotive dynamic model. BeiDou is requested when the module accepts those CFG keys (some M10 builds NAK them).
 * **Sensor Fusion & Glitch Rejection**: Compares GPS speed increments with live accelerometer G-force data (running at 20Hz) from the IMU. Speed anomalies or multipath spikes that violate physical acceleration limits are automatically rejected.
 * **Zero-Crossing Interpolation**: Interpolates the exact start time (down to the millisecond) between the last stationary tick and the first launch tick, guaranteeing highly accurate launch timings.
 * **Auto-Armed Launch Control**: Automatically starts recording when speed exceeds `3.0 km/h` to bypass GPS drift/wandering, auto-stops when stationary, and auto-disarms upon completion.
@@ -18,11 +18,11 @@ OpenDragy is a high-precision, open-source vehicle performance timer that measur
 * **Wakelock Integration**: Intelligently keeps your device screen awake and active during armed and ongoing runs, so you never miss your telemetry.
 * **Pocket Mode**: Built primarily for motorcycle use — the phone screen may turn off while a quiet foreground service keeps timing / logger alive with the phone in a pocket or tank bag.
 * **BLE Auto-Connect**: Automatically scans and reconnects to an advertising `OpenDragy` unit (remembers the last device; faster retries while the app is in the foreground). Manual disconnect pauses auto-connect until you open the device picker again.
-* **A-GPS Cold-Start Aiding**: On BLE connect, injects phone UTC time and the last known coarse position into the u-blox M10 to speed up time-to-first-fix.
+* **A-GPS Cold-Start Aiding**: On BLE connect, injects trusted phone UTC (~1 s) plus the phone’s current location (fallback: last OpenDragy fix) into the u-blox M10 to speed up time-to-first-fix.
 * **Continuous Logger Mode**: Separate from ARM timing — set tags/notes first, then **Start Rec** / **Stop Rec**. Writes GPX + GPS/IMU CSV into `/OpenDragy/rides/`; share as a single `.odpkg` for the PC analyzer. Leaving logger mode stops recording.
 * **Logger Tags**: Chip-style tag editor with suggestions from previous rides; filter and share sessions from the ride logs screen.
 * **Live OSM Map**: Tap the yellow SAT chip on the dashboard to open an OpenStreetMap view of the current fix (coords, speed, altitude, `hAcc`).
-* **Aesthetic Companion App**: Built with Flutter featuring a premium OLED black design with Neon Amber and Neon Green styling, utilizing the Inter font family.
+* **Aesthetic Companion App**: Built with Flutter featuring a premium OLED black design with Neon Amber and Neon Green styling (Roboto / Roboto Mono via Google Fonts).
 * **Garage & Fleet Management**: Track multiple vehicles locally and link performance runs to specific cars or bikes.
 * **Automated Weather Logging**: Uses coordinates from the GPS at the time of the run to fetch ambient temperature, altitude, and relative humidity from the free Open-Meteo API.
 * **Run Database & Analytics**: View historical runs with detailed interactive charts showing speed curves, G-force mapping, and elevation/slope profiles to ensure valid runs.
@@ -105,19 +105,19 @@ Connect the components to your ESP32-S3 board using the following pin mapping de
 
 ## 💾 Firmware Installation
 
-The ESP32-S3 firmware is located in [OpenDragy.ino](file:///d:/Projets/open-dragy/OpenDragy.ino).
+The ESP32-S3 firmware is [`OpenDragy.ino`](OpenDragy.ino) in the repo root. Keep [`serial_to_serial/SerialToSerial.ino`](serial_to_serial/SerialToSerial.ino) out of that folder when compiling — Arduino merges every `.ino` in the same directory.
 
 1. Install the Arduino IDE or VS Code with the PlatformIO extension.
 2. Install the **ESP32 board support package** if using Arduino IDE.
 3. Install the library dependencies:
    * **DFRobot_BMI160** library (for interfacing with the IMU)
    * **BLE** stack (built-in for ESP32/ESP32-S3)
-4. Open [OpenDragy.ino](file:///d:/Projets/open-dragy/OpenDragy.ino).
-5. Compile and flash the code to your ESP32-S3.
-6. The device will boot and start broadcasting a BLE service named `OpenDragy`.
+4. Open [`OpenDragy.ino`](OpenDragy.ino) alone (or a copy in its own sketch folder).
+5. Compile and flash the code to your ESP32-S3 (e.g. Waveshare ESP32-S3-Zero).
+6. The device will boot and start broadcasting a BLE service named `OpenDragy` (Nordic UART: **ODGP** GPS + IMU).
 
 > [!TIP]
-> Flash [OpenDragy.ino](OpenDragy.ino) — on boot the firmware configures the M10 for **UBX-NAV-PVT @ 10 Hz** (NMEA off). Optional manual check with u-center: see [README_GPS_CONFIG.md](README_GPS_CONFIG.md). If the GPS is on USB as well, you can verify PVT / `hAcc` there while the ESP drives UART.
+> On boot the firmware configures the M10 for **UBX-NAV-PVT @ 10 Hz** (NMEA output dropped once PVT is live). Optional manual check with u-center / passthrough: see [README_GPS_CONFIG.md](README_GPS_CONFIG.md).
 
 ---
 
@@ -182,14 +182,14 @@ Without these secrets the Android release job **fails** (no debug-signed APK on 
 
 ### Publish a release
 
-1. Bump `version:` in [`pubspec.yaml`](pubspec.yaml) (e.g. `1.0.7+39`).
+1. Bump `version:` in [`pubspec.yaml`](pubspec.yaml) (e.g. `1.0.9+43`).
 2. Commit and push to `main`.
 3. Tag and push:
    ```bash
-   git tag v1.0.7
-   git push origin v1.0.7
+   git tag v1.0.9
+   git push origin v1.0.9
    ```
-4. Wait for the **Build Mobile Apps** workflow, then download `OpenDragy_v1.0.7.apk` from **Releases**.
+4. Wait for the **Build Mobile Apps** workflow, then download `OpenDragy_v1.0.9.apk` from **Releases**.
 
 You can also run the workflow manually (**Actions → Build Mobile Apps → Run workflow**); it creates/updates a release tagged `v{version}` from `pubspec.yaml`.
 
@@ -197,27 +197,30 @@ You can also run the workflow manually (**Actions → Build Mobile Apps → Run 
 
 ## 📂 Code Structure
 
-* [OpenDragy.ino](file:///d:/Projets/open-dragy/OpenDragy.ino): Microcontroller C++ firmware for reading UART GPS data & I2C IMU data and transmitting over BLE.
-* [lib/main.dart](file:///d:/Projets/open-dragy/lib/main.dart): Main application entry point, sets up global theme and screen routing.
-* [lib/services/physics_engine.dart](file:///d:/Projets/open-dragy/lib/services/physics_engine.dart): Advanced physics computations (trapezoidal integration, sensor fusion filters, interpolation logic).
-* [lib/services/ble_service.dart](file:///d:/Projets/open-dragy/lib/services/ble_service.dart): BLE scanner and stream listener for UART & IMU data.
-* [lib/providers/dragy_provider.dart](file:///d:/Projets/open-dragy/lib/providers/dragy_provider.dart): Core state provider coordinating Bluetooth events, GPS/IMU data processing, runs logic, settings, and database saves.
-* [lib/services/history_service.dart](file:///d:/Projets/open-dragy/lib/services/history_service.dart): Manages local saving and retrieval of historical run logs.
-* [lib/services/weather_service.dart](file:///d:/Projets/open-dragy/lib/services/weather_service.dart): Integration with Open-Meteo API to log run-time environment data.
-* [lib/services/garage_service.dart](file:///d:/Projets/open-dragy/lib/services/garage_service.dart): Manages local storage of vehicle profiles (cars, bikes) for fleet management.
-* [lib/services/settings_service.dart](file:///d:/Projets/open-dragy/lib/services/settings_service.dart): Handles user preferences such as unit toggles (Metric/Imperial) and app settings.
-* [lib/screens/dashboard_screen.dart](file:///d:/Projets/open-dragy/lib/screens/dashboard_screen.dart): Live telemetry display, speedometer, Bluetooth controls, and active timer stats.
-* [lib/screens/run_history_screen.dart](file:///d:/Projets/open-dragy/lib/screens/run_history_screen.dart): Displays the history of all recorded runs and allows filtering or selecting runs to view details.
-* [lib/screens/run_detail_screen.dart](file:///d:/Projets/open-dragy/lib/screens/run_detail_screen.dart): Post-run analysis, graphs, G-force curves, and slope validations.
-* [lib/screens/garage_screen.dart](file:///d:/Projets/open-dragy/lib/screens/garage_screen.dart): Interface for adding, editing, and selecting vehicles.
-* [lib/screens/settings_screen.dart](lib/screens/settings_screen.dart): UI for configuring app preferences (audio, pocket, NHRA, data folder).
-* [lib/screens/audio_milestones_screen.dart](lib/screens/audio_milestones_screen.dart): Optional intermediate audio milestone toggles (target finish always on).
-* [lib/screens/satellite_status_screen.dart](lib/screens/satellite_status_screen.dart): Live OSM map + GPS fix stats (opened from the SAT chip).
-* [lib/screens/ride_logs_screen.dart](lib/screens/ride_logs_screen.dart): Logger sessions browser (tags, share GPX/CSV).
-* [lib/services/milestone_audio_service.dart](lib/services/milestone_audio_service.dart): Helmet beeps / TTS cue queue with Bluetooth-friendly audio attributes.
-* [lib/services/open_dragy_storage.dart](lib/services/open_dragy_storage.dart): Durable `/OpenDragy` folder sync for settings, garage, runs, raw CSV sidecars, and logger sessions.
-* [lib/models/raw_run_log.dart](lib/models/raw_run_log.dart): In-run GPS/IMU capture buffer saved with valid drag/interval runs.
-* [lib/widgets/finish_celebration_overlay.dart](lib/widgets/finish_celebration_overlay.dart): Flash / checkered-flag finish overlay.
-* [lib/utils/ubx_mga.dart](lib/utils/ubx_mga.dart): UBX-MGA time/position aiding frames for faster M10 cold starts.
-* [OpenDragy_technical_spec.md](OpenDragy_technical_spec.md): Architecture notes (dual BLE, raw data, PC analyzer direction).
-* [analyzer/](analyzer/): Desktop Streamlit tool for logger `.odpkg` sessions (pull detection, A/B compare, map).
+* [`OpenDragy.ino`](OpenDragy.ino): ESP32-S3 firmware — UBX-NAV-PVT parse, ODGP + IMU over BLE NUS, boot CFG for M10.
+* [`serial_to_serial/SerialToSerial.ino`](serial_to_serial/SerialToSerial.ino): USB↔GPS UART bridge for u-center (separate sketch).
+* [`tools/configure_gps_pvt.py`](tools/configure_gps_pvt.py): Optional PC-side UBX CFG over the SerialToSerial bridge.
+* [`lib/main.dart`](lib/main.dart): App entry, theme, routing.
+* [`lib/services/physics_engine.dart`](lib/services/physics_engine.dart): Trapezoidal integration, sensor fusion, interpolation.
+* [`lib/services/ble_service.dart`](lib/services/ble_service.dart): BLE scanner; ODGP + legacy NMEA + IMU streams.
+* [`lib/utils/odgp_parser.dart`](lib/utils/odgp_parser.dart): Binary ODGP v1 packet parser (NAV-PVT fields).
+* [`lib/providers/dragy_provider.dart`](lib/providers/dragy_provider.dart): Core state — BLE, timing, aiding, logger, settings, persistence.
+* [`lib/services/history_service.dart`](lib/services/history_service.dart): Local run history storage.
+* [`lib/services/weather_service.dart`](lib/services/weather_service.dart): Open-Meteo ambient conditions at run time.
+* [`lib/services/garage_service.dart`](lib/services/garage_service.dart): Vehicle profiles.
+* [`lib/services/settings_service.dart`](lib/services/settings_service.dart): User preferences (units, cues, NHRA, …).
+* [`lib/screens/dashboard_screen.dart`](lib/screens/dashboard_screen.dart): Live telemetry, ARM, logger controls.
+* [`lib/screens/run_history_screen.dart`](lib/screens/run_history_screen.dart): Run list / filters.
+* [`lib/screens/run_detail_screen.dart`](lib/screens/run_detail_screen.dart): Post-run charts and validation.
+* [`lib/screens/garage_screen.dart`](lib/screens/garage_screen.dart): Vehicle editor / picker.
+* [`lib/screens/settings_screen.dart`](lib/screens/settings_screen.dart): App preferences UI.
+* [`lib/screens/audio_milestones_screen.dart`](lib/screens/audio_milestones_screen.dart): Optional mid-run audio milestones.
+* [`lib/screens/satellite_status_screen.dart`](lib/screens/satellite_status_screen.dart): OSM map + `hAcc` / fix stats (from SAT chip).
+* [`lib/screens/ride_logs_screen.dart`](lib/screens/ride_logs_screen.dart): Logger sessions browser.
+* [`lib/services/milestone_audio_service.dart`](lib/services/milestone_audio_service.dart): Helmet beeps / TTS.
+* [`lib/services/open_dragy_storage.dart`](lib/services/open_dragy_storage.dart): Durable `/OpenDragy` folder sync.
+* [`lib/models/raw_run_log.dart`](lib/models/raw_run_log.dart): In-run GPS/IMU capture for valid runs.
+* [`lib/widgets/finish_celebration_overlay.dart`](lib/widgets/finish_celebration_overlay.dart): Finish flash / checkered overlay.
+* [`lib/utils/ubx_mga.dart`](lib/utils/ubx_mga.dart): UBX-MGA-INI time/position aiding builders.
+* [`OpenDragy_technical_spec.md`](OpenDragy_technical_spec.md): Planning notes (partially historical — see banner in that file).
+* [`analyzer/`](analyzer/): Desktop Streamlit tool for logger `.odpkg` sessions (pull detection, A/B, map, MoTeC export).
