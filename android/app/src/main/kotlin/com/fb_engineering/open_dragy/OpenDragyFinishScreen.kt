@@ -29,6 +29,7 @@ class OpenDragyFinishScreen(carContext: CarContext) : Screen(carContext) {
                 Action.Builder()
                     .setTitle("Done")
                     .setBackgroundColor(CarColor.GREEN)
+                    .setFlags(Action.FLAG_PRIMARY)
                     .setOnClickListener { screenManager.pop() }
                     .build(),
             )
@@ -87,7 +88,6 @@ class OpenDragyMetricsScreen(carContext: CarContext) : Screen(carContext) {
                     .addAction(
                         Action.Builder()
                             .setTitle("Done")
-                            .setBackgroundColor(CarColor.GREEN)
                             .setOnClickListener {
                                 // Pop metrics + finish → back to main.
                                 screenManager.popToRoot()
