@@ -20,6 +20,7 @@ import '../services/pocket_foreground_service.dart';
 import '../services/ride_recorder.dart';
 import '../services/open_dragy_storage.dart';
 import '../services/milestone_audio_service.dart';
+import '../services/media_arm_bridge.dart';
 import '../models/app_cues.dart';
 import '../models/raw_run_log.dart';
 import '../models/satellite_sv.dart';
@@ -153,6 +154,24 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   AudioCueMode _audioCueMode = AudioCueMode.voice;
   AudioCueMode get audioCueMode => _audioCueMode;
+
+  /// Cue playback volume (0.3–1.0) for TTS / beeps → Bluetooth intercom.
+  double _cueVolume = 1.0;
+  double get cueVolume => _cueVolume;
+
+  /// Cardo / AA media Next→ARM, Previous→DISARM.
+  bool _headsetMediaArmEnabled = true;
+  bool get headsetMediaArmEnabled => _headsetMediaArmEnabled;
+
+  /// Last completed run summary for Android Auto (e.g. "1/8 7.81s @ 146").
+  String? _lastCarResult;
+  String? get lastCarResult => _lastCarResult;
+
+  int _carFinishToken = 0;
+  String _carFinishHeadline = '';
+  List<String> _carFinishLines = const [];
+
+  DateTime? _lastCarStatePush;
 
   /// Extra milestones beyond selected-target finish (default: 0–100 / 0–60).
   Set<OptionalAudioMilestone> _optionalAudioMilestones = {
@@ -494,13 +513,18 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     unawaited(_bootstrapAppState());
     _loadAppVersion();
+    _wireMediaArmBridge();
 
     FlutterForegroundTask.addTaskDataCallback(_onPocketTaskData);
 
     _uiTimer = Timer.periodic(const Duration(milliseconds: 16), (_) {
+      final dirty = _needsUiUpdate || _metrics.isRunning || _isArmed;
       if (_needsUiUpdate || _metrics.isRunning) {
         notifyListeners();
         _needsUiUpdate = false;
+      }
+      if (_headsetMediaArmEnabled && dirty) {
+        _pushCarStateThrottled();
       }
     });
 
@@ -1005,6 +1029,7 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
       }
     }
     notifyListeners();
+    _pushCarStateThrottled(force: true);
   }
 
   Future<void> _saveRunToHistory(RaceMetrics runMetrics) async {
@@ -1050,8 +1075,14 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
         );
       }
       _savedRuns.insert(0, savedRun);
+      _lastCarResult = _formatCarResult(savedRun);
+      _carFinishHeadline = _lastCarResult ?? 'Run complete';
+      _carFinishLines = _carMetricLines(savedRun);
+      _carFinishToken++;
+      unawaited(_saveSettings());
       _needsUiUpdate = true;
       notifyListeners();
+      _pushCarStateThrottled(force: true);
 
       // Fetch weather asynchronously in the background if coordinates are available
       final lat = _latitude;
@@ -1061,6 +1092,139 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
       }
     }
     _runRaw.clear();
+  }
+
+  String _formatCarResult(SavedRun run) {
+    final m = run.metrics;
+    final label = activeTargetLabel;
+    double? t;
+    double? trap;
+    if (_runMode == 'drag') {
+      switch (_activeDragTarget) {
+        case RaceDragTarget.sixtyFeet:
+          t = m.time60ft;
+          break;
+        case RaceDragTarget.threeHundredThirtyFeet:
+          t = m.time330ft;
+          break;
+        case RaceDragTarget.eighthMile:
+          t = m.time18Mile;
+          trap = m.trap18Mile;
+          break;
+        case RaceDragTarget.thousandFeet:
+          t = m.time1000ft;
+          trap = m.trap1000ft;
+          break;
+        case RaceDragTarget.quarterMile:
+          t = m.time14Mile;
+          trap = m.trap14Mile;
+          break;
+        case RaceDragTarget.halfMile:
+          t = m.time12Mile;
+          trap = m.trap12Mile;
+          break;
+      }
+    } else {
+      t = m.time0to100kmh ?? m.time0to60mph;
+    }
+    if (t == null) return '$label done';
+    if (trap != null) {
+      return '$label ${t.toStringAsFixed(2)}s @ ${trap.toStringAsFixed(0)}';
+    }
+    return '$label ${t.toStringAsFixed(2)}s';
+  }
+
+  /// AA rows as "Label|value" (split on native side).
+  List<String> _carMetricLines(SavedRun run) {
+    final m = run.metrics;
+    final nhra = _useNhraRules && m.rolloutTime1ft != null;
+    String? fmt(double? t) => t == null ? null : '${t.toStringAsFixed(3)} s';
+    String? trap(double? v) =>
+        v == null ? null : '${v.toStringAsFixed(1)} km/h';
+
+    final lines = <String>[];
+    void add(String label, String? value) {
+      if (value != null) lines.add('$label|$value');
+    }
+
+    if (nhra) {
+      add('60 ft (1 ft)', fmt(m.time60ftRollout ?? m.time60ft));
+      add('330 ft', fmt(m.time330ftRollout ?? m.time330ft));
+      add('0–60 mph', fmt(m.time0to60mphRollout ?? m.time0to60mph));
+      add('0–100 km/h', fmt(m.time0to100kmhRollout ?? m.time0to100kmh));
+      add('1/8 mile', fmt(m.time18MileRollout ?? m.time18Mile));
+      add('1/8 trap', trap(m.trap18Mile));
+      add('1000 ft', fmt(m.time1000ftRollout ?? m.time1000ft));
+      add('1/4 mile', fmt(m.time14MileRollout ?? m.time14Mile));
+      add('1/4 trap', trap(m.trap14Mile));
+      add('1/2 mile', fmt(m.time12MileRollout ?? m.time12Mile));
+    } else {
+      add('60 ft', fmt(m.time60ft));
+      add('330 ft', fmt(m.time330ft));
+      add('0–60 mph', fmt(m.time0to60mph));
+      add('0–100 km/h', fmt(m.time0to100kmh));
+      add('1/8 mile', fmt(m.time18Mile));
+      add('1/8 trap', trap(m.trap18Mile));
+      add('1000 ft', fmt(m.time1000ft));
+      add('1000 trap', trap(m.trap1000ft));
+      add('1/4 mile', fmt(m.time14Mile));
+      add('1/4 trap', trap(m.trap14Mile));
+      add('1/2 mile', fmt(m.time12Mile));
+      add('1/2 trap', trap(m.trap12Mile));
+    }
+    add('0–200 km/h', fmt(m.time0to200kmh));
+    add('100–200 km/h', fmt(m.time100to200kmh));
+    add('Vmax', trap(m.history.isEmpty
+        ? null
+        : m.history.map((e) => e.speedKmh).reduce(max)));
+    if (run.vehicleName != null && run.vehicleName!.trim().isNotEmpty) {
+      add('Vehicle', run.vehicleName!.trim());
+    }
+    return lines;
+  }
+
+  /// History title from the run itself (not the currently selected AA target).
+  String _carHistoryTitle(SavedRun run) {
+    final m = run.metrics;
+    String pair(String label, double? t, [double? trap]) {
+      if (t == null) return '';
+      if (trap != null) {
+        return '$label ${t.toStringAsFixed(2)}s @ ${trap.toStringAsFixed(0)}';
+      }
+      return '$label ${t.toStringAsFixed(2)}s';
+    }
+
+    for (final s in [
+      pair('1/4', m.time14Mile, m.trap14Mile),
+      pair('1/8', m.time18Mile, m.trap18Mile),
+      pair('0–100', m.time0to100kmh),
+      pair('0–60', m.time0to60mph),
+      pair('60 ft', m.time60ft),
+      pair('1/2', m.time12Mile, m.trap12Mile),
+    ]) {
+      if (s.isNotEmpty) return s;
+    }
+    return 'Run';
+  }
+
+  List<Map<String, dynamic>> _carHistoryPayload({int limit = 12}) {
+    return [
+      for (final run in _savedRuns.take(limit))
+        {
+          'id': run.id,
+          'title': _carHistoryTitle(run),
+          'subtitle':
+              '${_formatCarHistoryTime(run.dateTime)}'
+              '${run.vehicleName != null ? ' · ${run.vehicleName}' : ''}',
+          'lines': _carMetricLines(run),
+        },
+    ];
+  }
+
+  String _formatCarHistoryTime(DateTime dt) {
+    final h = dt.hour.toString().padLeft(2, '0');
+    final m = dt.minute.toString().padLeft(2, '0');
+    return '$h:$m';
   }
 
   Future<void> _fetchAndApplyWeather(
@@ -1131,6 +1295,7 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
   void setActiveDragTarget(RaceDragTarget target) {
     if (_activeDragTarget != target) {
       _activeDragTarget = target;
+      _runMode = 'drag';
       _isArmed = false; // Disarm on target change
       _cancelArmCalibration();
       _runRaw.clear();
@@ -1139,7 +1304,28 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
       unawaited(_releasePocketOrKeepAlive());
       _saveSettings();
       notifyListeners();
+      _pushCarStateThrottled(force: true);
     }
+  }
+
+  /// Android Auto / headset: set drag target by enum name.
+  void setDragTargetFromCar(String name) {
+    if (_metrics.isRunning) return;
+    for (final t in RaceDragTarget.values) {
+      if (t.name == name) {
+        setActiveDragTarget(t);
+        return;
+      }
+    }
+  }
+
+  /// Android Auto: cycle 60ft → … → 1/2 mile → 60ft.
+  void cycleDragTargetFromCar() {
+    if (_metrics.isRunning) return;
+    final values = RaceDragTarget.values;
+    final idx = values.indexOf(_activeDragTarget);
+    final next = values[(idx + 1) % values.length];
+    setActiveDragTarget(next);
   }
 
   // --- Settings Methods ---
@@ -1246,6 +1432,102 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
     _milestoneAudio.setMode(mode);
     _saveSettings();
     notifyListeners();
+  }
+
+  void setCueVolume(double value) {
+    final v = value.clamp(0.3, 1.0);
+    if ((v - _cueVolume).abs() < 0.001) return;
+    _cueVolume = v;
+    _milestoneAudio.setVolume(_cueVolume);
+    _saveSettings();
+    notifyListeners();
+  }
+
+  void setHeadsetMediaArmEnabled(bool value) {
+    if (_headsetMediaArmEnabled == value) return;
+    _headsetMediaArmEnabled = value;
+    unawaited(MediaArmBridge.instance.setEnabled(value));
+    _saveSettings();
+    notifyListeners();
+    if (value) _pushCarStateThrottled(force: true);
+  }
+
+  void _wireMediaArmBridge() {
+    final bridge = MediaArmBridge.instance;
+    bridge.ensureListening();
+    bridge.onNext = () => unawaited(toggleArmFromHeadset());
+    bridge.onPrevious = () => unawaited(disarmFromHeadset());
+    bridge.onSetDragTarget = (name) => setDragTargetFromCar(name);
+    bridge.onCycleDragTarget = () => cycleDragTargetFromCar();
+    bridge.onSetVehicle = (id) => unawaited(setVehicleFromCar(id));
+  }
+
+  void _pushCarStateThrottled({bool force = false}) {
+    final now = DateTime.now();
+    if (!force &&
+        _lastCarStatePush != null &&
+        now.difference(_lastCarStatePush!) < const Duration(milliseconds: 250)) {
+      return;
+    }
+    _lastCarStatePush = now;
+    unawaited(
+      MediaArmBridge.instance.updatePlaybackState(
+        armed: _isArmed,
+        running: _metrics.isRunning,
+        speedKmh: _metrics.speedKmh,
+        targetLabel: activeTargetLabel,
+        dragTargetName: _activeDragTarget.name,
+        dragTargets: [
+          for (final t in RaceDragTarget.values)
+            {'name': t.name, 'label': t.label},
+        ],
+        lastResult: _lastCarResult,
+        finishToken: _carFinishToken,
+        finishHeadline: _carFinishHeadline,
+        finishLines: _carFinishLines,
+        history: _carHistoryPayload(),
+        vehicleId: _activeVehicleId ?? '',
+        vehicleLabel: activeVehicle?.displayName ?? '—',
+        vehicles: [
+          for (final v in _vehicles) {'id': v.id, 'label': v.displayName},
+        ],
+      ),
+    );
+  }
+
+  Future<void> setVehicleFromCar(String id) async {
+    if (_metrics.isRunning) return;
+    if (!_vehicles.any((v) => v.id == id)) return;
+    await setActiveVehicle(id);
+  }
+
+  /// Cardo / AA Next Track — toggle ARM and announce to helmet.
+  Future<void> toggleArmFromHeadset() async {
+    if (!_headsetMediaArmEnabled) return;
+    if (_isLoggerMode) return;
+    if (_metrics.isRunning) return;
+
+    final wasArmed = _isArmed;
+    await toggleArm();
+    if (_isArmed && !wasArmed) {
+      unawaited(_milestoneAudio.announceArmed());
+    } else if (!_isArmed && wasArmed) {
+      unawaited(_milestoneAudio.announceDisarmed());
+    }
+    _pushCarStateThrottled(force: true);
+  }
+
+  /// Cardo / AA Previous Track — DISARM only.
+  Future<void> disarmFromHeadset() async {
+    if (!_headsetMediaArmEnabled) return;
+    if (_isLoggerMode) return;
+    if (_metrics.isRunning) return;
+    if (!_isArmed) return;
+    await toggleArm();
+    if (!_isArmed) {
+      unawaited(_milestoneAudio.announceDisarmed());
+    }
+    _pushCarStateThrottled(force: true);
   }
 
   void setOptionalAudioMilestone(OptionalAudioMilestone m, bool enabled) {
@@ -1367,6 +1649,7 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
       }
     }
     notifyListeners();
+    _pushCarStateThrottled(force: true);
   }
 
   Future<String?> setLoggerMode(bool enabled) async {
@@ -1457,6 +1740,9 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
     unawaited(_milestoneAudio.init());
     _milestoneAudio.setEnabled(_voiceCuesEnabled);
     _milestoneAudio.setMode(_audioCueMode);
+    _milestoneAudio.setVolume(_cueVolume);
+    await MediaArmBridge.instance.setEnabled(_headsetMediaArmEnabled);
+    _pushCarStateThrottled(force: true);
     _applyScreenPolicy();
     if (_pocketMode && !_isLoggerMode && !_isRideRecording) {
       await _syncPocketStatusNotification();
@@ -1531,6 +1817,18 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
         orElse: () => _audioCueMode,
       );
       _milestoneAudio.setMode(_audioCueMode);
+    }
+    if (data.containsKey('cueVolume')) {
+      _cueVolume = ((data['cueVolume'] as num?)?.toDouble() ?? _cueVolume)
+          .clamp(0.3, 1.0);
+      _milestoneAudio.setVolume(_cueVolume);
+    }
+    if (data.containsKey('headsetMediaArmEnabled')) {
+      _headsetMediaArmEnabled =
+          data['headsetMediaArmEnabled'] as bool? ?? _headsetMediaArmEnabled;
+    }
+    if (data.containsKey('lastCarResult')) {
+      _lastCarResult = data['lastCarResult'] as String? ?? _lastCarResult;
     }
     final optionalRaw = data['optionalAudioMilestones'];
     if (optionalRaw is List) {
@@ -1627,6 +1925,9 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
         'pocketMode': _pocketMode,
         'voiceCuesEnabled': _voiceCuesEnabled,
         'audioCueMode': _audioCueMode.name,
+        'cueVolume': _cueVolume,
+        'headsetMediaArmEnabled': _headsetMediaArmEnabled,
+        if (_lastCarResult != null) 'lastCarResult': _lastCarResult,
         'optionalAudioMilestones':
             _optionalAudioMilestones.map((e) => e.name).toList(),
         'finishCelebration': _finishCelebration.name,
@@ -2051,6 +2352,7 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
     _vehicles = await _garageService.loadVehicles();
     _activeVehicleId = await _garageService.loadActiveVehicleId();
     notifyListeners();
+    _pushCarStateThrottled(force: true);
   }
 
   Future<void> _saveGarage() async {
@@ -2066,6 +2368,7 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
     await _saveGarage();
     notifyListeners();
+    _pushCarStateThrottled(force: true);
   }
 
   Future<void> updateVehicle(Vehicle vehicle) async {
@@ -2074,6 +2377,7 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
       _vehicles[index] = vehicle;
       await _saveGarage();
       notifyListeners();
+      _pushCarStateThrottled(force: true);
     }
   }
 
@@ -2084,12 +2388,14 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
     await _saveGarage();
     notifyListeners();
+    _pushCarStateThrottled(force: true);
   }
 
   Future<void> setActiveVehicle(String id) async {
     _activeVehicleId = id;
     await _saveGarage();
     notifyListeners();
+    _pushCarStateThrottled(force: true);
   }
 
   @override

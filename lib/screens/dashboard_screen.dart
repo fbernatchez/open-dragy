@@ -1278,9 +1278,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Garage Button
+                      // Garage Button — in logger: first tap exits to drag UI
                       InkWell(
-                        onTap: () {
+                        onTap: () async {
+                          if (dragy.isLoggerMode) {
+                            final wasRecording = dragy.isRideRecording;
+                            await dragy.setLoggerMode(false);
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    wasRecording
+                                        ? 'Drag mode — session saved. Tap car again for Garage.'
+                                        : 'Drag mode — tap car again for Garage.',
+                                  ),
+                                ),
+                              );
+                            }
+                            return;
+                          }
+                          if (!context.mounted) return;
                           Navigator.push(
                             context,
                             MaterialPageRoute(

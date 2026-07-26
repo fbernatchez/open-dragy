@@ -15,6 +15,8 @@ class RunHistoryScreen extends StatefulWidget {
 
 class _RunHistoryScreenState extends State<RunHistoryScreen> {
   String _selectedCategory = 'all';
+  /// `all` | `none` | vehicleId | `name:<displayName>`
+  String _selectedVehicleKey = 'all';
 
   String _formatDate(DateTime dt) {
     final months = [
@@ -166,6 +168,52 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
     }).toList();
   }
 
+  static String vehicleKeyForRun(SavedRun run) {
+    final id = run.vehicleId?.trim();
+    if (id != null && id.isNotEmpty) return id;
+    final name = run.vehicleName?.trim();
+    if (name != null && name.isNotEmpty) return 'name:$name';
+    return 'none';
+  }
+
+  List<({String key, String label, int count})> _vehicleOptions(
+    List<SavedRun> runs,
+  ) {
+    final counts = <String, int>{};
+    final labels = <String, String>{};
+    for (final run in runs) {
+      final key = vehicleKeyForRun(run);
+      counts[key] = (counts[key] ?? 0) + 1;
+      labels.putIfAbsent(key, () {
+        if (key == 'none') return 'No vehicle';
+        if (key.startsWith('name:')) return key.substring(5);
+        return run.vehicleName?.trim().isNotEmpty == true
+            ? run.vehicleName!.trim()
+            : key;
+      });
+    }
+
+    final entries = counts.entries.toList()
+      ..sort((a, b) {
+        if (a.key == 'none') return 1;
+        if (b.key == 'none') return -1;
+        return labels[a.key]!.toLowerCase().compareTo(
+              labels[b.key]!.toLowerCase(),
+            );
+      });
+
+    return [
+      (key: 'all', label: 'All vehicles', count: runs.length),
+      for (final e in entries)
+        (key: e.key, label: labels[e.key]!, count: e.value),
+    ];
+  }
+
+  List<SavedRun> _runsForVehicle(String vehicleKey, List<SavedRun> runs) {
+    if (vehicleKey == 'all') return runs;
+    return runs.where((r) => vehicleKeyForRun(r) == vehicleKey).toList();
+  }
+
   static String getCategoryDisplayName(String categoryId) {
     if (categoryId == 'all') return 'All Runs';
     for (final test in officialTests) {
@@ -190,11 +238,19 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
     final isMetric = dragy.isMetric;
     final useNhraRules = dragy.useNhraRules;
 
-    final categories = _getCategories(runs, isMetric, useNhraRules);
+    final vehicleOptions = _vehicleOptions(runs);
+    final showVehicleFilter = vehicleOptions.length > 2; // all + ≥2 distinct
+    if (!vehicleOptions.any((v) => v.key == _selectedVehicleKey)) {
+      _selectedVehicleKey = 'all';
+    }
+
+    final vehicleRuns = _runsForVehicle(_selectedVehicleKey, runs);
+    final categories = _getCategories(vehicleRuns, isMetric, useNhraRules);
     if (!categories.any((c) => c.id == _selectedCategory)) {
       _selectedCategory = 'all';
     }
-    final filteredRuns = _getFilteredRuns(_selectedCategory, runs, useNhraRules);
+    final filteredRuns =
+        _getFilteredRuns(_selectedCategory, vehicleRuns, useNhraRules);
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -236,6 +292,61 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
           : Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (showVehicleFilter)
+                  SizedBox(
+                    height: 44,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+                      itemCount: vehicleOptions.length,
+                      separatorBuilder: (_, __) => const SizedBox(width: 8),
+                      itemBuilder: (context, idx) {
+                        final opt = vehicleOptions[idx];
+                        final selected = _selectedVehicleKey == opt.key;
+                        return FilterChip(
+                          selected: selected,
+                          showCheckmark: false,
+                          avatar: Icon(
+                            opt.key == 'all'
+                                ? Icons.directions_car_outlined
+                                : Icons.directions_car,
+                            size: 16,
+                            color: selected
+                                ? const Color(0xFFFFBF00)
+                                : Colors.white54,
+                          ),
+                          label: Text(
+                            opt.key == 'all'
+                                ? opt.label
+                                : '${opt.label} (${opt.count})',
+                            style: GoogleFonts.roboto(
+                              fontSize: 12,
+                              fontWeight: selected
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
+                              color: selected
+                                  ? const Color(0xFFFFBF00)
+                                  : Colors.white70,
+                            ),
+                          ),
+                          selectedColor:
+                              const Color(0xFFFFBF00).withOpacity(0.15),
+                          backgroundColor: const Color(0xFF111111),
+                          side: BorderSide(
+                            color: selected
+                                ? const Color(0xFFFFBF00)
+                                : Colors.white.withOpacity(0.1),
+                          ),
+                          onSelected: (_) {
+                            setState(() {
+                              _selectedVehicleKey = opt.key;
+                              _selectedCategory = 'all';
+                            });
+                          },
+                        );
+                      },
+                    ),
+                  ),
                 // Horizontal category PB cards list
                 SizedBox(
                   height: 96,
@@ -250,11 +361,12 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                       final category = categories[idx];
                       final isSelected = _selectedCategory == category.id;
                       final label = category.displayName;
-                      final pb = _getPB(category.id, runs, useNhraRules);
+                      final pb =
+                          _getPB(category.id, vehicleRuns, useNhraRules);
 
                       String pbText = '-.--s';
                       if (category.id == 'all') {
-                        pbText = '${runs.length} Runs';
+                        pbText = '${vehicleRuns.length} Runs';
                       } else if (pb != null) {
                         pbText = '${pb.toStringAsFixed(2)}s';
                       }
@@ -349,11 +461,14 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                               ),
                               const SizedBox(height: 12),
                               Text(
-                                'No runs found for this category.',
+                                _selectedVehicleKey != 'all'
+                                    ? 'No runs for this vehicle / category.'
+                                    : 'No runs found for this category.',
                                 style: GoogleFonts.roboto(
                                   color: Colors.white38,
                                   fontSize: 15,
                                 ),
+                                textAlign: TextAlign.center,
                               ),
                             ],
                           ),

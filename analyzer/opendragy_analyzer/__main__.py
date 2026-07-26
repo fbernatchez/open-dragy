@@ -7,6 +7,7 @@ from pathlib import Path
 
 from .compare import compare_runs
 from .library import import_session, list_sessions, load_gps
+from .motec import MotecExportError, export_session_to_motec
 from .package import PackageError, pack_session
 from .paths import DEFAULT_DB
 from .runs import detect_runs, pick_best_run
@@ -44,6 +45,47 @@ def main(argv: list[str] | None = None) -> int:
     p_ab.add_argument("--stock-label", default="Stock")
     p_ab.add_argument("--modified-label", default="Modified intake")
     p_ab.add_argument("--min-peak", type=float, default=25.0)
+
+    p_motec = sub.add_parser(
+        "motec",
+        help="Export session to MoTeC i2 .ld (needs MotecLogGenerator)",
+    )
+    p_motec.add_argument(
+        "path",
+        type=Path,
+        help="Session stem, .odlog.json, folder, or .odpkg",
+    )
+    p_motec.add_argument(
+        "-o",
+        "--out",
+        type=Path,
+        default=None,
+        help="Output .ld path (default: next to session)",
+    )
+    p_motec.add_argument(
+        "--frequency",
+        type=float,
+        default=20.0,
+        help="Sample rate Hz for all channels (default: 20)",
+    )
+    p_motec.add_argument(
+        "--csv",
+        action="store_true",
+        help="Also write resampled .motec.csv (i2 CSV import needs a licence)",
+    )
+    p_motec.add_argument("--driver", default="", help="MoTeC driver metadata")
+    p_motec.add_argument("--venue", default="", help="MoTeC venue metadata")
+    p_motec.add_argument(
+        "--event",
+        default="OpenDragy",
+        help="MoTeC event name (default: OpenDragy)",
+    )
+    p_motec.add_argument(
+        "--generator",
+        type=Path,
+        default=None,
+        help="Path to MotecLogGenerator (or set OPEN_DRAGY_MOTEC_GEN)",
+    )
 
     args = parser.parse_args(argv)
 
@@ -130,7 +172,27 @@ def main(argv: list[str] | None = None) -> int:
                     f"{row['modified']:>12}  {row['delta']}"
                 )
             return 0
-    except (PackageError, OSError, ValueError) as e:
+        if args.cmd == "motec":
+            result = export_session_to_motec(
+                args.path,
+                out=args.out,
+                frequency_hz=args.frequency,
+                keep_csv=args.csv,
+                generator_dir=args.generator,
+                driver=args.driver,
+                venue_name=args.venue,
+                event_name=args.event,
+            )
+            print(
+                f"wrote {result.ld_path}  "
+                f"({result.duration_s / 60:.1f} min, "
+                f"{result.samples} samples @ {result.frequency_hz:g} Hz, "
+                f"{result.channels} channels)"
+            )
+            if result.csv_path:
+                print(f"wrote {result.csv_path}")
+            return 0
+    except (PackageError, MotecExportError, OSError, ValueError) as e:
         print(f"error: {e}", file=sys.stderr)
         return 1
 

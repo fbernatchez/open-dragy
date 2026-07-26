@@ -23,6 +23,7 @@ class MilestoneAudioService {
 
   bool _enabled = true;
   AudioCueMode _mode = AudioCueMode.voice;
+  double _volume = 1.0;
   bool _ready = false;
   bool _speaking = false;
   bool _disposed = false;
@@ -30,6 +31,7 @@ class MilestoneAudioService {
 
   bool get enabled => _enabled;
   AudioCueMode get mode => _mode;
+  double get volume => _volume;
 
   Future<void> init() async {
     if (_ready || _disposed) return;
@@ -41,23 +43,23 @@ class MilestoneAudioService {
             stayAwake: true,
             contentType: AndroidContentType.sonification,
             usageType: AndroidUsageType.assistanceNavigationGuidance,
-            audioFocus: AndroidAudioFocus.gainTransientMayDuck,
+            // Transient (not mayDuck-only): stronger duck of Spotify/media on BT.
+            audioFocus: AndroidAudioFocus.gainTransient,
           ),
           iOS: AudioContextIOS(
             category: AVAudioSessionCategory.playback,
             options: const {
-              AVAudioSessionOptions.mixWithOthers,
               AVAudioSessionOptions.duckOthers,
             },
           ),
         ),
       );
       await _beepPlayer.setReleaseMode(ReleaseMode.stop);
-      await _beepPlayer.setVolume(1.0);
+      await _beepPlayer.setVolume(_volume);
 
       await _tts.setLanguage('en-US');
       await _tts.setSpeechRate(0.48);
-      await _tts.setVolume(1.0);
+      await _tts.setVolume(_volume);
       await _tts.setPitch(1.05);
       await _tts.awaitSpeakCompletion(true);
       await _tts.setAudioAttributesForNavigation();
@@ -65,6 +67,12 @@ class MilestoneAudioService {
     } catch (_) {
       _ready = false;
     }
+  }
+
+  void setVolume(double value) {
+    _volume = value.clamp(0.3, 1.0);
+    unawaited(_beepPlayer.setVolume(_volume));
+    unawaited(_tts.setVolume(_volume));
   }
 
   void setEnabled(bool value) {
@@ -96,10 +104,45 @@ class MilestoneAudioService {
   Future<void> playTestCue() async {
     if (_disposed) return;
     if (!_ready) await init();
+    await _beepPlayer.setVolume(_volume);
+    await _tts.setVolume(_volume);
     if (_mode == AudioCueMode.beep) {
       await _playPattern(_BeepPattern.finish);
     } else {
       await _tts.speak('Quarter mile');
+    }
+  }
+
+  /// Helmet confirmation after Cardo / AA media ARM (plays even if run cues off).
+  Future<void> announceArmed() async {
+    if (_disposed) return;
+    if (!_ready) await init();
+    await _beepPlayer.setVolume(_volume);
+    await _tts.setVolume(_volume);
+    if (_mode == AudioCueMode.beep) {
+      await _playToneForced(long: true);
+      await Future<void>.delayed(const Duration(milliseconds: 120));
+      await _playToneForced(long: false);
+      await Future<void>.delayed(const Duration(milliseconds: 90));
+      await _playToneForced(long: false);
+    } else {
+      try {
+        await _tts.speak('Armed');
+      } catch (_) {}
+    }
+  }
+
+  Future<void> announceDisarmed() async {
+    if (_disposed) return;
+    if (!_ready) await init();
+    await _beepPlayer.setVolume(_volume);
+    await _tts.setVolume(_volume);
+    if (_mode == AudioCueMode.beep) {
+      await _playToneForced(long: false);
+    } else {
+      try {
+        await _tts.speak('Disarmed');
+      } catch (_) {}
     }
   }
 
@@ -268,8 +311,14 @@ class MilestoneAudioService {
 
   Future<void> _playTone({required bool long}) async {
     if (!_enabled || _disposed) return;
+    await _playToneForced(long: long);
+  }
+
+  Future<void> _playToneForced({required bool long}) async {
+    if (_disposed) return;
     final asset = long ? 'sounds/cue_beep_long.wav' : 'sounds/cue_beep.wav';
     try {
+      await _beepPlayer.setVolume(_volume);
       await _beepPlayer.stop();
       await _beepPlayer.play(AssetSource(asset));
       await _beepPlayer.onPlayerComplete.first.timeout(

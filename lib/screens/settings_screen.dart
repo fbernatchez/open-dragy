@@ -114,6 +114,47 @@ class SettingsScreen extends StatelessWidget {
               selected: dragy.audioCueMode,
               onSelected: (v) => dragy.setAudioCueMode(v as AudioCueMode),
             ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: Row(
+                children: [
+                  const Icon(Icons.volume_up, color: Color(0xFF42A5F5), size: 22),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Cue volume',
+                          style: GoogleFonts.roboto(
+                            color: Colors.white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        Text(
+                          '${(dragy.cueVolume * 100).round()}% · ducks other media briefly',
+                          style: GoogleFonts.roboto(
+                            color: Colors.white38,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Slider(
+              value: dragy.cueVolume,
+              min: 0.3,
+              max: 1.0,
+              divisions: 7,
+              activeColor: const Color(0xFF42A5F5),
+              inactiveColor: Colors.white12,
+              label: '${(dragy.cueVolume * 100).round()}%',
+              onChanged: (v) => dragy.setCueVolume(v),
+            ),
             ListTile(
               contentPadding: const EdgeInsets.symmetric(horizontal: 16),
               leading: Container(
@@ -182,10 +223,22 @@ class SettingsScreen extends StatelessWidget {
                 style: OutlinedButton.styleFrom(
                   side: const BorderSide(color: Colors.white24),
                   minimumSize: const Size.fromHeight(48),
+                  // keep existing styling below
                 ),
               ),
             ),
           ],
+
+          _SectionHeader(label: 'Headset / Auto'),
+          _SettingsToggle(
+            icon: Icons.headphones,
+            title: 'Headset media buttons → ARM',
+            subtitle: dragy.headsetMediaArmEnabled
+                ? 'Cardo/AA Next = ARM toggle · Previous = DISARM · says Armed'
+                : 'Off — Next Track goes to Spotify again',
+            value: dragy.headsetMediaArmEnabled,
+            onChanged: (v) => dragy.setHeadsetMediaArmEnabled(v),
+          ),
 
           _SectionHeader(label: 'Data'),
           ListTile(
