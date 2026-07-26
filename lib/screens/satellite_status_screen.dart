@@ -5,7 +5,6 @@ import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/dragy_provider.dart';
-import '../utils/nmea_parser.dart';
 
 class SatelliteStatusScreen extends StatelessWidget {
   const SatelliteStatusScreen({super.key});
@@ -20,7 +19,7 @@ class SatelliteStatusScreen extends StatelessWidget {
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: Text(
-          'Map',
+          'GPS / Map',
           style: GoogleFonts.roboto(
             color: Colors.white,
             fontWeight: FontWeight.w600,
@@ -32,7 +31,7 @@ class SatelliteStatusScreen extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
-            child: _StatsRow(dragy: dragy),
+            child: _StatsPanel(dragy: dragy),
           ),
           const SizedBox(height: 12),
           Expanded(
@@ -124,24 +123,21 @@ class _MapViewState extends State<_MapView> {
               ),
               children: [
                 TileLayer(
-                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  urlTemplate:
+                      'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                   userAgentPackageName: 'com.fb_engineering.open_dragy',
-                  maxNativeZoom: 19,
                 ),
                 if (pos != null)
                   MarkerLayer(
                     markers: [
                       Marker(
                         point: pos,
-                        width: 44,
-                        height: 44,
+                        width: 40,
+                        height: 40,
                         child: const Icon(
                           Icons.navigation,
                           color: Color(0xFFFFBF00),
                           size: 36,
-                          shadows: [
-                            Shadow(color: Colors.black54, blurRadius: 6),
-                          ],
                         ),
                       ),
                     ],
@@ -149,73 +145,36 @@ class _MapViewState extends State<_MapView> {
               ],
             ),
             Positioned(
-              left: 12,
               right: 12,
               bottom: 12,
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.72),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.white24),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        pos == null
-                            ? 'Waiting for GPS fix…'
-                            : '${pos.latitude.toStringAsFixed(5)}, '
-                                '${pos.longitude.toStringAsFixed(5)}\n'
-                                '${widget.speedKmh.toStringAsFixed(1)} km/h · '
-                                '${widget.altitude.toStringAsFixed(0)} m',
-                        style: GoogleFonts.robotoMono(
-                          color: Colors.white70,
-                          fontSize: 11,
-                          height: 1.35,
-                        ),
-                      ),
+              child: Column(
+                children: [
+                  FloatingActionButton.small(
+                    heroTag: 'follow',
+                    backgroundColor: _follow
+                        ? const Color(0xFFFFBF00)
+                        : Colors.black87,
+                    onPressed: () {
+                      setState(() => _follow = true);
+                      final p = _pos;
+                      if (p != null) {
+                        _mapController.move(p, _mapController.camera.zoom);
+                        _lastMovedTo = p;
+                      }
+                    },
+                    child: Icon(
+                      Icons.my_location,
+                      color: _follow ? Colors.black : Colors.white70,
                     ),
-                    const SizedBox(width: 8),
-                    IconButton(
-                      tooltip: _follow ? 'Following' : 'Recenter',
-                      onPressed: pos == null
-                          ? null
-                          : () {
-                              setState(() => _follow = true);
-                              _mapController.move(pos, 16);
-                              _lastMovedTo = pos;
-                            },
-                      style: IconButton.styleFrom(
-                        backgroundColor: _follow
-                            ? Colors.amberAccent.withValues(alpha: 0.2)
-                            : Colors.white10,
-                      ),
-                      icon: Icon(
-                        Icons.my_location,
-                        color: _follow ? Colors.amberAccent : Colors.white54,
-                        size: 20,
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
             if (pos == null)
-              Positioned.fill(
-                child: IgnorePointer(
-                  child: Container(
-                    color: Colors.black38,
-                    alignment: Alignment.center,
-                    child: Text(
-                      'No position yet',
-                      style: GoogleFonts.roboto(
-                        color: Colors.white70,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ),
+              const Center(
+                child: Text(
+                  'Waiting for GPS fix…',
+                  style: TextStyle(color: Colors.white70, fontSize: 16),
                 ),
               ),
           ],
@@ -225,19 +184,21 @@ class _MapViewState extends State<_MapView> {
   }
 }
 
-class _StatsRow extends StatelessWidget {
+class _StatsPanel extends StatelessWidget {
   final DragyProvider dragy;
 
-  const _StatsRow({required this.dragy});
+  const _StatsPanel({required this.dragy});
 
   @override
   Widget build(BuildContext context) {
     final lat = dragy.latitude;
     final lon = dragy.longitude;
-    String coord = '—';
+    String coord = 'No position yet';
     if (lat != null && lon != null) {
-      coord = '${lat.toStringAsFixed(5)}, ${lon.toStringAsFixed(5)}';
+      coord = '${lat.toStringAsFixed(6)}, ${lon.toStringAsFixed(6)}';
     }
+
+    final speed = dragy.metrics.speedKmh;
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -247,17 +208,28 @@ class _StatsRow extends StatelessWidget {
         border: Border.all(color: Colors.amberAccent.withValues(alpha: 0.35)),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
               _StatChip(label: 'SAT', value: '${dragy.satellites}'),
+              _StatChip(label: 'Fix', value: dragy.fixTypeLabel),
               _StatChip(
-                label: 'Fix',
-                value: NmeaParser.fixQualityLabel(dragy.fixQuality),
+                label: 'hAcc',
+                value: dragy.hAccLabel,
               ),
               _StatChip(
-                label: 'HDOP',
-                value: dragy.hdop > 0 ? dragy.hdop.toStringAsFixed(1) : '—',
+                label: 'vAcc',
+                value: dragy.vAccLabel,
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              _StatChip(
+                label: 'Speed',
+                value: '${speed.toStringAsFixed(1)} km/h',
               ),
               _StatChip(
                 label: 'Alt',
@@ -265,17 +237,30 @@ class _StatsRow extends StatelessWidget {
                     ? '${dragy.altitude.toStringAsFixed(0)} m'
                     : '—',
               ),
+              _StatChip(
+                label: 'Ready',
+                value: dragy.isGpsReady ? 'YES' : 'NO',
+              ),
+              _StatChip(
+                label: 'Link',
+                value: dragy.isConnected ? 'BLE' : '—',
+              ),
             ],
           ),
           const SizedBox(height: 10),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              coord,
-              style: GoogleFonts.robotoMono(
-                color: Colors.white70,
-                fontSize: 12,
-              ),
+          Text(
+            coord,
+            style: GoogleFonts.robotoMono(
+              color: Colors.white70,
+              fontSize: 12,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'NAV-PVT · multi-GNSS + SBAS (EGNOS)',
+            style: GoogleFonts.roboto(
+              color: Colors.white38,
+              fontSize: 11,
             ),
           ),
         ],
@@ -299,10 +284,11 @@ class _StatChip extends StatelessWidget {
             value,
             style: GoogleFonts.robotoMono(
               color: Colors.amberAccent,
-              fontSize: 15,
+              fontSize: 13,
               fontWeight: FontWeight.bold,
             ),
             overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
           ),
           const SizedBox(height: 2),
           Text(

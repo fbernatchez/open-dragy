@@ -7,16 +7,20 @@ class UbxMga {
   static const int _classMga = 0x13;
   static const int _idIni = 0x40;
 
-  /// UBX-MGA-INI-TIME_UTC — phone UTC with conservative accuracy.
+  /// UBX-MGA-INI-TIME_UTC — phone UTC.
+  ///
+  /// Phones typically track NTP within ~1 s; mark source as trusted so M10
+  /// can use a tighter acquisition window.
   static Uint8List timeUtc(
     DateTime utc, {
-    int accuracySeconds = 5,
+    int accuracySeconds = 1,
+    bool trustedSource = true,
   }) {
     final t = utc.toUtc();
     final payload = ByteData(24);
     payload.setUint8(0, 0x10); // type
     payload.setUint8(1, 0x00); // version
-    payload.setUint8(2, 0x00); // ref: apply on receipt
+    payload.setUint8(2, 0x00); // ref: none — apply immediately
     payload.setInt8(3, -128); // leapSecs unknown
     payload.setUint16(4, t.year, Endian.little);
     payload.setUint8(6, t.month);
@@ -24,7 +28,8 @@ class UbxMga {
     payload.setUint8(8, t.hour);
     payload.setUint8(9, t.minute);
     payload.setUint8(10, t.second);
-    payload.setUint8(11, 0x00); // bitfield0: untrusted
+    // bit 0 = trustedSource
+    payload.setUint8(11, trustedSource ? 0x01 : 0x00);
     payload.setUint32(12, t.millisecond * 1000000, Endian.little); // ns
     payload.setUint16(16, accuracySeconds.clamp(0, 0xffff), Endian.little);
     payload.setUint8(18, 0);
@@ -54,12 +59,19 @@ class UbxMga {
     return _frame(_classMga, _idIni, payload.buffer.asUint8List());
   }
 
-  /// Position accuracy that grows with age of the last known fix.
+  /// Position accuracy that grows with age of the last known OpenDragy fix.
   static double accuracyMetersForAge(Duration age) {
     if (age.inHours < 6) return 5000; // 5 km
     if (age.inDays < 2) return 20000;
     if (age.inDays < 14) return 50000;
     return 100000;
+  }
+
+  /// Clamp phone-reported accuracy into a sensible MGA window.
+  static double phoneAccuracyMeters(double? reportedAccuracy) {
+    final a = reportedAccuracy ?? 500;
+    if (a.isNaN || a <= 0) return 500;
+    return a.clamp(30.0, 5000.0);
   }
 
   static Uint8List _frame(int msgClass, int msgId, Uint8List payload) {

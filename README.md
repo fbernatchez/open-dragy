@@ -1,16 +1,13 @@
 # 🏁 OpenDragy
 
-OpenDragy is a high-precision, open-source vehicle performance timer that measures acceleration, speed intervals, and distances. It combines custom **ESP32-S3 firmware** reading a 10Hz GPS and a BMI160 accelerometer with a sleek, dark-themed **Flutter companion app** over Bluetooth Low Energy (BLE).
-
-> [!TIP]
-> **RaceChrono compatible.** The same firmware also speaks the official [RaceChrono DIY BLE GPS](https://github.com/aollin/racechrono-ble-diy-device) protocol (`0x1FF8`). Use OpenDragy *or* RaceChrono — one phone/app at a time. Setup: RaceChrono → Settings → **Add other device** → **RaceChrono DIY** → Bluetooth LE → select **`OpenDragy`**.
+OpenDragy is a high-precision, open-source vehicle performance timer that measures acceleration, speed intervals, and distances. It combines custom **ESP32-S3 firmware** reading a **10 Hz UBX-NAV-PVT** GPS stream (Dragy-class `gSpeed` + `hAcc`) and a BMI160 accelerometer with a sleek, dark-themed **Flutter companion app** over Bluetooth Low Energy (BLE).
 
 ---
 
 ## ✨ Features
 
-* **RaceChrono DIY GPS**: Dual BLE stack — Nordic UART for the OpenDragy app, plus RaceChrono DIY service `0x1FF8` (10 Hz GPS main + time). No app changes needed for RaceChrono.
-* **High-Precision Telemetry (10Hz)**: Receives and parses raw NMEA sentences from the GPS module 10 times per second for precise speed and position data.
+* **UBX-NAV-PVT telemetry (10 Hz)**: Firmware parses u-blox NAV-PVT and sends a compact **ODGP** binary fix over Nordic UART — ground speed + horizontal accuracy (`hAcc`) for Dragy-class timing and GPS-ready gating.
+* **Multi-GNSS + SBAS (Europe)**: Boot config enables GPS / Galileo / GLONASS / BeiDou and SBAS (EGNOS) with Automotive dynamic model.
 * **Sensor Fusion & Glitch Rejection**: Compares GPS speed increments with live accelerometer G-force data (running at 20Hz) from the IMU. Speed anomalies or multipath spikes that violate physical acceleration limits are automatically rejected.
 * **Zero-Crossing Interpolation**: Interpolates the exact start time (down to the millisecond) between the last stationary tick and the first launch tick, guaranteeing highly accurate launch timings.
 * **Auto-Armed Launch Control**: Automatically starts recording when speed exceeds `3.0 km/h` to bypass GPS drift/wandering, auto-stops when stationary, and auto-disarms upon completion.
@@ -24,7 +21,7 @@ OpenDragy is a high-precision, open-source vehicle performance timer that measur
 * **A-GPS Cold-Start Aiding**: On BLE connect, injects phone UTC time and the last known coarse position into the u-blox M10 to speed up time-to-first-fix.
 * **Continuous Logger Mode**: Separate from ARM timing — set tags/notes first, then **Start Rec** / **Stop Rec**. Writes GPX + GPS/IMU CSV into `/OpenDragy/rides/`; share as a single `.odpkg` for the PC analyzer. Leaving logger mode stops recording.
 * **Logger Tags**: Chip-style tag editor with suggestions from previous rides; filter and share sessions from the ride logs screen.
-* **Live OSM Map**: Tap the yellow SAT chip on the dashboard to open an OpenStreetMap view of the current fix (coords, speed, altitude, HDOP).
+* **Live OSM Map**: Tap the yellow SAT chip on the dashboard to open an OpenStreetMap view of the current fix (coords, speed, altitude, `hAcc`).
 * **Aesthetic Companion App**: Built with Flutter featuring a premium OLED black design with Neon Amber and Neon Green styling, utilizing the Inter font family.
 * **Garage & Fleet Management**: Track multiple vehicles locally and link performance runs to specific cars or bikes.
 * **Automated Weather Logging**: Uses coordinates from the GPS at the time of the run to fetch ambient temperature, altitude, and relative humidity from the free Open-Meteo API.
@@ -87,7 +84,7 @@ For a 3D-printable case for the OpenDragy hardware, check out the [OpenDragy Pri
 
 ### 📋 Bill of Materials (BOM)
 1. **ESP32-S3 Mini Development Board** (or similar ESP32-S3 board)
-2. **QUESCAN G10A-F30 UBX M10 GPS Module** (supporting 10-25Hz refresh rates and configured at 115200 baud)
+2. **u-blox M10 GPS** (e.g. **MicoAir MG-A01** or QUESCAN G10A-F30) @ **115200** baud — firmware auto-configures NAV-PVT @ 10 Hz
 3. **BMI160 Accelerometer/Gyroscope IMU Module** (connected via I2C)
 
 ### 🔌 Pin Connections
@@ -119,25 +116,8 @@ The ESP32-S3 firmware is located in [OpenDragy.ino](file:///d:/Projets/open-drag
 5. Compile and flash the code to your ESP32-S3.
 6. The device will boot and start broadcasting a BLE service named `OpenDragy`.
 
-### RaceChrono (DIY BLE GPS)
-
-The firmware advertises **two** BLE services at once:
-
-| Client | Service | What you get |
-| :--- | :--- | :--- |
-| **OpenDragy app** | Nordic UART (`6e400001-…`) | NMEA + IMU (unchanged) |
-| **RaceChrono** | DIY GPS (`0x1FF8`) | 10 Hz binary GPS (lat/lon/speed/bearing/HDOP) |
-
-In RaceChrono:
-
-1. Settings (gear) → **Add other device** → **RaceChrono DIY**
-2. Choose **GPS**, connection **Bluetooth LE**
-3. Select **`OpenDragy`**
-
-Disconnect the OpenDragy app first (ESP32 Arduino BLE is one client at a time). Do **not** use RaceChrono’s classic “Bluetooth GPS” SPP list — that is for Classic BT mice, not this device.
-
-> [!IMPORTANT]
-> Your u-blox M10 GPS module must be configured before first use to ensure it outputs GGA/RMC messages at 10Hz at 115200 baud. Follow the step-by-step guide in [README_GPS_CONFIG.md](file:///d:/Projets/open-dragy/README_GPS_CONFIG.md) using the **u-center 2** utility.
+> [!TIP]
+> Flash [OpenDragy.ino](OpenDragy.ino) — on boot the firmware configures the M10 for **UBX-NAV-PVT @ 10 Hz** (NMEA off). Optional manual check with u-center: see [README_GPS_CONFIG.md](README_GPS_CONFIG.md). If the GPS is on USB as well, you can verify PVT / `hAcc` there while the ESP drives UART.
 
 ---
 

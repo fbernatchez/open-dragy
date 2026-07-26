@@ -194,8 +194,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         textColor = Colors.white;
         statusKey = "finished";
       } else {
-        final bool isGpsReady =
-            dragy.satellites >= 4 && dragy.hdop > 0.0 && dragy.hdop <= 2.0;
+        final bool isGpsReady = dragy.isGpsReady;
         if (!isGpsReady) {
           mainTime = "Waiting for GPS";
           fontSize = 35.0;
@@ -1189,95 +1188,100 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
 
           // Top Bar (Signal Confidence and Connection)
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 20.0,
-                vertical: 16.0,
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  // Signal Confidence (Top Left) → satellite detail
-                  Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const SatelliteStatusScreen(),
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20.0,
+                  vertical: 16.0,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Signal Confidence (Top Left) → satellite detail
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const SatelliteStatusScreen(),
+                            ),
+                          );
+                        },
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
                           ),
-                        );
-                      },
-                      borderRadius: BorderRadius.circular(12),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isConnected
-                              ? Colors.amberAccent.withOpacity(0.1)
-                              : Colors.white.withOpacity(0.04),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
+                          decoration: BoxDecoration(
                             color: isConnected
-                                ? Colors.amberAccent.withOpacity(0.5)
-                                : Colors.white.withOpacity(0.12),
+                                ? Colors.amberAccent.withOpacity(0.1)
+                                : Colors.white.withOpacity(0.04),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: isConnected
+                                  ? Colors.amberAccent.withOpacity(0.5)
+                                  : Colors.white.withOpacity(0.12),
+                            ),
                           ),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.satellite_alt,
-                                  color: isConnected
-                                      ? Colors.amberAccent
-                                      : Colors.white30,
-                                  size: 16,
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  isConnected
-                                      ? '${dragy.satellites} SAT'
-                                      : 'NO GPS',
-                                  style: GoogleFonts.robotoMono(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.satellite_alt,
                                     color: isConnected
                                         ? Colors.amberAccent
                                         : Colors.white30,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
+                                    size: 16,
                                   ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              isConnected
-                                  ? 'HDOP: ${dragy.hdop.toStringAsFixed(1)}'
-                                  : 'Offline',
-                              style: GoogleFonts.robotoMono(
-                                color: isConnected
-                                    ? Colors.amberAccent.withOpacity(0.8)
-                                    : Colors.white24,
-                                fontSize: 12,
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    isConnected
+                                        ? '${dragy.satellites} SAT'
+                                        : 'NO GPS',
+                                    style: GoogleFonts.robotoMono(
+                                      color: isConnected
+                                          ? Colors.amberAccent
+                                          : Colors.white30,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
-                          ],
+                              const SizedBox(height: 4),
+                              Text(
+                                isConnected
+                                    ? 'hAcc ${dragy.hAccLabel}'
+                                    : 'Offline',
+                                style: GoogleFonts.robotoMono(
+                                  color: isConnected
+                                      ? Colors.amberAccent.withOpacity(0.8)
+                                      : Colors.white24,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
-                  ),
 
-                  // Action buttons (Garage, History, Settings & Connection)
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
+                    // Action buttons (Garage, History, Settings & Connection)
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
                       // Garage Button — in logger: first tap exits to drag UI
                       InkWell(
                         onTap: () async {
@@ -1525,9 +1529,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ),
                         ),
                       ),
-                    ],
-                  ),
-                ],
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

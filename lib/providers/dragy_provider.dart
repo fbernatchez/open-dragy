@@ -5,6 +5,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import '../models/race_metrics.dart';
@@ -27,6 +28,7 @@ import '../models/satellite_sv.dart';
 
 export '../models/app_cues.dart';
 import '../utils/nmea_parser.dart';
+import '../utils/odgp_parser.dart';
 import '../utils/logger_tags.dart';
 import '../utils/ubx_cfg.dart';
 import '../utils/ubx_mga.dart';
@@ -104,6 +106,13 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
   double _hdop = 0.0;
   double get hdop => _hdop;
 
+  /// Horizontal accuracy from NAV-PVT (metres). 0 = unknown / NMEA-only.
+  double _hAccM = 0.0;
+  double get hAccM => _hAccM;
+
+  double _vAccM = 0.0;
+  double get vAccM => _vAccM;
+
   double _pdop = 0.0;
   double get pdop => _pdop;
 
@@ -113,8 +122,50 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
   int? _fixQuality;
   int? get fixQuality => _fixQuality;
 
+  int _fixType = 0;
+  int get fixType => _fixType;
+
   int? _fixMode;
   int? get fixMode => _fixMode;
+
+  /// Dragy-class gate: prefer hAcc ≤ 5 m + 3D fix; fallback HDOP ≤ 2.
+  bool get isGpsReady {
+    if (_satellites < 4) return false;
+    if (_hAccM > 0) {
+      return _fixType >= 3 && _hAccM <= 5.0;
+    }
+    return _hdop > 0.0 && _hdop <= 2.0;
+  }
+
+  /// Compact label for UI: ∞ until fix has a sane horizontal accuracy.
+  String get hAccLabel {
+    if (_fixType < 2 || _hAccM <= 0 || _hAccM > 99.9) return '∞';
+    return '${_hAccM.toStringAsFixed(1)} m';
+  }
+
+  String get vAccLabel {
+    if (_fixType < 2 || _vAccM <= 0 || _vAccM > 99.9) return '∞';
+    return '${_vAccM.toStringAsFixed(1)} m';
+  }
+
+  String get fixTypeLabel {
+    switch (_fixType) {
+      case 0:
+        return 'No fix';
+      case 1:
+        return 'DR';
+      case 2:
+        return '2D';
+      case 3:
+        return '3D';
+      case 4:
+        return 'GNSS+DR';
+      case 5:
+        return 'Time';
+      default:
+        return 'Fix $_fixType';
+    }
+  }
 
   double _altitude = 0.0;
   double get altitude => _altitude;
@@ -475,6 +526,7 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   StreamSubscription? _nmeaSubscription;
+  StreamSubscription? _odgpSubscription;
   StreamSubscription? _imuSubscription;
   StreamSubscription? _connectionSubscription;
 
@@ -569,6 +621,8 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
       _needsUiUpdate = true;
     });
 
+    _odgpSubscription = _bleService.odgpStream.listen(_onOdgpFix);
+
     _nmeaSubscription = _bleService.nmeaStream.listen((sentence) {
       final data = NmeaParser.parse(sentence);
       if (data != null) {
@@ -647,95 +701,10 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
         }
 
         if (data.speedKmh != null) {
-          _recentSpeeds.add(data.speedKmh!);
-          if (_recentSpeeds.length > 5) {
-            _recentSpeeds.removeAt(0);
-          }
-
-          final wasRunning = _metrics.isRunning;
-          final previousMetrics = _metrics;
-
-          _metrics = _physicsEngine.updateMetrics(
-            _metrics,
-            data.speedKmh!,
-            _altitude,
-            isArmed: _isArmed && !_isLoggerMode,
-            runMode: _runMode,
-            targetDistance: targetDistance,
-            targetDistanceUnit: targetDistanceUnit,
-            targetStartSpeed: targetStartSpeed,
-            targetEndSpeed: targetEndSpeed,
-            targetSpeedUnit: targetSpeedUnit,
-            intervalStartSpeed: intervalStartSpeed,
-            intervalEndSpeed: intervalEndSpeed,
+          _applySpeedSample(
+            speedKmh: data.speedKmh!,
             gpsTimeSeconds: data.timeSeconds,
           );
-          final isRunning = _metrics.isRunning;
-
-          if (!_isLoggerMode && _voiceCuesEnabled) {
-            _milestoneAudio.onMetricsUpdate(
-              previous: previousMetrics,
-              next: _metrics,
-              isMetric: _isMetric,
-              targetMilestoneId: _runMode == 'drag'
-                  ? _audioMilestoneIdForDragTarget(_activeDragTarget)
-                  : null,
-              enabledOptionalIds: _optionalAudioMilestones
-                  .map((e) => e.id)
-                  .toSet(),
-            );
-          }
-
-          if (!wasRunning && isRunning) {
-            // Launch before 0.5 s window ends — freeze zero from samples so far.
-            if (_armCalibPending) {
-              _finishArmCalibration();
-            }
-            _runRaw.markRunStarted();
-          }
-
-          if (_runRaw.isActive) {
-            _runRaw.addGps(
-              latitude: _latitude,
-              longitude: _longitude,
-              altitudeM: _altitude,
-              speedKmh: data.speedKmh ?? _metrics.speedKmh,
-              hdop: _hdop > 0 ? _hdop : null,
-              satellites: _satellites > 0 ? _satellites : null,
-              fixQuality: _fixQuality,
-            );
-          }
-
-          if (wasRunning &&
-              !isRunning &&
-              _metrics.history.isNotEmpty &&
-              !_isLoggerMode) {
-            _maybeTriggerFinishCelebration();
-          }
-
-          if (isRunning) {
-            _lastGpsUpdateTime = DateTime.now();
-            final now = DateTime.now();
-            if (_lastPocketNotifyAt == null ||
-                now.difference(_lastPocketNotifyAt!) >
-                    const Duration(seconds: 1)) {
-              _lastPocketNotifyAt = now;
-              unawaited(_updatePocketRunningNotification());
-            }
-          } else {
-            _lastGpsUpdateTime = null;
-            if (wasRunning) {
-              _isArmed = false; // Auto-disarm on completion
-            }
-          }
-
-          // Check if run just finished
-          if (wasRunning && !isRunning && _metrics.history.isNotEmpty) {
-            unawaited(_finalizeCompletedRun(_metrics));
-          } else if (!wasRunning && isRunning) {
-            unawaited(_updatePocketRunningNotification());
-          }
-
           updated = true;
         }
 
@@ -841,6 +810,154 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
     });
   }
 
+  void _onOdgpFix(OdgpFix fix) {
+    // ignore: avoid_print
+    print(
+      '[GPS] ODGP sv=${fix.numSV} fix=${fix.fixType} '
+      'hAcc=${fix.hAccM.toStringAsFixed(2)}m '
+      'spd=${fix.speedKmh.toStringAsFixed(1)}',
+    );
+    _satellites = fix.numSV;
+    _fixType = fix.fixType;
+    _fixQuality = fix.fixType;
+    _fixMode = fix.fixType >= 3 ? 3 : (fix.fixType >= 2 ? 2 : 1);
+    _hAccM = fix.hAccM;
+    _vAccM = fix.vAccM;
+    _hdop = fix.hdopApprox;
+    _altitude = fix.altitudeM;
+    if (fix.valid) {
+      _latitude = fix.latitude;
+      _longitude = fix.longitude;
+      _rememberAidingFix(fix.latitude, fix.longitude, fix.altitudeM);
+    }
+
+    if (fix.valid || fix.speedKmh >= 0) {
+      _applySpeedSample(
+        speedKmh: fix.speedKmh.clamp(0.0, 500.0),
+        gpsTimeSeconds: fix.timeSeconds,
+      );
+    }
+
+    if (_isRideRecording && _latitude != null && _longitude != null) {
+      unawaited(
+        _rideRecorder.appendTrackPoint(
+          latitude: _latitude!,
+          longitude: _longitude!,
+          altitudeMeters: _altitude,
+          speedKmh: fix.speedKmh,
+        ),
+      );
+      unawaited(
+        _rideRecorder.appendGpsRow(
+          latitude: _latitude!,
+          longitude: _longitude!,
+          altitudeMeters: _altitude,
+          speedKmh: fix.speedKmh,
+          hAccMeters: fix.hAccM,
+          fixType: fix.fixType,
+          headingDeg: fix.headingDeg,
+          hdop: _hdop > 0 ? _hdop : null,
+          satellites: fix.numSV,
+        ),
+      );
+      if (_rideRecorder.trackPointCount % 25 == 0) {
+        unawaited(_updateLoggerNotification());
+      }
+    }
+
+    _needsUiUpdate = true;
+  }
+
+  void _applySpeedSample({
+    required double speedKmh,
+    double? gpsTimeSeconds,
+  }) {
+    _recentSpeeds.add(speedKmh);
+    if (_recentSpeeds.length > 5) {
+      _recentSpeeds.removeAt(0);
+    }
+
+    final wasRunning = _metrics.isRunning;
+    final previousMetrics = _metrics;
+
+    _metrics = _physicsEngine.updateMetrics(
+      _metrics,
+      speedKmh,
+      _altitude,
+      isArmed: _isArmed && !_isLoggerMode,
+      runMode: _runMode,
+      targetDistance: targetDistance,
+      targetDistanceUnit: targetDistanceUnit,
+      targetStartSpeed: targetStartSpeed,
+      targetEndSpeed: targetEndSpeed,
+      targetSpeedUnit: targetSpeedUnit,
+      intervalStartSpeed: intervalStartSpeed,
+      intervalEndSpeed: intervalEndSpeed,
+      gpsTimeSeconds: gpsTimeSeconds,
+    );
+    final isRunning = _metrics.isRunning;
+
+    if (!_isLoggerMode && _voiceCuesEnabled) {
+      _milestoneAudio.onMetricsUpdate(
+        previous: previousMetrics,
+        next: _metrics,
+        isMetric: _isMetric,
+        targetMilestoneId: _runMode == 'drag'
+            ? _audioMilestoneIdForDragTarget(_activeDragTarget)
+            : null,
+        enabledOptionalIds:
+            _optionalAudioMilestones.map((e) => e.id).toSet(),
+      );
+    }
+
+    if (!wasRunning && isRunning) {
+      if (_armCalibPending) {
+        _finishArmCalibration();
+      }
+      _runRaw.markRunStarted();
+    }
+
+    if (_runRaw.isActive) {
+      _runRaw.addGps(
+        latitude: _latitude,
+        longitude: _longitude,
+        altitudeM: _altitude,
+        speedKmh: speedKmh,
+        hdop: _hdop > 0 ? _hdop : null,
+        satellites: _satellites > 0 ? _satellites : null,
+        fixQuality: _fixQuality,
+      );
+    }
+
+    if (wasRunning &&
+        !isRunning &&
+        _metrics.history.isNotEmpty &&
+        !_isLoggerMode) {
+      _maybeTriggerFinishCelebration();
+    }
+
+    if (isRunning) {
+      _lastGpsUpdateTime = DateTime.now();
+      final now = DateTime.now();
+      if (_lastPocketNotifyAt == null ||
+          now.difference(_lastPocketNotifyAt!) > const Duration(seconds: 1)) {
+        _lastPocketNotifyAt = now;
+        unawaited(_updatePocketRunningNotification());
+      }
+    } else {
+      _lastGpsUpdateTime = null;
+      if (wasRunning) {
+        _isArmed = false;
+      }
+    }
+
+    if (wasRunning && !isRunning && _metrics.history.isNotEmpty) {
+      unawaited(_finalizeCompletedRun(_metrics));
+    } else if (!wasRunning && isRunning) {
+      unawaited(_updatePocketRunningNotification());
+    }
+  }
+
   BleService get bleService => _bleService;
 
   Future<bool> connect(BluetoothDevice device) async {
@@ -924,36 +1041,107 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  /// Speeds up M10 cold start: phone UTC + last known coarse position.
+  /// Speeds up M10 cold start: tight phone UTC + phone/last-known position.
   Future<void> _injectGpsAiding() async {
     try {
-      final timeMsg = UbxMga.timeUtc(DateTime.now().toUtc());
+      // ~1 s trusted UTC from the phone (NTP-disciplined).
+      final timeMsg = UbxMga.timeUtc(
+        DateTime.now().toUtc(),
+        accuracySeconds: 1,
+        trustedSource: true,
+      );
       await _bleService.writeToGps(timeMsg);
+      await Future.delayed(const Duration(milliseconds: 40));
 
+      final phone = await _tryPhoneAidingPosition();
+      if (phone != null) {
+        final acc = UbxMga.phoneAccuracyMeters(phone.accuracy);
+        final posMsg = UbxMga.posLlh(
+          latitudeDeg: phone.latitude,
+          longitudeDeg: phone.longitude,
+          altitudeMeters: phone.altitude.isFinite ? phone.altitude : 0,
+          posAccMeters: acc,
+        );
+        await _bleService.writeToGps(posMsg);
+        _rememberAidingFix(
+          phone.latitude,
+          phone.longitude,
+          phone.altitude.isFinite ? phone.altitude : 0,
+        );
+        // ignore: avoid_print
+        print(
+          '[GPS] Aiding injected (time + phone pos '
+          'acc=${acc.toStringAsFixed(0)}m)',
+        );
+        return;
+      }
+
+      // Fallback: last OpenDragy fix stored on the phone.
       final lat = _aidingLatitude;
       final lon = _aidingLongitude;
       final savedAt = _aidingSavedAt;
-      if (lat == null || lon == null || savedAt == null) return;
+      if (lat == null || lon == null || savedAt == null) {
+        // ignore: avoid_print
+        print('[GPS] Aiding: time only (no phone/saved position)');
+        return;
+      }
 
       final age = DateTime.now().difference(savedAt);
-      if (age.inDays > 30) return;
+      if (age.inDays > 30) {
+        // ignore: avoid_print
+        print('[GPS] Aiding: time only (saved pos too old)');
+        return;
+      }
 
+      final acc = UbxMga.accuracyMetersForAge(age);
       final posMsg = UbxMga.posLlh(
         latitudeDeg: lat,
         longitudeDeg: lon,
         altitudeMeters: _aidingAltitude,
-        posAccMeters: UbxMga.accuracyMetersForAge(age),
+        posAccMeters: acc,
       );
-      await Future.delayed(const Duration(milliseconds: 40));
       await _bleService.writeToGps(posMsg);
       // ignore: avoid_print
       print(
-        '[GPS] Aiding injected (time + pos age=${age.inHours}h '
-        'acc=${UbxMga.accuracyMetersForAge(age)}m)',
+        '[GPS] Aiding injected (time + saved pos age=${age.inHours}h '
+        'acc=${acc.toStringAsFixed(0)}m)',
       );
     } catch (e) {
       // ignore: avoid_print
       print('[GPS] Aiding inject failed: $e');
+    }
+  }
+
+  /// Best-effort phone GNSS/network fix for MGA-INI-POS (few seconds max).
+  Future<Position?> _tryPhoneAidingPosition() async {
+    try {
+      final serviceOn = await Geolocator.isLocationServiceEnabled();
+      if (!serviceOn) return null;
+
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        return null;
+      }
+
+      // Prefer a fresh reading; fall back to last known if timeout.
+      try {
+        return await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.medium,
+            timeLimit: Duration(seconds: 4),
+          ),
+        );
+      } on TimeoutException {
+        return Geolocator.getLastKnownPosition();
+      }
+    } catch (e) {
+      // ignore: avoid_print
+      print('[GPS] Phone position for aiding failed: $e');
+      return null;
     }
   }
 
@@ -2408,6 +2596,7 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
     _adapterStateSubscription?.cancel();
     _uiTimer?.cancel();
     _nmeaSubscription?.cancel();
+    _odgpSubscription?.cancel();
     _imuSubscription?.cancel();
     _connectionSubscription?.cancel();
     WakelockPlus.disable();

@@ -132,6 +132,14 @@ dragy_ble_emu/
 .agents/
 .claude/
 
+# Local agent / Hyperion backups (never publish)
+.hyperion*/
+.hyperion-backup-*/
+
+# Ad-hoc UI capture junk
+tools/_ui_*.png
+tools/_ui_*.jpg
+
 # Analyzer local DB / venv
 analyzer/.venv/
 analyzer/data/

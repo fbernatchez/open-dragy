@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
+import '../utils/odgp_parser.dart';
+
 class BleService {
   final String uartServiceUuid = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
   final String rxCharacteristicUuid =
@@ -21,6 +23,10 @@ class BleService {
       StreamController<String>.broadcast();
   Stream<String> get nmeaStream => _nmeaStreamController.stream;
 
+  final StreamController<OdgpFix> _odgpStreamController =
+      StreamController<OdgpFix>.broadcast();
+  Stream<OdgpFix> get odgpStream => _odgpStreamController.stream;
+
   final StreamController<String> _imuStreamController =
       StreamController<String>.broadcast();
   Stream<String> get imuStream => _imuStreamController.stream;
@@ -36,7 +42,6 @@ class BleService {
 
       await device.connect(license: License.free);
 
-      // Request a larger MTU to prevent packet fragmentation and latency build-up
       try {
         await device.requestMtu(223);
       } catch (e) {
@@ -60,7 +65,6 @@ class BleService {
         timeout: 15,
       );
 
-      // --- BLE DIAGNOSTICS: log all services and characteristics ---
       // ignore: avoid_print
       print('[BLE] Found ${services.length} services:');
       for (var service in services) {
@@ -76,7 +80,6 @@ class BleService {
           print('[BLE]   CHAR: ${char.uuid} [${props.join(', ')}]');
         }
       }
-      // --- END DIAGNOSTICS ---
 
       for (var service in services) {
         if (service.uuid.toString().toLowerCase() == uartServiceUuid) {
@@ -95,13 +98,11 @@ class BleService {
               print('[BLE] Subscribed to notifications on: $uuid');
 
               final subscription = char.onValueReceived.listen((value) {
-                if (value.isNotEmpty) {
-                  final decoded = String.fromCharCodes(value);
-                  if (uuid == imuCharacteristicUuid) {
-                    _processImuData(decoded);
-                  } else {
-                    _processReceivedData(decoded);
-                  }
+                if (value.isEmpty) return;
+                if (uuid == imuCharacteristicUuid) {
+                  _processImuData(String.fromCharCodes(value));
+                } else {
+                  _processGpsNotify(value);
                 }
               });
 
@@ -124,30 +125,75 @@ class BleService {
     }
   }
 
-  String _buffer = "";
+  final List<int> _odgpBuf = [];
+  String _nmeaBuffer = "";
   String _imuBuffer = "";
 
-  void _processReceivedData(String data) {
-    _buffer += data;
-    int newlineIndex;
-    while ((newlineIndex = _buffer.indexOf('\n')) != -1) {
-      String line = _buffer.substring(0, newlineIndex).trim();
-      _buffer = _buffer.substring(newlineIndex + 1);
-      if (line.isNotEmpty) {
-        if (line.length >= 6 && line.startsWith('\$')) {
-          final type = line.substring(3, 6);
-          // Throttle: log non-GGA/RMC always; GGA/RMC occasionally.
-          if (type != 'GGA' && type != 'RMC') {
-            // ignore: avoid_print
-            print('[BLE] NMEA $line');
-          }
+  int _gpsNotifyLogBudget = 8;
+
+  void _processGpsNotify(List<int> value) {
+    if (_gpsNotifyLogBudget > 0) {
+      _gpsNotifyLogBudget--;
+      final head = value.take(8).map((b) => b.toRadixString(16).padLeft(2, '0')).join(' ');
+      // ignore: avoid_print
+      print('[BLE] GPS notify len=${value.length} head=$head');
+    }
+
+    // Prefer ODGP binary (firmware PVT path).
+    if (value.length >= 4 &&
+        value[0] == 0x4F &&
+        value[1] == 0x44 &&
+        value[2] == 0x47 &&
+        value[3] == 0x50) {
+      _odgpBuf
+        ..clear()
+        ..addAll(value);
+      final fix = OdgpParser.tryParse(_odgpBuf);
+      if (fix != null) {
+        _odgpStreamController.add(fix);
+      }
+      return;
+    }
+
+    // Reassemble ODGP if BLE fragmented a 52 B packet.
+    if (_odgpBuf.isNotEmpty ||
+        (value.isNotEmpty && value[0] == 0x4F) ||
+        (_odgpBuf.isNotEmpty && _odgpBuf[0] == 0x4F)) {
+      _odgpBuf.addAll(value);
+      while (_odgpBuf.length >= OdgpParser.packetSize) {
+        if (_odgpBuf[0] == 0x4F &&
+            _odgpBuf[1] == 0x44 &&
+            _odgpBuf[2] == 0x47 &&
+            _odgpBuf[3] == 0x50) {
+          final chunk = _odgpBuf.sublist(0, OdgpParser.packetSize);
+          _odgpBuf.removeRange(0, OdgpParser.packetSize);
+          final fix = OdgpParser.tryParse(chunk);
+          if (fix != null) _odgpStreamController.add(fix);
         } else {
-          // ignore: avoid_print
-          print(
-            '[BLE] non-NMEA len=${line.length} '
-            'head=${line.substring(0, line.length.clamp(0, 24))}',
-          );
+          _odgpBuf.removeAt(0);
         }
+      }
+      // If buffer looks like text, fall through.
+      if (_odgpBuf.isNotEmpty && _odgpBuf[0] == 0x24) {
+        // '$'
+        final text = String.fromCharCodes(_odgpBuf);
+        _odgpBuf.clear();
+        _processNmeaText(text);
+      }
+      return;
+    }
+
+    // Legacy NMEA firmware fallback.
+    _processNmeaText(String.fromCharCodes(value));
+  }
+
+  void _processNmeaText(String data) {
+    _nmeaBuffer += data;
+    int newlineIndex;
+    while ((newlineIndex = _nmeaBuffer.indexOf('\n')) != -1) {
+      String line = _nmeaBuffer.substring(0, newlineIndex).trim();
+      _nmeaBuffer = _nmeaBuffer.substring(newlineIndex + 1);
+      if (line.isNotEmpty) {
         _nmeaStreamController.add(line);
       }
     }
@@ -195,13 +241,14 @@ class BleService {
     _connectionSubscription = null;
     _rxCharacteristic = null;
     _connectedDevice = null;
+    _odgpBuf.clear();
+    _nmeaBuffer = '';
+    _imuBuffer = '';
   }
 
   Stream<List<ScanResult>> get scanResults => FlutterBluePlus.scanResults;
   Stream<bool> get isScanning => FlutterBluePlus.isScanning;
 
-  /// Continuous scan when [timeout] is null (device picker).
-  /// Optional [withNames] filters advertisements (e.g. `OpenDragy`).
   void startScan({List<String> withNames = const [], Duration? timeout}) {
     FlutterBluePlus.stopScan().then((_) {
       Future.delayed(const Duration(milliseconds: 300), () {
