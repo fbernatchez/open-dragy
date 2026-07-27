@@ -23,6 +23,7 @@ import '../services/open_dragy_storage.dart';
 import '../services/milestone_audio_service.dart';
 import '../services/media_arm_bridge.dart';
 import '../models/app_cues.dart';
+import '../utils/imu_gravity.dart';
 import '../models/raw_run_log.dart';
 import '../models/satellite_sv.dart';
 
@@ -496,11 +497,13 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  double _gForceCalibrationOffset = 0.0;
-  /// After ARM: collect ~0.5 s of IMU, then freeze longitudinal zero.
+  /// Slow drift correction on longitudinal G while disarmed (pre-ARM fallback).
+  double _idleLongitudinalOffset = 0.0;
+  /// Gravity vector captured during ARM (~0.5 s stationary window).
+  GravityVector? _gravityRef;
   bool _armCalibPending = false;
   DateTime? _armCalibStartedAt;
-  final List<double> _armCalibSamples = [];
+  final List<GravityVector> _armCalibSamples = [];
   static const Duration _armCalibDuration = Duration(milliseconds: 500);
   DateTime? _lastGpsUpdateTime;
 
@@ -753,11 +756,8 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
           final ay = int.parse(parts[1].trim()) / 4096.0;
           final az = int.parse(parts[2].trim()) / 4096.0;
 
-          // Y axis = longitudinal G after typical ESP mount (90° pivot).
-          double gForce = ay;
-
           if (_armCalibPending) {
-            _armCalibSamples.add(ay);
+            _armCalibSamples.add(GravityVector(ax, ay, az));
             final started = _armCalibStartedAt;
             if (started != null &&
                 DateTime.now().difference(started) >= _armCalibDuration) {
@@ -780,17 +780,29 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
             }
           }
 
-          // Slow EMA only when idle (not armed / not running / not calibrating).
-          if (!_metrics.isRunning &&
+          final linear = LinearAcceleration.fromRaw(
+            ax: ax,
+            ay: ay,
+            az: az,
+            gravity: _gravityRef,
+          );
+          // Y axis = longitudinal G after typical ESP mount (90° pivot).
+          double gForce = linear.y;
+
+          // Slow EMA only when idle and gravity ref not yet established.
+          if (_gravityRef == null &&
+              !_metrics.isRunning &&
               !_isArmed &&
               !_armCalibPending &&
               isSpeedConstant) {
             const double alpha = 0.02;
-            _gForceCalibrationOffset =
-                _gForceCalibrationOffset * (1.0 - alpha) + gForce * alpha;
+            _idleLongitudinalOffset =
+                _idleLongitudinalOffset * (1.0 - alpha) + gForce * alpha;
           }
 
-          double calibratedGForce = gForce - _gForceCalibrationOffset;
+          final longitudinalOffset =
+              _gravityRef != null ? 0.0 : _idleLongitudinalOffset;
+          double calibratedGForce = gForce - longitudinalOffset;
 
           // Clamp noise to prevent "-0.0" from showing up
           if (calibratedGForce.abs() < 0.05) {
@@ -1785,25 +1797,26 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
     _armCalibPending = true;
     _armCalibStartedAt = DateTime.now();
     _armCalibSamples.clear();
+    _gravityRef = null;
+    _idleLongitudinalOffset = 0.0;
   }
 
   void _cancelArmCalibration() {
     _armCalibPending = false;
     _armCalibStartedAt = null;
     _armCalibSamples.clear();
+    _gravityRef = null;
   }
 
-  /// Average the post-ARM window → freeze longitudinal zero.
+  /// Average the post-ARM window → freeze gravity vector for subtraction.
   void _finishArmCalibration() {
-    if (_armCalibSamples.isEmpty) {
+    final gravity = GravityVector.average(_armCalibSamples);
+    if (gravity == null) {
       _cancelArmCalibration();
       return;
     }
-    var sum = 0.0;
-    for (final v in _armCalibSamples) {
-      sum += v;
-    }
-    _gForceCalibrationOffset = sum / _armCalibSamples.length;
+    _gravityRef = gravity;
+    _idleLongitudinalOffset = 0.0;
     _armCalibPending = false;
     _armCalibStartedAt = null;
     _armCalibSamples.clear();

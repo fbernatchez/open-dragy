@@ -82,9 +82,9 @@ class RawImuSample {
 
 /// In-memory capture while armed / during a timed run.
 class RunRawCapture {
-  /// Keep ~12 s of pre-roll while waiting for launch (~10 Hz GPS / ~20 Hz IMU).
+  /// Keep ~12 s of pre-roll while waiting for launch (~10 Hz GPS / ~100 Hz IMU).
   static const int maxPreGps = 120;
-  static const int maxPreImu = 250;
+  static const int maxPreImu = 1250;
 
   /// Hard caps for a full run (+ pre-roll).
   static const int maxGps = 2500;

@@ -38,7 +38,7 @@ bool imuReady = false;
 #define CHARACTERISTIC_UUID_IMU "6e400004-b5a3-f393-e0a9-e50e24dcca9e"
 
 unsigned long lastImuTime = 0;
-const int imuInterval = 50;
+const int imuInterval = 10; // 100 Hz, matches BMI160 ODR
 unsigned long lastOdgpNotifyMs = 0;
 const unsigned long kOdgpMinIntervalMs = 80; // ~10 Hz, slight slack
 
@@ -196,27 +196,65 @@ static void disableNmeaOutputOnce() {
  *  Prevents clipping on hard launches while maintaining sufficient resolution.
  *  Falls back to default 2g if configuration fails.
  */
+static bool bmi160WriteReg(uint8_t reg, uint8_t value) {
+  Wire.beginTransmission(0x69);
+  Wire.write(reg);
+  Wire.write(value);
+  return Wire.endTransmission() == 0;
+}
+
+static bool bmi160ReadReg(uint8_t reg, uint8_t &value) {
+  Wire.beginTransmission(0x69);
+  Wire.write(reg);
+  if (Wire.endTransmission(false) != 0) {
+    return false;
+  }
+  if (Wire.requestFrom((int)0x69, 1) != 1) {
+    return false;
+  }
+  value = (uint8_t)Wire.read();
+  return true;
+}
+
 static void configureBmi160AccelRange() {
   if (!imuReady) return;
-  
+
   // BMI160 register 0x41: ACCEL_RANGE
   // 0x03 = ±2g (default)
   // 0x05 = ±4g
   // 0x08 = ±8g
   // 0x0C = ±16g
-  
+
   const uint8_t ACCEL_RANGE_REG = 0x41;
   const uint8_t ACCEL_8G = 0x08;
-  
-  Wire.beginTransmission(0x69);
-  Wire.write(ACCEL_RANGE_REG);
-  Wire.write(ACCEL_8G);
-  int result = Wire.endTransmission();
-  
-  if (result == 0) {
+
+  if (bmi160WriteReg(ACCEL_RANGE_REG, ACCEL_8G)) {
     Serial.println("[IMU] BMI160 accelerometer range set to ±8g");
   } else {
-    Serial.printf("[IMU] Failed to set ±8g range (error %d), using default ±2g\n", result);
+    Serial.println("[IMU] Failed to set ±8g range, using default ±2g");
+  }
+  delay(10);
+}
+
+/** Configure BMI160 accelerometer ODR and on-chip LPF.
+ *  ACC_CONF (0x40): acc_odr=100 Hz, acc_bwp=normal (avg4) → ~40 Hz 3 dB BW.
+ */
+static void configureBmi160AccelFilter() {
+  if (!imuReady) return;
+
+  const uint8_t ACC_CONF_REG = 0x40;
+  const uint8_t ACC_CONF_100HZ_NORMAL = 0x28; // ODR 0x8 | bwp 0x2 << 4
+
+  if (!bmi160WriteReg(ACC_CONF_REG, ACC_CONF_100HZ_NORMAL)) {
+    Serial.println("[IMU] Failed to set ACC_CONF (100 Hz / normal BW)");
+    return;
+  }
+
+  uint8_t readback = 0;
+  if (bmi160ReadReg(ACC_CONF_REG, readback) && readback == ACC_CONF_100HZ_NORMAL) {
+    Serial.println("[IMU] BMI160 accel ODR 100 Hz, normal BW (~40 Hz) configured");
+  } else {
+    Serial.printf("[IMU] ACC_CONF write done, readback=0x%02X\n", readback);
   }
   delay(10);
 }
@@ -593,8 +631,8 @@ void setup() {
     if (bmi160.I2cInit(0x69) == BMI160_OK) {
       Serial.println("-> BMI160 OK");
       imuReady = true;
-      // Configure accelerometer to ±8g range to prevent clipping on hard launches
       configureBmi160AccelRange();
+      configureBmi160AccelFilter();
     } else if (attempts < 3) {
       delay(200);
     }
