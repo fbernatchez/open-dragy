@@ -51,6 +51,10 @@ CREATE TABLE IF NOT EXISTS gps (
   hdop REAL,
   sats INTEGER,
   alt_m REAL,
+  i_tow_ms INTEGER,
+  v_acc_m REAL,
+  s_acc_mps REAL,
+  used_pvt INTEGER,
   PRIMARY KEY (session_id, elapsed_ms),
   FOREIGN KEY (session_id) REFERENCES sessions(session_id) ON DELETE CASCADE
 );
@@ -70,6 +74,21 @@ CREATE INDEX IF NOT EXISTS idx_imu_session_elapsed ON imu(session_id, elapsed_ms
 """
 
 
+_GPS_EXTRA_COLUMNS = [
+    ("i_tow_ms", "INTEGER"),
+    ("v_acc_m", "REAL"),
+    ("s_acc_mps", "REAL"),
+    ("used_pvt", "INTEGER"),
+]
+
+
+def _migrate_gps_columns(conn: sqlite3.Connection) -> None:
+    existing = {row[1] for row in conn.execute("PRAGMA table_info(gps)")}
+    for name, col_type in _GPS_EXTRA_COLUMNS:
+        if name not in existing:
+            conn.execute(f"ALTER TABLE gps ADD COLUMN {name} {col_type}")
+
+
 def connect(db_path: Path | None = None) -> sqlite3.Connection:
     ensure_data_dir()
     path = db_path or DEFAULT_DB
@@ -78,7 +97,16 @@ def connect(db_path: Path | None = None) -> sqlite3.Connection:
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     conn.executescript(SCHEMA)
+    _migrate_gps_columns(conn)
+    conn.commit()
     return conn
+
+
+def _col(row: Any, *names: str) -> Any:
+    for name in names:
+        if name in row.index:
+            return row.get(name)
+    return None
 
 
 def _to_float(v: Any) -> float | None:
@@ -174,24 +202,29 @@ def import_session(path: Path, db_path: Path | None = None) -> str:
                     (
                         sid,
                         int(r["elapsed_ms"]),
-                        None if pd.isna(r.get("time_utc")) else str(r.get("time_utc")),
-                        _to_float(r.get("lat")),
-                        _to_float(r.get("lon")),
-                        _to_float(r.get("speed_kmh")),
-                        _to_float(r.get("hacc_m")),
-                        _to_int(r.get("fix_type")),
-                        _to_float(r.get("heading_deg")),
-                        _to_float(r.get("hdop")),
-                        _to_int(r.get("sats")),
-                        _to_float(r.get("alt_m")),
+                        None if pd.isna(_col(r, "time_utc")) else str(_col(r, "time_utc")),
+                        _to_float(_col(r, "lat")),
+                        _to_float(_col(r, "lon")),
+                        _to_float(_col(r, "speed_kmh")),
+                        _to_float(_col(r, "h_acc_m", "hacc_m")),
+                        _to_int(_col(r, "fix_type", "fix_quality")),
+                        _to_float(_col(r, "heading_deg")),
+                        _to_float(_col(r, "hdop")),
+                        _to_int(_col(r, "sats")),
+                        _to_float(_col(r, "alt_m")),
+                        _to_int(_col(r, "i_tow_ms")),
+                        _to_float(_col(r, "v_acc_m")),
+                        _to_float(_col(r, "s_acc_mps")),
+                        _to_int(_col(r, "used_pvt")),
                     )
                 )
             conn.executemany(
                 """
                 INSERT INTO gps (
                   session_id, elapsed_ms, time_utc, lat, lon, speed_kmh,
-                  hacc_m, fix_type, heading_deg, hdop, sats, alt_m
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                  hacc_m, fix_type, heading_deg, hdop, sats, alt_m,
+                  i_tow_ms, v_acc_m, s_acc_mps, used_pvt
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 gps_rows,
             )
