@@ -27,6 +27,7 @@ import '../utils/imu_gravity.dart';
 import '../models/gps_pvt_sample.dart';
 import '../models/raw_run_log.dart';
 import '../utils/run_id.dart';
+import '../models/run_trust.dart';
 import '../models/satellite_sv.dart';
 
 export '../models/app_cues.dart';
@@ -1276,6 +1277,11 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
       final gpsCsv = _runRaw.toGpsCsv();
       final imuCsv = _runRaw.toImuCsv();
 
+      final trust = RunTrust.fromRawGps(
+        rawGps.isEmpty ? null : rawGps,
+        runStartElapsedMs: rawStartMs,
+      );
+
       final savedRun = SavedRun(
         id: runId,
         dateTime: runAt,
@@ -1287,6 +1293,7 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
         rawGps: rawGps.isEmpty ? null : rawGps,
         rawImu: rawImu.isEmpty ? null : rawImu,
         rawRunStartElapsedMs: rawStartMs,
+        trust: trust,
       );
 
       // Save run locally and show in UI immediately

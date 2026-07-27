@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../providers/dragy_provider.dart';
 import '../models/saved_run.dart';
 import '../models/race_target.dart';
+import '../widgets/run_trust_badge.dart';
 import 'run_detail_screen.dart';
 
 class RunHistoryScreen extends StatefulWidget {
@@ -730,17 +731,16 @@ class RunHistoryCard extends StatelessWidget {
                                   : Colors.redAccent,
                             ),
                           ),
-                          const SizedBox(width: 12),
-                          const Text(
-                            '•',
-                            style: TextStyle(color: Colors.white38),
-                          ),
-                          const SizedBox(width: 12),
-                          Text(
-                            'Duration: ${metrics.elapsedTime.toStringAsFixed(1)}s',
-                            style: GoogleFonts.roboto(
-                              fontSize: 12,
-                              color: Colors.white54,
+                          const SizedBox(width: 8),
+                          RunTrustBadge(trust: run.effectiveTrust),
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: Text(
+                              'Duration: ${metrics.elapsedTime.toStringAsFixed(1)}s',
+                              style: GoogleFonts.roboto(
+                                fontSize: 12,
+                                color: Colors.white54,
+                              ),
                             ),
                           ),
                         ],

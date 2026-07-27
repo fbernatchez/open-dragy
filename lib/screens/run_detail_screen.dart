@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../providers/dragy_provider.dart';
 import '../models/saved_run.dart';
 import '../models/race_target.dart';
+import '../widgets/run_trust_badge.dart';
 
 class RunDetailScreen extends StatelessWidget {
   final SavedRun run;
@@ -259,6 +260,8 @@ class RunDetailScreen extends StatelessWidget {
                 ],
               ),
             ],
+            const SizedBox(height: 10),
+            RunTrustBadge(trust: run.effectiveTrust, compact: false),
             const SizedBox(height: 16),
             // Time Display
             Text(

@@ -1,5 +1,6 @@
 import 'race_metrics.dart';
 import 'raw_run_log.dart';
+import 'run_trust.dart';
 
 class SavedRun {
   final String id;
@@ -20,6 +21,9 @@ class SavedRun {
   /// Elapsed ms (in raw capture timeline) when the timed run started.
   final int? rawRunStartElapsedMs;
 
+  /// GPS trust badge (hAcc / sAcc / SV / PVT). Null on older saves.
+  final RunTrust? trust;
+
   SavedRun({
     required this.id,
     required this.dateTime,
@@ -32,11 +36,17 @@ class SavedRun {
     this.rawGps,
     this.rawImu,
     this.rawRunStartElapsedMs,
+    this.trust,
   });
 
   bool get hasRawLog =>
       (rawGps != null && rawGps!.isNotEmpty) ||
       (rawImu != null && rawImu!.isNotEmpty);
+
+  RunTrust get effectiveTrust =>
+      trust ??
+      RunTrust.fromRawGps(rawGps, runStartElapsedMs: rawRunStartElapsedMs) ??
+      const RunTrust(level: RunTrustLevel.unknown);
 
   SavedRun copyWith({
     String? id,
@@ -50,6 +60,7 @@ class SavedRun {
     List<RawGpsSample>? rawGps,
     List<RawImuSample>? rawImu,
     int? rawRunStartElapsedMs,
+    RunTrust? trust,
   }) {
     return SavedRun(
       id: id ?? this.id,
@@ -63,6 +74,7 @@ class SavedRun {
       rawGps: rawGps ?? this.rawGps,
       rawImu: rawImu ?? this.rawImu,
       rawRunStartElapsedMs: rawRunStartElapsedMs ?? this.rawRunStartElapsedMs,
+      trust: trust ?? this.trust,
     );
   }
 
@@ -76,6 +88,7 @@ class SavedRun {
       'humidity': humidity,
       'vehicleId': vehicleId,
       'vehicleName': vehicleName,
+      if (trust != null) 'trust': trust!.toJson(),
       if (rawGps != null || rawImu != null)
         'raw': {
           'version': 1,
@@ -111,6 +124,12 @@ class SavedRun {
       }
     }
 
+    RunTrust? trust;
+    final trustJson = json['trust'];
+    if (trustJson is Map) {
+      trust = RunTrust.fromJson(Map<String, dynamic>.from(trustJson));
+    }
+
     return SavedRun(
       id: json['id'] as String,
       dateTime: DateTime.parse(json['dateTime'] as String),
@@ -129,6 +148,7 @@ class SavedRun {
       rawGps: rawGps,
       rawImu: rawImu,
       rawRunStartElapsedMs: rawRunStartElapsedMs,
+      trust: trust,
     );
   }
 }
