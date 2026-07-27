@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/parked_bg"
+    android:gravity="center"
+    android:orientation="vertical"
+    android:paddingHorizontal="48dp"
+    android:paddingVertical="24dp">
+
+    <TextView
+        android:id="@+id/parkedBrand"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:letterSpacing="0.12"
+        android:text="OPENDRAGY"
+        android:textAllCaps="true"
+        android:textColor="@color/parked_muted"
+        android:textSize="18sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/parkedStatus"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="IDLE"
+        android:textColor="@color/parked_text"
+        android:textSize="42sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/parkedMeta"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="— · —"
+        android:textColor="@color/parked_muted"
+        android:textSize="20sp" />
+
+    <Button
+        android:id="@+id/parkedArmButton"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_marginTop="28dp"
+        android:layout_weight="1"
+        android:backgroundTint="@color/parked_arm"
+        android:minHeight="120dp"
+        android:text="ARM"
+        android:textAllCaps="true"
+        android:textColor="@color/parked_text"
+        android:textSize="48sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/parkedHint"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:gravity="center"
+        android:text="Keep OpenDragy running on the phone (pocket mode)."
+        android:textColor="@color/parked_muted"
+        android:textSize="14sp" />
+</LinearLayout>

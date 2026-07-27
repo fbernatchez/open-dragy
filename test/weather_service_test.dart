@@ -76,8 +76,47 @@ void main() {
       final result = await service.fetchWeather(37.7749, -122.4194);
 
       expect(result, isNotNull);
-      expect(result!['temp'], 22.5);
-      expect(result['humid'], 55.0);
+      expect(result!.temperatureC, 22.5);
+      expect(result.humidityPct, 55.0);
+    });
+
+    test('parses wind and pressure when present', () async {
+      final jsonString = json.encode({
+        'current': {
+          'temperature_2m': 18.0,
+          'relative_humidity_2m': 40.0,
+          'wind_speed_10m': 3.5,
+          'wind_direction_10m': 180.0,
+          'surface_pressure': 1012.0,
+        }
+      });
+      final mockResponse = MockHttpClientResponse(200, jsonString);
+      final mockRequest = MockHttpClientRequest(mockResponse);
+      final mockClient = MockHttpClient(mockRequest);
+
+      final service = WeatherService(client: mockClient);
+      final result = await service.fetchWeather(50.0, 14.0);
+
+      expect(result, isNotNull);
+      expect(result!.windSpeedMps, 3.5);
+      expect(result.windFromDeg, 180.0);
+      expect(result.pressureHpa, 1012.0);
+      expect(
+        WeatherService.headwindMps(
+          windSpeedMps: 3.5,
+          windFromDeg: 180,
+          headingDeg: 180,
+        ),
+        closeTo(3.5, 0.01),
+      );
+      expect(
+        WeatherService.headwindMps(
+          windSpeedMps: 3.5,
+          windFromDeg: 180,
+          headingDeg: 0,
+        ),
+        closeTo(-3.5, 0.01),
+      );
     });
 
     test('returns null gracefully on non-200 status code', () async {

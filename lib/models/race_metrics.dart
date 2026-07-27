@@ -81,6 +81,9 @@ class RaceMetrics {
   // Elevation
   final double? startAltitude; // Start elevation in meters
 
+  /// How standing start was committed: `gps`, `imu`, or `fused`.
+  final String? launchSource;
+
   // Mode & Target Info
   final String? runMode; // 'drag' or 'interval'
   final double? targetDistance;
@@ -127,6 +130,7 @@ class RaceMetrics {
     this.time0to130mph,
     this.time0to200kmh,
     this.startAltitude,
+    this.launchSource,
     this.runMode,
     this.targetDistance,
     this.targetDistanceUnit,
@@ -172,6 +176,7 @@ class RaceMetrics {
     double? time0to130mph,
     double? time0to200kmh,
     double? startAltitude,
+    String? launchSource,
     String? runMode,
     double? targetDistance,
     String? targetDistanceUnit,
@@ -216,6 +221,7 @@ class RaceMetrics {
       time0to130mph: time0to130mph ?? this.time0to130mph,
       time0to200kmh: time0to200kmh ?? this.time0to200kmh,
       startAltitude: startAltitude ?? this.startAltitude,
+      launchSource: launchSource ?? this.launchSource,
       runMode: runMode ?? this.runMode,
       targetDistance: targetDistance ?? this.targetDistance,
       targetDistanceUnit: targetDistanceUnit ?? this.targetDistanceUnit,
@@ -263,6 +269,7 @@ class RaceMetrics {
       'time0to130mph': time0to130mph,
       'time0to200kmh': time0to200kmh,
       'startAltitude': startAltitude,
+      'launchSource': launchSource,
       'runMode': runMode,
       'targetDistance': targetDistance,
       'targetDistanceUnit': targetDistanceUnit,
@@ -369,6 +376,7 @@ class RaceMetrics {
       startAltitude: json['startAltitude'] != null
           ? (json['startAltitude'] as num).toDouble()
           : null,
+      launchSource: json['launchSource'] as String?,
       runMode: json['runMode'] as String?,
       targetDistance: json['targetDistance'] != null
           ? (json['targetDistance'] as num).toDouble()

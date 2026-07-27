@@ -953,6 +953,7 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
           }
 
           _metrics = _metrics.copyWith(gForce: calibratedGForce);
+          _physicsEngine.noteImuG(calibratedGForce);
           _needsUiUpdate = true;
         }
       } catch (e) {
@@ -1653,26 +1654,38 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
     double lon,
   ) async {
     final weather = await _weatherService.fetchWeather(lat, lon);
-    if (weather != null) {
-      final temp = weather['temp']!;
-      final humid = weather['humid']!;
+    if (weather == null) return;
 
-      final index = _savedRuns.indexWhere((r) => r.id == runId);
-      if (index != -1) {
-        // Copy-with the fetched weather data while preserving other fields (like notes user might have typed in the meantime)
-        final updatedRun = _savedRuns[index].copyWith(
-          temperature: temp,
-          humidity: humid,
-        );
-        _savedRuns[index] = updatedRun;
-        await _historyService.updateRun(updatedRun);
-        unawaited(
-          _durableStorage.pushSavedRunJson(runId, updatedRun.toJson()),
-        );
-        _needsUiUpdate = true;
-        notifyListeners();
-      }
-    }
+    final index = _savedRuns.indexWhere((r) => r.id == runId);
+    if (index == -1) return;
+
+    final run = _savedRuns[index];
+    final heading = SavedRun.averageRunHeading(
+      rawGps: run.rawGps,
+      runStartElapsedMs: run.rawRunStartElapsedMs,
+    );
+    final headwind = WeatherService.headwindMps(
+      windSpeedMps: weather.windSpeedMps,
+      windFromDeg: weather.windFromDeg,
+      headingDeg: heading,
+    );
+
+    final updatedRun = run.copyWith(
+      temperature: weather.temperatureC,
+      humidity: weather.humidityPct,
+      windSpeedMps: weather.windSpeedMps,
+      windFromDeg: weather.windFromDeg,
+      pressureHpa: weather.pressureHpa,
+      runHeadingDeg: heading,
+      headwindMps: headwind,
+    );
+    _savedRuns[index] = updatedRun;
+    await _historyService.updateRun(updatedRun);
+    unawaited(
+      _durableStorage.pushSavedRunJson(runId, updatedRun.toJson()),
+    );
+    _needsUiUpdate = true;
+    notifyListeners();
   }
 
   Future<void> deleteRun(String id) async {
@@ -1910,6 +1923,8 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
     bridge.ensureListening();
     bridge.onNext = () => unawaited(toggleArmFromHeadset());
     bridge.onPrevious = () => unawaited(disarmFromHeadset());
+    bridge.onParkedArmToggle = () => unawaited(toggleArmFromParkedHu());
+    bridge.onParkedDisarm = () => unawaited(disarmFromParkedHu());
     bridge.onSetDragTarget = (name) => setDragTargetFromCar(name);
     bridge.onCycleDragTarget = () => cycleDragTargetFromCar();
     bridge.onSetVehicle = (id) => unawaited(setVehicleFromCar(id));
@@ -1973,6 +1988,33 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
   /// Cardo / AA Previous Track — DISARM only.
   Future<void> disarmFromHeadset() async {
     if (!_headsetMediaArmEnabled) return;
+    if (_isLoggerMode) return;
+    if (_metrics.isRunning) return;
+    if (!_isArmed) return;
+    await toggleArm();
+    if (!_isArmed) {
+      unawaited(_milestoneAudio.announceDisarmed());
+    }
+    _pushCarStateThrottled(force: true);
+  }
+
+  /// Parked AA / CAR_LAUNCHER ARM — always allowed; speaks "Armed" to headset.
+  Future<void> toggleArmFromParkedHu() async {
+    if (_isLoggerMode) return;
+    if (_metrics.isRunning) return;
+
+    final wasArmed = _isArmed;
+    await toggleArm();
+    if (_isArmed && !wasArmed) {
+      unawaited(_milestoneAudio.announceArmed());
+    } else if (!_isArmed && wasArmed) {
+      unawaited(_milestoneAudio.announceDisarmed());
+    }
+    _pushCarStateThrottled(force: true);
+  }
+
+  /// Parked AA / CAR_LAUNCHER DISARM — speaks "Disarmed".
+  Future<void> disarmFromParkedHu() async {
     if (_isLoggerMode) return;
     if (_metrics.isRunning) return;
     if (!_isArmed) return;

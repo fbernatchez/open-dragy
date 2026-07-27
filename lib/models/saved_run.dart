@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'race_metrics.dart';
 import 'raw_run_log.dart';
 import 'run_trust.dart';
@@ -9,6 +11,16 @@ class SavedRun {
   final String? notes;
   final double? temperature; // in Celsius
   final double? humidity; // in %
+  /// Wind speed at 10 m (m/s).
+  final double? windSpeedMps;
+  /// Meteorological wind-from direction (degrees).
+  final double? windFromDeg;
+  /// Surface pressure (hPa).
+  final double? pressureHpa;
+  /// Average GPS heading during the timed run (degrees).
+  final double? runHeadingDeg;
+  /// Positive = headwind along run heading (m/s).
+  final double? headwindMps;
   final String? vehicleId;
   final String? vehicleName; // snapshot of display name at run time
 
@@ -31,6 +43,11 @@ class SavedRun {
     this.notes,
     this.temperature,
     this.humidity,
+    this.windSpeedMps,
+    this.windFromDeg,
+    this.pressureHpa,
+    this.runHeadingDeg,
+    this.headwindMps,
     this.vehicleId,
     this.vehicleName,
     this.rawGps,
@@ -55,6 +72,11 @@ class SavedRun {
     String? notes,
     double? temperature,
     double? humidity,
+    double? windSpeedMps,
+    double? windFromDeg,
+    double? pressureHpa,
+    double? runHeadingDeg,
+    double? headwindMps,
     String? vehicleId,
     String? vehicleName,
     List<RawGpsSample>? rawGps,
@@ -69,6 +91,11 @@ class SavedRun {
       notes: notes ?? this.notes,
       temperature: temperature ?? this.temperature,
       humidity: humidity ?? this.humidity,
+      windSpeedMps: windSpeedMps ?? this.windSpeedMps,
+      windFromDeg: windFromDeg ?? this.windFromDeg,
+      pressureHpa: pressureHpa ?? this.pressureHpa,
+      runHeadingDeg: runHeadingDeg ?? this.runHeadingDeg,
+      headwindMps: headwindMps ?? this.headwindMps,
       vehicleId: vehicleId ?? this.vehicleId,
       vehicleName: vehicleName ?? this.vehicleName,
       rawGps: rawGps ?? this.rawGps,
@@ -86,6 +113,11 @@ class SavedRun {
       'notes': notes,
       'temperature': temperature,
       'humidity': humidity,
+      'windSpeedMps': windSpeedMps,
+      'windFromDeg': windFromDeg,
+      'pressureHpa': pressureHpa,
+      'runHeadingDeg': runHeadingDeg,
+      'headwindMps': headwindMps,
       'vehicleId': vehicleId,
       'vehicleName': vehicleName,
       if (trust != null) 'trust': trust!.toJson(),
@@ -143,6 +175,11 @@ class SavedRun {
       humidity: json['humidity'] != null
           ? (json['humidity'] as num).toDouble()
           : null,
+      windSpeedMps: (json['windSpeedMps'] as num?)?.toDouble(),
+      windFromDeg: (json['windFromDeg'] as num?)?.toDouble(),
+      pressureHpa: (json['pressureHpa'] as num?)?.toDouble(),
+      runHeadingDeg: (json['runHeadingDeg'] as num?)?.toDouble(),
+      headwindMps: (json['headwindMps'] as num?)?.toDouble(),
       vehicleId: json['vehicleId'] as String?,
       vehicleName: json['vehicleName'] as String?,
       rawGps: rawGps,
@@ -150,5 +187,30 @@ class SavedRun {
       rawRunStartElapsedMs: rawRunStartElapsedMs,
       trust: trust,
     );
+  }
+
+  /// Mean GPS heading from samples after timed start (when available).
+  static double? averageRunHeading({
+    required List<RawGpsSample>? rawGps,
+    int? runStartElapsedMs,
+  }) {
+    if (rawGps == null || rawGps.isEmpty) return null;
+    final start = runStartElapsedMs ?? 0;
+    double sumSin = 0;
+    double sumCos = 0;
+    var n = 0;
+    for (final s in rawGps) {
+      if (s.elapsedMs < start) continue;
+      final h = s.headingDeg;
+      if (h == null) continue;
+      final rad = h * math.pi / 180.0;
+      sumSin += math.sin(rad);
+      sumCos += math.cos(rad);
+      n++;
+    }
+    if (n < 3) return null;
+    var deg = math.atan2(sumSin / n, sumCos / n) * 180.0 / math.pi;
+    if (deg < 0) deg += 360.0;
+    return deg;
   }
 }

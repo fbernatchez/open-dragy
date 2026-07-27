@@ -16,6 +16,8 @@ class MediaArmBridge {
 
   MediaArmHandler? onNext;
   MediaArmHandler? onPrevious;
+  MediaArmHandler? onParkedArmToggle;
+  MediaArmHandler? onParkedDisarm;
   MediaDragTargetHandler? onSetDragTarget;
   MediaArmHandler? onCycleDragTarget;
   MediaVehicleHandler? onSetVehicle;
@@ -79,6 +81,12 @@ class MediaArmBridge {
         return null;
       case 'mediaPrevious':
         await onPrevious?.call();
+        return null;
+      case 'parkedArmToggle':
+        await onParkedArmToggle?.call();
+        return null;
+      case 'parkedDisarm':
+        await onParkedDisarm?.call();
         return null;
       case 'setDragTarget':
         final args = call.arguments;

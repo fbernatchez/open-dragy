@@ -41,8 +41,23 @@ class RunShareCard extends StatelessWidget {
       final unit = tempInCelsius ? '°C' : '°F';
       weatherText = '${t.toStringAsFixed(0)}$unit';
       if (run.humidity != null) {
-        weatherText = '$weatherText · ${run.humidity!.round()}% RH';
+        weatherText = '$weatherText · ${run.humidity!.round()}%';
       }
+      if (run.pressureHpa != null) {
+        weatherText = '$weatherText · ${run.pressureHpa!.round()} hPa';
+      }
+    }
+    if (run.headwindMps != null) {
+      final hw = run.headwindMps!;
+      final tag = hw >= 0.15
+          ? '+${hw.toStringAsFixed(1)} m/s HW'
+          : hw <= -0.15
+              ? '${hw.toStringAsFixed(1)} m/s TW'
+              : '0 m/s wind';
+      weatherText = weatherText == null ? tag : '$weatherText · $tag';
+    } else if (run.windSpeedMps != null) {
+      final tag = '${run.windSpeedMps!.toStringAsFixed(1)} m/s wind';
+      weatherText = weatherText == null ? tag : '$weatherText · $tag';
     }
 
     final metrics = run.metrics;

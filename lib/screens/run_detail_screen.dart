@@ -447,12 +447,25 @@ class RunDetailScreen extends StatelessWidget {
                 ],
               ),
             ),
-            if (run.temperature != null && run.humidity != null) ...[
+            if (run.temperature != null ||
+                run.windSpeedMps != null ||
+                run.pressureHpa != null) ...[
               const SizedBox(height: 24),
               _EnvironmentCard(
                 run: run,
                 tempInCelsius: dragy.tempInCelsius,
                 isMetric: dragy.isMetric,
+              ),
+            ],
+            if (run.metrics.launchSource != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                'Launch: ${run.metrics.launchSource}',
+                style: GoogleFonts.robotoMono(
+                  color: Colors.white38,
+                  fontSize: 12,
+                ),
+                textAlign: TextAlign.center,
               ),
             ],
             if (run.hasRawLog) ...[
@@ -796,11 +809,31 @@ class _EnvironmentCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final startAlt = run.metrics.startAltitude ?? 0.0;
-    final tempC = run.temperature ?? 0.0;
-    final humidity = run.humidity ?? 0.0;
+    final tempC = run.temperature;
+    final humidity = run.humidity;
 
     final isaTemp = 15.0 - 0.0065 * startAlt;
-    final daMeters = startAlt + 120.0 * (tempC - isaTemp);
+    final daMeters = tempC != null
+        ? startAlt + 120.0 * (tempC - isaTemp)
+        : null;
+
+    String? windLabel;
+    if (run.windSpeedMps != null) {
+      final spd = isMetric
+          ? '${run.windSpeedMps!.toStringAsFixed(1)} m/s'
+          : '${(run.windSpeedMps! * 2.23694).toStringAsFixed(1)} mph';
+      windLabel = spd;
+      if (run.headwindMps != null) {
+        final hw = run.headwindMps!;
+        final hwAbs = hw.abs().toStringAsFixed(1);
+        final dir = hw >= 0.15
+            ? 'headwind'
+            : hw <= -0.15
+                ? 'tailwind'
+                : 'cross';
+        windLabel = '$spd · $hwAbs m/s $dir';
+      }
+    }
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -833,22 +866,35 @@ class _EnvironmentCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          _ProfileStatRow(
-            label: 'Temperature',
-            value: tempInCelsius
-                ? '${tempC.toStringAsFixed(1)}°C'
-                : '${((tempC * 9 / 5) + 32).toStringAsFixed(0)}°F',
-          ),
-          _ProfileStatRow(
-            label: 'Humidity',
-            value: '${humidity.toStringAsFixed(0)}%',
-          ),
-          _ProfileStatRow(
-            label: 'Density Altitude',
-            value: isMetric
-                ? '${daMeters.toStringAsFixed(0)} m'
-                : '${(daMeters * 3.28084).toStringAsFixed(0)} ft',
-          ),
+          if (tempC != null)
+            _ProfileStatRow(
+              label: 'Temperature',
+              value: tempInCelsius
+                  ? '${tempC.toStringAsFixed(1)}°C'
+                  : '${((tempC * 9 / 5) + 32).toStringAsFixed(0)}°F',
+            ),
+          if (humidity != null)
+            _ProfileStatRow(
+              label: 'Humidity',
+              value: '${humidity.toStringAsFixed(0)}%',
+            ),
+          if (run.pressureHpa != null)
+            _ProfileStatRow(
+              label: 'Pressure',
+              value: '${run.pressureHpa!.toStringAsFixed(0)} hPa',
+            ),
+          if (windLabel != null)
+            _ProfileStatRow(
+              label: 'Wind',
+              value: windLabel,
+            ),
+          if (daMeters != null)
+            _ProfileStatRow(
+              label: 'Density Altitude',
+              value: isMetric
+                  ? '${daMeters.toStringAsFixed(0)} m'
+                  : '${(daMeters * 3.28084).toStringAsFixed(0)} ft',
+            ),
         ],
       ),
     );

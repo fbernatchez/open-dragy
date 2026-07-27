@@ -1,4 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="ic_launcher_background">#ffffff</color>
+
+    <color name="parked_bg">#FF0B0F14</color>
+    <color name="parked_surface">#FF151B24</color>
+    <color name="parked_text">#FFF2F4F7</color>
+    <color name="parked_muted">#FF8B95A5</color>
+    <color name="parked_arm">#FF1FAF5B</color>
+    <color name="parked_disarm">#FFD64545</color>
+    <color name="parked_idle">#FF3A4556</color>
+    <color name="parked_armed_glow">#FF2ECC71</color>
 </resources>

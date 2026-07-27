@@ -279,8 +279,9 @@ class MainActivity : FlutterActivity() {
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
                 when (intent?.getStringExtra(OpenDragyMainScreen.EXTRA_CMD)) {
-                    "arm" -> invokeFlutterMedia("mediaNext")
-                    "disarm" -> invokeFlutterMedia("mediaPrevious")
+                    // Parked HU / AA templates: always ARM+TTS (no headset-media toggle gate).
+                    "arm" -> invokeFlutterMedia("parkedArmToggle")
+                    "disarm" -> invokeFlutterMedia("parkedDisarm")
                     "setDragTarget" -> {
                         val name = intent.getStringExtra(OpenDragyMainScreen.EXTRA_TARGET)
                         if (name != null) {

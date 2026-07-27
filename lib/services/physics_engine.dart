@@ -24,13 +24,28 @@ class PhysicsEngine {
   }
 
   final List<DataPoint> _preRunBuffer = [];
+  /// High-rate longitudinal G samples stamped with latest GPS iTOW (when known).
+  final List<_ImuGSample> _imuGBuffer = [];
   int _stoppedTicks = 0;
   int _rejectedCount = 0;
   int? _lastGpsTimeMs;
   double? _lastGpsTimeSeconds;
   double? _lastValidDt;
 
+  static const double imuLaunchGThreshold = 0.18;
+  static const double imuLaunchGQuiet = 0.10;
+  /// Prefer IMU edge over GPS zero-cross only when it leads by at most this.
+  static const double imuLeadMaxSeconds = 0.35;
+
   double get lastValidDt => _lastValidDt ?? 0.1;
+
+  /// Feed calibrated longitudinal G (~20 Hz). Used to pull launch t0 earlier than GPS.
+  void noteImuG(double gForce) {
+    _imuGBuffer.add(_ImuGSample(gpsTimeMs: _lastGpsTimeMs, gForce: gForce));
+    while (_imuGBuffer.length > 80) {
+      _imuGBuffer.removeAt(0);
+    }
+  }
 
   /// GPS week–aware delta in milliseconds (iTOW).
   static int deltaGpsMs(int fromMs, int toMs) {
@@ -885,7 +900,6 @@ class PhysicsEngine {
       final k = _preRunBuffer.length - 1;
       var crossingIndex = -1;
 
-      // Scan backwards to find the most recent zero-crossing transition
       for (var j = k - 1; j >= 0; j--) {
         if (_preRunBuffer[j].speedKmh <= zeroCrossingThreshold &&
             _preRunBuffer[j + 1].speedKmh > zeroCrossingThreshold) {
@@ -906,7 +920,6 @@ class PhysicsEngine {
       final tNow = _preRunBuffer[k].gpsTimeMs;
       final useItow = tCross0 != null && tCross1 != null && tNow != null;
 
-      // Per-sample step dt from iTOW (or uniform fallback).
       double stepDt(int fromIdx, int toIdx) {
         if (useItow) {
           return deltaGpsSeconds(
@@ -937,9 +950,27 @@ class PhysicsEngine {
         initialDistance += stepAvgSpeedMs * stepDt(j, j + 1);
       }
 
-      final t0Ms = useItow
+      double? t0Ms = useItow
           ? tCross0 + startFraction * deltaGpsMs(tCross0, tCross1)
           : null;
+      var launchSource = 'gps';
+
+      // Pull t0 earlier when longitudinal G rises before GPS speed zero-cross.
+      if (t0Ms != null) {
+        final imuEdge = _findImuLaunchEdge(atOrBeforeGpsMs: t0Ms.round());
+        if (imuEdge?.gpsTimeMs != null) {
+          final leadSec =
+              deltaGpsSeconds(imuEdge!.gpsTimeMs!, t0Ms.round());
+          final sAccPoor = sAccMps != null && sAccMps > 0.35;
+          if (leadSec >= 0.04 && leadSec <= imuLeadMaxSeconds) {
+            final leadMs = leadSec * 1000.0;
+            t0Ms = t0Ms - leadMs;
+            elapsedOffset += leadSec;
+            // Distance during the IMU-only lead is tiny at near-zero speed — skip.
+            launchSource = sAccPoor ? 'imu' : 'fused';
+          }
+        }
+      }
 
       const delayTicks = 2;
       int getShiftedIndex(int idx) =>
@@ -948,7 +979,7 @@ class PhysicsEngine {
       final initialHistory = <DataPoint>[
         DataPoint(
           elapsedTime: 0.0,
-          speedKmh: 0.0, // Start exactly at 0 to match physical reality
+          speedKmh: 0.0,
           gForce: _preRunBuffer[getShiftedIndex(crossingIndex)].gForce,
           altitude: _preRunBuffer[crossingIndex].altitude ?? currentAltitude,
           gpsTimeMs: t0Ms?.round(),
@@ -980,6 +1011,7 @@ class PhysicsEngine {
         speedKmh: newSpeedKmh,
         gForce: current.gForce,
         startAltitude: currentAltitude,
+        launchSource: launchSource,
         runMode: runMode,
         targetDistance: targetDistance,
         targetDistanceUnit: targetDistanceUnit,
@@ -992,8 +1024,29 @@ class PhysicsEngine {
     return null;
   }
 
+  /// Latest IMU G rising edge at/before the GPS zero-crossing epoch.
+  _ImuGSample? _findImuLaunchEdge({required int atOrBeforeGpsMs}) {
+    if (_imuGBuffer.length < 3) return null;
+    _ImuGSample? best;
+    for (var i = 1; i < _imuGBuffer.length; i++) {
+      final prev = _imuGBuffer[i - 1];
+      final curr = _imuGBuffer[i];
+      if (curr.gpsTimeMs == null) continue;
+      if (prev.gForce >= imuLaunchGQuiet) continue;
+      if (curr.gForce < imuLaunchGThreshold) continue;
+      // Must not be after GPS t0 (allow 50 ms jitter).
+      if (deltaGpsMs(atOrBeforeGpsMs, curr.gpsTimeMs!) > 50 &&
+          curr.gpsTimeMs! > atOrBeforeGpsMs) {
+        continue;
+      }
+      best = curr;
+    }
+    return best;
+  }
+
   RaceMetrics reset() {
     _preRunBuffer.clear();
+    _imuGBuffer.clear();
     _stoppedTicks = 0;
     _rejectedCount = 0;
     _lastGpsTimeMs = null;
@@ -1001,4 +1054,10 @@ class PhysicsEngine {
     _lastValidDt = null;
     return RaceMetrics();
   }
+}
+
+class _ImuGSample {
+  final int? gpsTimeMs;
+  final double gForce;
+  const _ImuGSample({required this.gpsTimeMs, required this.gForce});
 }

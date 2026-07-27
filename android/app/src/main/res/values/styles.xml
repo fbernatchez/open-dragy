@@ -15,4 +15,12 @@
     <style name="NormalTheme" parent="@android:style/Theme.Light.NoTitleBar">
         <item name="android:windowBackground">?android:colorBackground</item>
     </style>
+
+    <!-- Android Auto parked / CAR_LAUNCHER landscape ARM screen -->
+    <style name="ParkedArmTheme" parent="@android:style/Theme.DeviceDefault.NoActionBar">
+        <item name="android:windowBackground">@color/parked_bg</item>
+        <item name="android:statusBarColor">@color/parked_bg</item>
+        <item name="android:navigationBarColor">@color/parked_bg</item>
+        <item name="android:windowFullscreen">true</item>
+    </style>
 </resources>
