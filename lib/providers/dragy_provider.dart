@@ -749,9 +749,9 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
         final parts = csv.split(',');
         if (parts.length >= 3) {
           // Assuming BMI160 format: "X,Y,Z" raw integers
-          final ax = int.parse(parts[0].trim()) / 16384.0;
-          final ay = int.parse(parts[1].trim()) / 16384.0;
-          final az = int.parse(parts[2].trim()) / 16384.0;
+          final ax = int.parse(parts[0].trim()) / 4096.0;
+          final ay = int.parse(parts[1].trim()) / 4096.0;
+          final az = int.parse(parts[2].trim()) / 4096.0;
 
           // Y axis = longitudinal G after typical ESP mount (90° pivot).
           double gForce = ay;
