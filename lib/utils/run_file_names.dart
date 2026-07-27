@@ -1,18 +1,27 @@
-/// File names for saved run artifacts under `/OpenDragy/runs/`.
+/// File layout for saved drag runs under `/OpenDragy/runs/`.
 ///
-/// Timestamp/run id is a **prefix** so pairs sort together and chronologically:
-/// `2026-07-27_05-41-53_gps.csv` next to `2026-07-27_05-41-53_imu.csv`.
+/// One folder per run (timestamp = folder name). Sensor files use short names
+/// inside the folder — same idea as `.odpkg` (`manifest.json` + `gps.csv`).
 class RunFileNames {
   RunFileNames._();
 
-  static String metricsJson(String runId) => '$runId.json';
+  static const metricsFileName = 'run.json';
+  static const gpsFileName = 'gps.csv';
+  static const imuFileName = 'imu.csv';
 
-  static String gpsCsv(String runId) => '${runId}_gps.csv';
+  /// e.g. `2026-07-27_05-41-53`
+  static String runDirectory(String runId) => runId;
 
-  static String imuCsv(String runId) => '${runId}_imu.csv';
+  static String metricsJson(String runId) => '$runId/$metricsFileName';
 
-  /// Legacy layout before timestamped CSV names.
-  static String legacyGpsCsv(String runId) => '$runId/gps.csv';
+  static String gpsCsv(String runId) => '$runId/$gpsFileName';
 
-  static String legacyImuCsv(String runId) => '$runId/imu.csv';
+  static String imuCsv(String runId) => '$runId/$imuFileName';
+
+  /// Flat layout (JSON at runs root, CSV prefixed).
+  static String legacyFlatMetricsJson(String runId) => '$runId.json';
+
+  static String legacyFlatGpsCsv(String runId) => '${runId}_gps.csv';
+
+  static String legacyFlatImuCsv(String runId) => '${runId}_imu.csv';
 }

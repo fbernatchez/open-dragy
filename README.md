@@ -38,9 +38,9 @@ OpenDragy is a high-precision, open-source vehicle performance timer that measur
 5. After a clean pull, check run detail for `Raw log · … GPS · … IMU`, or pull files from:
 
 ```text
-/OpenDragy/runs/{runId}.json           # metrics + embedded raw block
-/OpenDragy/runs/{runId}_gps.csv        # raw GPS (timestamp prefix)
-/OpenDragy/runs/{runId}_imu.csv        # raw IMU (g)
+/OpenDragy/runs/{runId}/run.json       # metrics + embedded raw block
+/OpenDragy/runs/{runId}/gps.csv        # raw GPS
+/OpenDragy/runs/{runId}/imu.csv        # raw IMU (g)
 ```
 
 ---
