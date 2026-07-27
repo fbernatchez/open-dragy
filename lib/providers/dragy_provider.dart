@@ -24,7 +24,9 @@ import '../services/milestone_audio_service.dart';
 import '../services/media_arm_bridge.dart';
 import '../models/app_cues.dart';
 import '../utils/imu_gravity.dart';
+import '../models/gps_pvt_sample.dart';
 import '../models/raw_run_log.dart';
+import '../utils/run_id.dart';
 import '../models/satellite_sv.dart';
 
 export '../models/app_cues.dart';
@@ -704,6 +706,18 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
         }
 
         if (data.speedKmh != null) {
+          _captureRawGpsIfArmed(
+            GpsPvtSample(
+              speedKmh: data.speedKmh!,
+              latitude: data.latitude ?? _latitude,
+              longitude: data.longitude ?? _longitude,
+              altitudeM: data.altitude ?? _altitude,
+              satellites: _satellites > 0 ? _satellites : null,
+              hdop: _hdop > 0 ? _hdop : null,
+              fixType: _fixQuality,
+              usedPvt: false,
+            ),
+          );
           _applySpeedSample(
             speedKmh: data.speedKmh!,
             gpsTimeSeconds: data.timeSeconds,
@@ -734,6 +748,8 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
               speedKmh: speed,
               hdop: _hdop > 0 ? _hdop : null,
               satellites: _satellites > 0 ? _satellites : null,
+              fixType: _fixQuality,
+              usedPvt: false,
             ),
           );
           if (_rideRecorder.trackPointCount % 25 == 0) {
@@ -844,6 +860,12 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
 
     if (fix.valid || fix.speedKmh >= 0) {
+      _captureRawGpsIfArmed(
+        GpsPvtSample.fromOdgp(
+          fix,
+          hdopApprox: _hdop > 0 ? _hdop : null,
+        ),
+      );
       _applySpeedSample(
         speedKmh: fix.speedKmh.clamp(0.0, 500.0),
         gpsTimeSeconds: fix.timeSeconds,
@@ -866,11 +888,15 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
           longitude: _longitude!,
           altitudeMeters: _altitude,
           speedKmh: fix.speedKmh,
+          iTowMs: fix.iTOW,
           hAccMeters: fix.hAccM,
+          vAccMeters: fix.vAccM,
+          sAccMps: fix.sAccMps,
           fixType: fix.fixType,
           headingDeg: fix.headingDeg,
           hdop: _hdop > 0 ? _hdop : null,
           satellites: fix.numSV,
+          usedPvt: true,
         ),
       );
       if (_rideRecorder.trackPointCount % 25 == 0) {
@@ -879,6 +905,12 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
 
     _needsUiUpdate = true;
+  }
+
+  void _captureRawGpsIfArmed(GpsPvtSample sample) {
+    if (_runRaw.isActive) {
+      _runRaw.addGpsPvt(sample);
+    }
   }
 
   void _applySpeedSample({
@@ -930,18 +962,6 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
         _finishArmCalibration();
       }
       _runRaw.markRunStarted();
-    }
-
-    if (_runRaw.isActive) {
-      _runRaw.addGps(
-        latitude: _latitude,
-        longitude: _longitude,
-        altitudeM: _altitude,
-        speedKmh: speedKmh,
-        hdop: _hdop > 0 ? _hdop : null,
-        satellites: _satellites > 0 ? _satellites : null,
-        fixQuality: _fixQuality,
-      );
     }
 
     if (wasRunning &&
@@ -1244,7 +1264,11 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
     // Filter out creeping / GPS wander blips
     if (duration >= 1.0 && maxSpeed >= 10.0) {
       final vehicle = activeVehicle;
-      final runId = DateTime.now().millisecondsSinceEpoch.toString();
+      final runAt = DateTime.now();
+      final runId = RunId.allocate(
+        runAt,
+        _savedRuns.map((r) => r.id),
+      );
 
       final rawGps = List<RawGpsSample>.from(_runRaw.gps);
       final rawImu = List<RawImuSample>.from(_runRaw.imu);
@@ -1254,7 +1278,7 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
 
       final savedRun = SavedRun(
         id: runId,
-        dateTime: DateTime.now(),
+        dateTime: runAt,
         metrics: runMetrics,
         temperature: null,
         humidity: null,
@@ -1460,6 +1484,7 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void> deleteRun(String id) async {
     await _historyService.deleteRun(id);
+    await _durableStorage.deleteSavedRunFiles(id);
     _savedRuns.removeWhere((r) => r.id == id);
     notifyListeners();
   }

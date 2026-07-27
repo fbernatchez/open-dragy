@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import '../models/raw_run_log.dart';
 import 'open_dragy_storage.dart';
 
 /// Session recorder for Logger mode (GPX + CSV + manifest for PC analysis).
@@ -144,7 +145,7 @@ class RideRecorder {
       mode: FileMode.writeOnly,
     );
     await _gpsCsvFile!.writeAsString(
-      'elapsed_ms,time_utc,lat,lon,speed_kmh,hacc_m,fix_type,heading_deg,hdop,sats,alt_m\n',
+      '${RunRawCapture.gpsCsvHeader}\n',
       mode: FileMode.writeOnly,
     );
     await _sink!.flush();
@@ -188,11 +189,15 @@ class RideRecorder {
     required double longitude,
     double? altitudeMeters,
     double? speedKmh,
+    int? iTowMs,
     double? hAccMeters,
+    double? vAccMeters,
+    double? sAccMps,
     int? fixType,
     double? headingDeg,
     double? hdop,
     int? satellites,
+    bool usedPvt = true,
     DateTime? timeUtc,
   }) async {
     if (_gpsCsvFile == null || !isRecording || _startedAt == null) return;
@@ -200,13 +205,21 @@ class RideRecorder {
     final elapsedMs = t.difference(_startedAt!.toUtc()).inMilliseconds;
     final alt = altitudeMeters?.toStringAsFixed(2) ?? '';
     final spd = speedKmh?.toStringAsFixed(3) ?? '';
-    final hacc = hAccMeters?.toStringAsFixed(3) ?? '';
+    final itow = iTowMs?.toString() ?? '';
+    final hacc = hAccMeters != null && hAccMeters > 0
+        ? hAccMeters.toStringAsFixed(3)
+        : '';
+    final vacc = vAccMeters != null && vAccMeters > 0
+        ? vAccMeters.toStringAsFixed(3)
+        : '';
+    final sacc = sAccMps != null && sAccMps > 0 ? sAccMps.toStringAsFixed(3) : '';
     final fix = fixType?.toString() ?? '';
     final hdg = headingDeg?.toStringAsFixed(2) ?? '';
     final hd = hdop?.toStringAsFixed(2) ?? '';
     final sats = satellites?.toString() ?? '';
     await _gpsCsvFile!.writeAsString(
-      '$elapsedMs,${_formatUtc(t)},$latitude,$longitude,$spd,$hacc,$fix,$hdg,$hd,$sats,$alt\n',
+      '$elapsedMs,${_formatUtc(t)},$itow,$latitude,$longitude,$spd,'
+      '$hacc,$vacc,$sacc,$hdg,$fix,$hd,$sats,$alt,${usedPvt ? 1 : 0}\n',
       mode: FileMode.append,
     );
     _gpsRowCount++;

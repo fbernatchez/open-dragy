@@ -6,6 +6,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../utils/run_file_names.dart';
+
 /// Durable data under `/storage/emulated/0/OpenDragy` (all-files access)
 /// with optional SAF folder as fallback.
 class OpenDragyStorage {
@@ -341,57 +343,117 @@ class OpenDragyStorage {
     }
   }
 
-  Future<void> pushSavedRunJson(String runId, Map<String, dynamic> data) async {
-    final localDir = await localRunsDirectory();
-    final localFile = File('${localDir.path}/$runId.json');
-    final content = const JsonEncoder.withIndent('  ').convert(data);
-    await localFile.writeAsString(content);
+  Future<Directory> _localRunDirectory(String runId) async {
+    final base = await localRunsDirectory();
+    final dir = Directory(
+      '${base.path}/${RunFileNames.runDirectory(runId)}',
+    );
+    if (!await dir.exists()) {
+      await dir.create(recursive: true);
+    }
+    return dir;
+  }
 
-    if (_mode != 'saf') return;
+  Future<DocumentFile?> _safRunFolder(String runId) async {
+    if (_mode != 'saf') return null;
     final runs = await _subdir(_runsSubdir);
-    if (runs == null) return;
+    if (runs == null) return null;
+    var folder = await runs.find(runId);
+    if (folder == null || !folder.isDirectory) {
+      folder = await runs.createDirectory(runId);
+    }
+    return folder;
+  }
+
+  Future<void> _writeSavedRunFile(
+    String runId,
+    String fileName,
+    String content,
+  ) async {
+    final runDir = await _localRunDirectory(runId);
+    await File('${runDir.path}/$fileName').writeAsString(content);
+
+    final safFolder = await _safRunFolder(runId);
+    if (safFolder == null) return;
     try {
-      final existing = await runs.find('$runId.json');
+      final existing = await safFolder.find(fileName);
       if (existing != null) await existing.delete();
-      await runs.createFile(name: '$runId.json', content: content);
+      await safFolder.createFile(name: fileName, content: content);
     } catch (_) {}
   }
 
-  /// Raw CSV under `runs/{runId}/` (JSON stays flat in `runs/{runId}.json`).
+  Future<void> pushSavedRunJson(String runId, Map<String, dynamic> data) async {
+    final content = const JsonEncoder.withIndent('  ').convert(data);
+    await _writeSavedRunFile(
+      runId,
+      RunFileNames.metricsFileBase(runId),
+      content,
+    );
+  }
+
+  /// Raw CSV under `runs/{runId}/{runId}_gps.csv` and `{runId}_imu.csv`.
   Future<void> pushSavedRunRawCsv({
     required String runId,
     required String gpsCsv,
     required String imuCsv,
   }) async {
-    const gpsName = 'gps.csv';
-    const imuName = 'imu.csv';
+    await _writeSavedRunFile(runId, RunFileNames.gpsFileBase(runId), gpsCsv);
+    await _writeSavedRunFile(runId, RunFileNames.imuFileBase(runId), imuCsv);
+  }
 
+  Future<void> deleteSavedRunFiles(String runId) async {
     final localDir = await localRunsDirectory();
-    final rawDir = Directory('${localDir.path}/$runId');
-    if (!await rawDir.exists()) {
-      await rawDir.create(recursive: true);
+    final runDir = Directory('${localDir.path}/$runId');
+    if (await runDir.exists()) {
+      await runDir.delete(recursive: true);
     }
-    await File('${rawDir.path}/$gpsName').writeAsString(gpsCsv);
-    await File('${rawDir.path}/$imuName').writeAsString(imuCsv);
+    for (final name in [
+      RunFileNames.legacyFlatMetricsJson(runId),
+      RunFileNames.legacyFlatGpsCsv(runId),
+      RunFileNames.legacyFlatImuCsv(runId),
+    ]) {
+      final file = File('${localDir.path}/$name');
+      if (await file.exists()) {
+        await file.delete();
+      }
+    }
 
     if (_mode != 'saf') return;
     final runs = await _subdir(_runsSubdir);
     if (runs == null) return;
+    for (final name in [
+      RunFileNames.legacyFlatMetricsJson(runId),
+      RunFileNames.legacyFlatGpsCsv(runId),
+      RunFileNames.legacyFlatImuCsv(runId),
+    ]) {
+      try {
+        final doc = await runs.find(name);
+        if (doc != null) await doc.delete();
+      } catch (_) {}
+    }
     try {
-      var rawFolder = await runs.find(runId);
-      if (rawFolder == null || !rawFolder.isDirectory) {
-        rawFolder = await runs.createDirectory(runId);
-      }
-      if (rawFolder == null) return;
-      for (final entry in [
-        (gpsName, gpsCsv),
-        (imuName, imuCsv),
-      ]) {
-        final existing = await rawFolder.find(entry.$1);
-        if (existing != null) await existing.delete();
-        await rawFolder.createFile(name: entry.$1, content: entry.$2);
-      }
+      final folder = await runs.find(runId);
+      if (folder != null) await folder.delete();
     } catch (_) {}
+  }
+
+  Future<Map<String, dynamic>?> _readRunJsonFile(File file) async {
+    try {
+      return jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<File?> _firstExistingRunFile(
+    Directory runDir,
+    List<String> candidates,
+  ) async {
+    for (final name in candidates) {
+      final file = File('${runDir.path}/$name');
+      if (await file.exists()) return file;
+    }
+    return null;
   }
 
   Future<List<Map<String, dynamic>>> pullSavedRuns() async {
@@ -400,9 +462,29 @@ class OpenDragyStorage {
       if (runs != null) {
         final localDir = await localRunsDirectory();
         try {
-          final docs = await runs.listDocuments(extensions: ['json']);
+          final docs = await runs.listDocuments();
           for (final doc in docs) {
-            if (doc.isDirectory) continue;
+            if (doc.isDirectory) {
+              final runId = doc.name;
+              final localRunDir = Directory('${localDir.path}/$runId');
+              if (!await localRunDir.exists()) {
+                await localRunDir.create(recursive: true);
+              }
+              final names = <String>{
+                ...RunFileNames.legacyInnerMetricsNames(runId),
+                ...RunFileNames.legacyInnerGpsNames(runId),
+                ...RunFileNames.legacyInnerImuNames(runId),
+              };
+              for (final name in names) {
+                final child = await doc.find(name);
+                if (child == null || child.isDirectory) continue;
+                final cached = await child.cache();
+                if (cached == null) continue;
+                await cached.copy('${localRunDir.path}/$name');
+              }
+              continue;
+            }
+            if (!doc.name.endsWith('.json')) continue;
             final cached = await doc.cache();
             if (cached == null) continue;
             await cached.copy('${localDir.path}/${doc.name}');
@@ -414,13 +496,30 @@ class OpenDragyStorage {
     final localDir = await localRunsDirectory();
     if (!await localDir.exists()) return [];
     final out = <Map<String, dynamic>>[];
+    final seen = <String>{};
     for (final entity in localDir.listSync()) {
-      if (entity is! File || !entity.path.endsWith('.json')) continue;
-      try {
-        out.add(
-          jsonDecode(await entity.readAsString()) as Map<String, dynamic>,
+      if (entity is Directory) {
+        final runId = entity.uri.pathSegments.isNotEmpty
+            ? entity.uri.pathSegments.last
+            : entity.path.split(Platform.pathSeparator).last;
+        final metrics = await _firstExistingRunFile(
+          entity,
+          RunFileNames.legacyInnerMetricsNames(runId),
         );
-      } catch (_) {}
+        if (metrics == null) continue;
+        final map = await _readRunJsonFile(metrics);
+        if (map == null) continue;
+        final id = map['id']?.toString();
+        if (id != null) seen.add(id);
+        out.add(map);
+        continue;
+      }
+      if (entity is! File || !entity.path.endsWith('.json')) continue;
+      final map = await _readRunJsonFile(entity);
+      if (map == null) continue;
+      final id = map['id']?.toString();
+      if (id != null && seen.contains(id)) continue;
+      out.add(map);
     }
     return out;
   }
