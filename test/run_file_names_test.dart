@@ -9,4 +9,19 @@ void main() {
     expect(RunFileNames.gpsCsv(id), '2026-07-27_05-41-53/2026-07-27_05-41-53_gps.csv');
     expect(RunFileNames.imuCsv(id), '2026-07-27_05-41-53/2026-07-27_05-41-53_imu.csv');
   });
+
+  test('baseName skips empty trailing path segments', () {
+    expect(
+      RunFileNames.baseName('/OpenDragy/runs/2026-07-27_17-58-23/'),
+      '2026-07-27_17-58-23',
+    );
+    expect(
+      RunFileNames.baseName(r'C:\OpenDragy\runs\2026-07-27_17-58-23\'),
+      '2026-07-27_17-58-23',
+    );
+    expect(
+      RunFileNames.baseName('/OpenDragy/runs/2026-07-27_17-58-23'),
+      '2026-07-27_17-58-23',
+    );
+  });
 }

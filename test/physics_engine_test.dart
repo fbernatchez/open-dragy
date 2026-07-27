@@ -335,6 +335,7 @@ void main() {
 
       // Verify that all timers were triggered
       expect(metrics.time60ft, isNotNull);
+      expect(metrics.time0to50kmh, isNotNull);
       expect(metrics.time0to60mph, isNotNull);
       expect(metrics.time0to100kmh, isNotNull);
       expect(metrics.time18Mile, isNotNull);

@@ -22,6 +22,9 @@ class MainActivity : FlutterActivity() {
     private var mediaSession: ArmMediaSessionController? = null
     private var cueFocusRequest: AudioFocusRequest? = null
     private var cueFocusHeld: Boolean = false
+    /** Linear cue gain (≥1). Above 1.0 briefly raises STREAM_MUSIC during focus. */
+    private var cueGainLinear: Float = 1.0f
+    private var savedMusicVolume: Int? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -45,6 +48,11 @@ class MainActivity : FlutterActivity() {
                 }
                 "releaseFocus" -> {
                     releaseCueAudioFocus()
+                    result.success(null)
+                }
+                "setCueGain" -> {
+                    val linear = call.argument<Number>("linear")?.toFloat() ?: 1.0f
+                    cueGainLinear = linear.coerceIn(0.3f, 1.5f)
                     result.success(null)
                 }
                 else -> result.notImplemented()
@@ -138,9 +146,10 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    /** Pause/duck other media during cues — does not change volume levels. */
+    /** Pause other media during cues; optionally boost stream volume when gain > 1. */
     private fun acquireCueAudioFocus() {
         val am = getSystemService(AUDIO_SERVICE) as? AudioManager ?: return
+        applyCueVolumeBoost(am)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             if (cueFocusRequest == null) {
                 val attrs = AudioAttributes.Builder()
@@ -168,18 +177,47 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun releaseCueAudioFocus() {
-        if (!cueFocusHeld) return
-        val am = getSystemService(AUDIO_SERVICE) as? AudioManager ?: return
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                cueFocusRequest?.let { am.abandonAudioFocusRequest(it) }
-            } else {
-                @Suppress("DEPRECATION")
-                am.abandonAudioFocus(null)
+        val am = getSystemService(AUDIO_SERVICE) as? AudioManager
+        if (cueFocusHeld && am != null) {
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    cueFocusRequest?.let { am.abandonAudioFocusRequest(it) }
+                } else {
+                    @Suppress("DEPRECATION")
+                    am.abandonAudioFocus(null)
+                }
+            } catch (_: Exception) {
             }
-        } catch (_: Exception) {
         }
         cueFocusHeld = false
+        restoreCueVolumeBoost(am)
+    }
+
+    private fun applyCueVolumeBoost(am: AudioManager) {
+        if (cueGainLinear <= 1.001f) return
+        if (savedMusicVolume != null) return
+        try {
+            val stream = AudioManager.STREAM_MUSIC
+            val current = am.getStreamVolume(stream)
+            val max = am.getStreamMaxVolume(stream)
+            savedMusicVolume = current
+            val boosted = (current * cueGainLinear).toInt().coerceIn(current, max)
+            if (boosted > current) {
+                am.setStreamVolume(stream, boosted, 0)
+            }
+        } catch (_: Exception) {
+            savedMusicVolume = null
+        }
+    }
+
+    private fun restoreCueVolumeBoost(am: AudioManager?) {
+        val saved = savedMusicVolume ?: return
+        savedMusicVolume = null
+        if (am == null) return
+        try {
+            am.setStreamVolume(AudioManager.STREAM_MUSIC, saved, 0)
+        } catch (_: Exception) {
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {

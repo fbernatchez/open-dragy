@@ -414,7 +414,10 @@ class PhysicsEngine {
 
     // Metrics triggers
     double? t60ft = current.time60ft;
+    double? trap60 = current.trap60ft;
     double? t330ft = current.time330ft;
+    double? trap330 = current.trap330ft;
+    double? t0_50kmh = current.time0to50kmh;
     double? t0_60mph = current.time0to60mph;
     double? t0_100kmh = current.time0to100kmh;
     double? t18 = current.time18Mile;
@@ -430,6 +433,7 @@ class PhysicsEngine {
     double? rollout1ft = current.rolloutTime1ft;
     double? t60ftRollout = current.time60ftRollout;
     double? t330ftRollout = current.time330ftRollout;
+    double? t0_50kmhRollout = current.time0to50kmhRollout;
     double? t0_60mphRollout = current.time0to60mphRollout;
     double? t0_100kmhRollout = current.time0to100kmhRollout;
     double? t18Rollout = current.time18MileRollout;
@@ -462,8 +466,11 @@ class PhysicsEngine {
       if (distDiff > 0) {
         double fraction = (distance60ft - current.distanceMeters) / distDiff;
         t60ft = current.elapsedTime + (currentDt * fraction);
+        trap60 =
+            current.speedKmh + ((newSpeedKmh - current.speedKmh) * fraction);
       } else {
         t60ft = newElapsedTime;
+        trap60 = newSpeedKmh;
       }
     }
 
@@ -486,8 +493,11 @@ class PhysicsEngine {
       if (distDiff > 0) {
         double fraction = (distance330ft - current.distanceMeters) / distDiff;
         t330ft = current.elapsedTime + (currentDt * fraction);
+        trap330 =
+            current.speedKmh + ((newSpeedKmh - current.speedKmh) * fraction);
       } else {
         t330ft = newElapsedTime;
+        trap330 = newSpeedKmh;
       }
     }
 
@@ -502,6 +512,22 @@ class PhysicsEngine {
         absTime = newElapsedTime;
       }
       t330ftRollout = absTime - rollout1ft;
+    }
+
+    // 0-50 km/h
+    if (t0_50kmh == null && newSpeedKmh >= 50.0) {
+      double speedDiff = newSpeedKmh - current.speedKmh;
+      if (speedDiff > 0) {
+        double fraction = (50.0 - current.speedKmh) / speedDiff;
+        t0_50kmh = current.elapsedTime + (currentDt * fraction);
+      } else {
+        t0_50kmh = newElapsedTime;
+      }
+    }
+
+    // 0-50 km/h Rollout
+    if (t0_50kmhRollout == null && t0_50kmh != null && rollout1ft != null) {
+      t0_50kmhRollout = t0_50kmh - rollout1ft;
     }
 
     // 0-60 mph (96.5606 km/h)
@@ -709,7 +735,10 @@ class PhysicsEngine {
       elapsedTime: newElapsedTime,
       gForce: smoothedGForce,
       time60ft: t60ft,
+      trap60ft: trap60,
       time330ft: t330ft,
+      trap330ft: trap330,
+      time0to50kmh: t0_50kmh,
       time0to60mph: t0_60mph,
       time0to100kmh: t0_100kmh,
       time18Mile: t18,
@@ -723,6 +752,7 @@ class PhysicsEngine {
       rolloutTime1ft: rollout1ft,
       time60ftRollout: t60ftRollout,
       time330ftRollout: t330ftRollout,
+      time0to50kmhRollout: t0_50kmhRollout,
       time0to60mphRollout: t0_60mphRollout,
       time0to100kmhRollout: t0_100kmhRollout,
       time18MileRollout: t18Rollout,
@@ -784,6 +814,7 @@ class PhysicsEngine {
 
     double? t60_130 = current.time60to130mph;
     double? t100_200 = current.time100to200kmh;
+    double? t0_50kmh = current.time0to50kmh;
     double? t0_60mph = current.time0to60mph;
     double? t0_100kmh = current.time0to100kmh;
     double? t0_130mph = current.time0to130mph;
@@ -802,6 +833,9 @@ class PhysicsEngine {
         if ((current.targetEndSpeed! - 96.56).abs() < 1.0 &&
             current.targetSpeedUnit == 'mph') {
           t0_60mph = newElapsedTimeCalculated;
+        } else if ((current.targetEndSpeed! - 50.0).abs() < 0.1 &&
+                   current.targetSpeedUnit == 'kmh') {
+          t0_50kmh = newElapsedTimeCalculated;
         } else if ((current.targetEndSpeed! - 100.0).abs() < 0.1 &&
                    current.targetSpeedUnit == 'kmh') {
           t0_100kmh = newElapsedTimeCalculated;
@@ -822,6 +856,7 @@ class PhysicsEngine {
       gForce: smoothedGForce,
       time60to130mph: t60_130,
       time100to200kmh: t100_200,
+      time0to50kmh: t0_50kmh,
       time0to60mph: t0_60mph,
       time0to100kmh: t0_100kmh,
       time0to130mph: t0_130mph,

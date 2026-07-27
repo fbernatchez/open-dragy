@@ -245,6 +245,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             continue;
           }
         }
+        if (!dragy.isOfficialTestIdVisible(test.id)) continue;
 
         reachedMilestones.add(
           _ReachedMilestone(
@@ -540,6 +541,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                         },
                                         items: dragy.isMetric
                                             ? const [
+                                                DropdownMenuItem(
+                                                  value: RaceIntervalTarget
+                                                      .zeroToFiftyKmh,
+                                                  child: Text('0-50 km/h'),
+                                                ),
                                                 DropdownMenuItem(
                                                   value: RaceIntervalTarget
                                                       .zeroToOneHundredKmh,

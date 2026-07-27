@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../providers/dragy_provider.dart';
 import '../models/saved_run.dart';
 import '../models/race_target.dart';
+import '../services/run_share_service.dart';
 import '../widgets/run_trust_badge.dart';
 
 class RunDetailScreen extends StatelessWidget {
@@ -47,6 +48,7 @@ class RunDetailScreen extends StatelessWidget {
           continue;
         }
       }
+      if (!dragy.isOfficialTestIdVisible(test.id)) continue;
 
       final time = getCompletedTimeForCategory(metrics, test.id, useNhraRules: useNhraRules);
       if (time != null) {
@@ -220,6 +222,11 @@ class RunDetailScreen extends StatelessWidget {
         ),
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.share, color: Colors.white70),
+            tooltip: 'Share',
+            onPressed: () => _shareRun(context, dragy),
+          ),
           IconButton(
             icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
             onPressed: () => _confirmDelete(context),
@@ -467,6 +474,23 @@ class RunDetailScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _shareRun(BuildContext context, DragyProvider dragy) async {
+    try {
+      await RunShareService.shareRun(
+        context: context,
+        run: run,
+        isMetric: dragy.isMetric,
+        useNhraRules: dragy.useNhraRules,
+        tempInCelsius: dragy.tempInCelsius,
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Share failed: $e')),
+      );
+    }
   }
 
   void _confirmDelete(BuildContext context) {

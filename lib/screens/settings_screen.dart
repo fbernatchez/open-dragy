@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../models/imu_orientation.dart';
 import '../providers/dragy_provider.dart';
 import 'audio_milestones_screen.dart';
+import 'result_fields_screen.dart';
 import 'ride_logs_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -46,6 +47,43 @@ class SettingsScreen extends StatelessWidget {
             subtitle: tempInCelsius ? 'Displaying °C' : 'Displaying °F',
             value: tempInCelsius,
             onChanged: (v) => dragy.setTempInCelsius(v),
+          ),
+          ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+            leading: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: const Color(0xFF1565C0).withOpacity(0.15),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.view_list_outlined,
+                color: Color(0xFF42A5F5),
+                size: 22,
+              ),
+            ),
+            title: Text(
+              'Result fields',
+              style: GoogleFonts.roboto(
+                color: Colors.white,
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            subtitle: Text(
+              '${dragy.visibleResultFields.length} shown · rest still computed',
+              style: GoogleFonts.roboto(color: Colors.white38, fontSize: 12),
+            ),
+            trailing: const Icon(Icons.chevron_right, color: Colors.white38),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const ResultFieldsScreen(),
+                ),
+              );
+            },
           ),
           _SettingsToggle(
             icon: Icons.timer_outlined,
@@ -158,7 +196,7 @@ class SettingsScreen extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          '${(dragy.cueVolume * 100).round()}% · ducks/pauses other media during cue',
+                          '${(dragy.cueVolume * 100).round()}% · >100% boosts Android media stream during cue',
                           style: GoogleFonts.roboto(
                             color: Colors.white38,
                             fontSize: 12,
@@ -171,10 +209,10 @@ class SettingsScreen extends StatelessWidget {
               ),
             ),
             Slider(
-              value: dragy.cueVolume,
+              value: dragy.cueVolume.clamp(0.3, 1.3),
               min: 0.3,
-              max: 1.0,
-              divisions: 7,
+              max: 1.3,
+              divisions: 10,
               activeColor: const Color(0xFF42A5F5),
               inactiveColor: Colors.white12,
               label: '${(dragy.cueVolume * 100).round()}%',

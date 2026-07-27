@@ -45,7 +45,10 @@ class RaceMetrics {
 
   // Timers (in seconds)
   final double? time60ft;
+  final double? trap60ft; // Speed at 60 ft in km/h
   final double? time330ft;
+  final double? trap330ft; // Speed at 330 ft in km/h
+  final double? time0to50kmh;
   final double? time0to60mph;
   final double? time0to100kmh;
   final double? time18Mile;
@@ -61,6 +64,7 @@ class RaceMetrics {
   final double? rolloutTime1ft;
   final double? time60ftRollout;
   final double? time330ftRollout;
+  final double? time0to50kmhRollout;
   final double? time0to60mphRollout;
   final double? time0to100kmhRollout;
   final double? time18MileRollout;
@@ -94,7 +98,10 @@ class RaceMetrics {
     this.gForce = 0.0,
     this.elapsedTime = 0.0,
     this.time60ft,
+    this.trap60ft,
     this.time330ft,
+    this.trap330ft,
+    this.time0to50kmh,
     this.time0to60mph,
     this.time0to100kmh,
     this.time18Mile,
@@ -108,6 +115,7 @@ class RaceMetrics {
     this.rolloutTime1ft,
     this.time60ftRollout,
     this.time330ftRollout,
+    this.time0to50kmhRollout,
     this.time0to60mphRollout,
     this.time0to100kmhRollout,
     this.time18MileRollout,
@@ -135,7 +143,10 @@ class RaceMetrics {
     double? gForce,
     double? elapsedTime,
     double? time60ft,
+    double? trap60ft,
     double? time330ft,
+    double? trap330ft,
+    double? time0to50kmh,
     double? time0to60mph,
     double? time0to100kmh,
     double? time18Mile,
@@ -149,6 +160,7 @@ class RaceMetrics {
     double? rolloutTime1ft,
     double? time60ftRollout,
     double? time330ftRollout,
+    double? time0to50kmhRollout,
     double? time0to60mphRollout,
     double? time0to100kmhRollout,
     double? time18MileRollout,
@@ -175,7 +187,10 @@ class RaceMetrics {
       gForce: gForce ?? this.gForce,
       elapsedTime: elapsedTime ?? this.elapsedTime,
       time60ft: time60ft ?? this.time60ft,
+      trap60ft: trap60ft ?? this.trap60ft,
       time330ft: time330ft ?? this.time330ft,
+      trap330ft: trap330ft ?? this.trap330ft,
+      time0to50kmh: time0to50kmh ?? this.time0to50kmh,
       time0to60mph: time0to60mph ?? this.time0to60mph,
       time0to100kmh: time0to100kmh ?? this.time0to100kmh,
       time18Mile: time18Mile ?? this.time18Mile,
@@ -189,6 +204,7 @@ class RaceMetrics {
       rolloutTime1ft: rolloutTime1ft ?? this.rolloutTime1ft,
       time60ftRollout: time60ftRollout ?? this.time60ftRollout,
       time330ftRollout: time330ftRollout ?? this.time330ftRollout,
+      time0to50kmhRollout: time0to50kmhRollout ?? this.time0to50kmhRollout,
       time0to60mphRollout: time0to60mphRollout ?? this.time0to60mphRollout,
       time0to100kmhRollout: time0to100kmhRollout ?? this.time0to100kmhRollout,
       time18MileRollout: time18MileRollout ?? this.time18MileRollout,
@@ -218,7 +234,10 @@ class RaceMetrics {
       'gForce': gForce,
       'elapsedTime': elapsedTime,
       'time60ft': time60ft,
+      'trap60ft': trap60ft,
       'time330ft': time330ft,
+      'trap330ft': trap330ft,
+      'time0to50kmh': time0to50kmh,
       'time0to60mph': time0to60mph,
       'time0to100kmh': time0to100kmh,
       'time18Mile': time18Mile,
@@ -232,6 +251,7 @@ class RaceMetrics {
       'rolloutTime1ft': rolloutTime1ft,
       'time60ftRollout': time60ftRollout,
       'time330ftRollout': time330ftRollout,
+      'time0to50kmhRollout': time0to50kmhRollout,
       'time0to60mphRollout': time0to60mphRollout,
       'time0to100kmhRollout': time0to100kmhRollout,
       'time18MileRollout': time18MileRollout,
@@ -262,8 +282,17 @@ class RaceMetrics {
       time60ft: json['time60ft'] != null
           ? (json['time60ft'] as num).toDouble()
           : null,
+      trap60ft: json['trap60ft'] != null
+          ? (json['trap60ft'] as num).toDouble()
+          : null,
       time330ft: json['time330ft'] != null
           ? (json['time330ft'] as num).toDouble()
+          : null,
+      trap330ft: json['trap330ft'] != null
+          ? (json['trap330ft'] as num).toDouble()
+          : null,
+      time0to50kmh: json['time0to50kmh'] != null
+          ? (json['time0to50kmh'] as num).toDouble()
           : null,
       time0to60mph: json['time0to60mph'] != null
           ? (json['time0to60mph'] as num).toDouble()
@@ -303,6 +332,9 @@ class RaceMetrics {
           : null,
       time330ftRollout: json['time330ftRollout'] != null
           ? (json['time330ftRollout'] as num).toDouble()
+          : null,
+      time0to50kmhRollout: json['time0to50kmhRollout'] != null
+          ? (json['time0to50kmhRollout'] as num).toDouble()
           : null,
       time0to60mphRollout: json['time0to60mphRollout'] != null
           ? (json['time0to60mphRollout'] as num).toDouble()

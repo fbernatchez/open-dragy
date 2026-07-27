@@ -74,6 +74,13 @@ const List<OfficialTest> officialTests = [
     distanceUnit: DistanceUnit.feet,
   ),
   OfficialTest(
+    id: '0-50kmh',
+    displayName: '0-50 km/h',
+    startSpeed: 0.0,
+    endSpeed: 50.0,
+    speedUnit: SpeedUnit.kmh,
+  ),
+  OfficialTest(
     id: '0-60mph',
     displayName: '0-60 mph',
     startSpeed: 0.0,
@@ -150,6 +157,8 @@ double? _getPrecalculatedTime(RaceMetrics m, String id, {bool useNhraRules = fal
         return m.time60ftRollout;
       case '330ft':
         return m.time330ftRollout;
+      case '0-50kmh':
+        return m.time0to50kmhRollout;
       case '0-60mph':
         return m.time0to60mphRollout;
       case '0-100kmh':
@@ -183,6 +192,8 @@ double? _getPrecalculatedTime(RaceMetrics m, String id, {bool useNhraRules = fal
         return m.time60ft;
       case '330ft':
         return m.time330ft;
+      case '0-50kmh':
+        return m.time0to50kmh;
       case '0-60mph':
         return m.time0to60mph;
       case '0-100kmh':
@@ -383,6 +394,32 @@ double? getCompletedTimeForCategory(RaceMetrics metrics, String categoryId, {boo
   return null;
 }
 
+// Search and interpolate speed at a distance crossing
+double? _findSpeedAtDistance(
+  List<DataPoint> history,
+  double targetMeters,
+) {
+  double currentDistance = 0.0;
+  for (int i = 1; i < history.length; i++) {
+    final prev = history[i - 1];
+    final curr = history[i];
+    final dt = curr.elapsedTime - prev.elapsedTime;
+    final avgSpeedMs = ((prev.speedKmh / 3.6) + (curr.speedKmh / 3.6)) / 2;
+    final stepDist = avgSpeedMs * dt;
+
+    if (currentDistance + stepDist >= targetMeters) {
+      final neededDist = targetMeters - currentDistance;
+      double fraction = 0.0;
+      if (stepDist > 0) {
+        fraction = neededDist / stepDist;
+      }
+      return prev.speedKmh + ((curr.speedKmh - prev.speedKmh) * fraction);
+    }
+    currentDistance += stepDist;
+  }
+  return null;
+}
+
 double? getTrapSpeedForCategory(RaceMetrics metrics, String categoryId, {bool useNhraRules = false}) {
   if (useNhraRules) {
     double targetMeters = 0.0;
@@ -405,13 +442,28 @@ double? getTrapSpeedForCategory(RaceMetrics metrics, String categoryId, {bool us
     }
   }
 
-  // Fallback to instantaneous trap speed
+  // Instantaneous speed at the distance mark
   switch (categoryId) {
-    case '1/8mile': return metrics.trap18Mile;
-    case '1000ft': return metrics.trap1000ft;
-    case '1/4mile': return metrics.trap14Mile;
-    case '1/2mile': return metrics.trap12Mile;
-    default: return null;
+    case '60ft':
+      return metrics.trap60ft ??
+          _findSpeedAtDistance(metrics.history, 60.0 * 0.3048);
+    case '330ft':
+      return metrics.trap330ft ??
+          _findSpeedAtDistance(metrics.history, 330.0 * 0.3048);
+    case '1/8mile':
+      return metrics.trap18Mile ??
+          _findSpeedAtDistance(metrics.history, 0.125 * 1609.344);
+    case '1000ft':
+      return metrics.trap1000ft ??
+          _findSpeedAtDistance(metrics.history, 1000.0 * 0.3048);
+    case '1/4mile':
+      return metrics.trap14Mile ??
+          _findSpeedAtDistance(metrics.history, 0.25 * 1609.344);
+    case '1/2mile':
+      return metrics.trap12Mile ??
+          _findSpeedAtDistance(metrics.history, 0.5 * 1609.344);
+    default:
+      return null;
   }
 }
 

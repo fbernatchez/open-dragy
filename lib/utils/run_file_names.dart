@@ -45,4 +45,11 @@ class RunFileNames {
   static String legacyFlatGpsCsv(String runId) => '${runId}_gps.csv';
 
   static String legacyFlatImuCsv(String runId) => '${runId}_imu.csv';
+
+  /// Basename of a path/URI. Skips empty segments from trailing `/`.
+  static String baseName(String path) {
+    final normalized = path.replaceAll('\\', '/');
+    final parts = normalized.split('/').where((s) => s.isNotEmpty);
+    return parts.isNotEmpty ? parts.last : path;
+  }
 }

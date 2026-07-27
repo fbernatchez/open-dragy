@@ -38,8 +38,12 @@ bool imuReady = false;
 #define CHARACTERISTIC_UUID_IMU "6e400004-b5a3-f393-e0a9-e50e24dcca9e"
 
 unsigned long lastImuTime = 0;
-/** BLE IMU notify rate — keep BMI160 ODR at 100 Hz + LPF; don't flood the radio. */
-const int imuInterval = 25; // 40 Hz over BLE
+unsigned long lastImuSampleMs = 0;
+/** BMI160 stays at 100 Hz ODR + on-chip LPF; we boxcar-average into BLE. */
+const int imuSampleIntervalMs = 10; // read chip ~100 Hz
+const int imuInterval = 50;         // notify ~20 Hz over BLE (phone rarely keeps >20–25)
+long imuAccSum[3] = {0, 0, 0};
+int imuAccCount = 0;
 unsigned long lastOdgpNotifyMs = 0;
 /** Min gap between ODGP notifies; <100 ms so a short backlog can catch up. */
 const unsigned long kOdgpMinIntervalMs = 50;
@@ -768,17 +772,37 @@ void loop() {
   if (deviceConnected && imuReady && notifyEnabled(pImuCccd) &&
       pImuCharacteristic) {
     unsigned long currentMillis = millis();
-    if (currentMillis - lastImuTime >= imuInterval) {
-      lastImuTime = currentMillis;
+
+    // Sample BMI160 near ODR; accumulate for anti-aliased BLE downsample.
+    if (currentMillis - lastImuSampleMs >= (unsigned long)imuSampleIntervalMs) {
+      lastImuSampleMs = currentMillis;
       int16_t accelGyro[6] = {0};
       bmi160.getAccelGyroData(accelGyro);
+      imuAccSum[0] += accelGyro[3];
+      imuAccSum[1] += accelGyro[4];
+      imuAccSum[2] += accelGyro[5];
+      imuAccCount++;
+    }
+
+    if (imuAccCount > 0 &&
+        currentMillis - lastImuTime >= (unsigned long)imuInterval) {
+      lastImuTime = currentMillis;
+      const int16_t ax = (int16_t)(imuAccSum[0] / imuAccCount);
+      const int16_t ay = (int16_t)(imuAccSum[1] / imuAccCount);
+      const int16_t az = (int16_t)(imuAccSum[2] / imuAccCount);
+      imuAccSum[0] = imuAccSum[1] = imuAccSum[2] = 0;
+      imuAccCount = 0;
+
       char imuData[32];
-      snprintf(imuData, sizeof(imuData), "%d,%d,%d\n", accelGyro[3],
-               accelGyro[4], accelGyro[5]);
+      snprintf(imuData, sizeof(imuData), "%d,%d,%d\n", ax, ay, az);
       pImuCharacteristic->setValue((uint8_t *)imuData, strlen(imuData));
       pImuCharacteristic->notify();
       gImuNotifies++;
     }
+  } else {
+    // Not subscribed — don't leave a stale accumulator for the next connect.
+    imuAccSum[0] = imuAccSum[1] = imuAccSum[2] = 0;
+    imuAccCount = 0;
   }
 
   if (!deviceConnected && oldDeviceConnected) {

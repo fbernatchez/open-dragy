@@ -58,6 +58,7 @@ enum RaceIntervalTarget {
   sixtyToOneHundredMph('60-100 mph', 'custom_60_100_mph'),
   sixtyToOneThirtyMph('60-130 mph', '60-130mph'),
   zeroToOneThirtyMph('0-130 mph', '0-130mph'),
+  zeroToFiftyKmh('0-50 km/h', '0-50kmh'),
   zeroToOneHundredKmh('0-100 km/h', '0-100kmh'),
   zeroToOneSixtyKmh('0-160 km/h', 'custom_0_160_kmh'),
   eightyToOneTwentyKmh('80-120 km/h', 'custom_80_120_kmh'),
@@ -291,7 +292,7 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
   AudioCueMode get audioCueMode => _audioCueMode;
 
   /// Cue playback volume (0.3–1.0) for TTS / beeps → Bluetooth intercom.
-  double _cueVolume = 1.0;
+  double _cueVolume = 1.3;
   double get cueVolume => _cueVolume;
 
   /// Cardo / AA media Next→ARM, Previous→DISARM.
@@ -308,8 +309,9 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   DateTime? _lastCarStatePush;
 
-  /// Extra milestones beyond selected-target finish (default: 0–100 / 0–60).
+  /// Extra milestones beyond selected-target finish (default: 0–50 + 0–100 / 0–60).
   Set<OptionalAudioMilestone> _optionalAudioMilestones = {
+    OptionalAudioMilestone.zeroFifty,
     OptionalAudioMilestone.speedMark,
   };
   Set<OptionalAudioMilestone> get optionalAudioMilestones =>
@@ -317,6 +319,22 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   bool isOptionalAudioMilestoneEnabled(OptionalAudioMilestone m) =>
       _optionalAudioMilestones.contains(m);
+
+  /// Result rows shown in UI (engine still computes all).
+  Set<VisibleResultField> _visibleResultFields =
+      Set<VisibleResultField>.from(VisibleResultField.defaults);
+  Set<VisibleResultField> get visibleResultFields =>
+      Set.unmodifiable(_visibleResultFields);
+
+  bool isResultFieldVisible(VisibleResultField f) =>
+      _visibleResultFields.contains(f);
+
+  bool isOfficialTestIdVisible(String testId) {
+    for (final f in VisibleResultField.values) {
+      if (f.id == testId) return _visibleResultFields.contains(f);
+    }
+    return true; // custom / unknown always shown
+  }
 
   /// Finish flash / checkered flag — only when app is foreground (display on).
   FinishCelebrationMode _finishCelebration = FinishCelebrationMode.checkered;
@@ -402,6 +420,8 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
         return 96.5606;
       case RaceIntervalTarget.zeroToOneThirtyMph:
         return 0.0;
+      case RaceIntervalTarget.zeroToFiftyKmh:
+        return 0.0;
       case RaceIntervalTarget.zeroToOneHundredKmh:
         return 0.0;
       case RaceIntervalTarget.zeroToOneSixtyKmh:
@@ -435,6 +455,8 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
         return 209.2147;
       case RaceIntervalTarget.zeroToOneThirtyMph:
         return 209.2147;
+      case RaceIntervalTarget.zeroToFiftyKmh:
+        return 50.0;
       case RaceIntervalTarget.zeroToOneHundredKmh:
         return 100.0;
       case RaceIntervalTarget.zeroToOneSixtyKmh:
@@ -540,6 +562,7 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
       case RaceIntervalTarget.sixtyToOneThirtyMph:
       case RaceIntervalTarget.zeroToOneThirtyMph:
         return 'mph';
+      case RaceIntervalTarget.zeroToFiftyKmh:
       case RaceIntervalTarget.zeroToOneHundredKmh:
       case RaceIntervalTarget.zeroToOneSixtyKmh:
       case RaceIntervalTarget.eightyToOneTwentyKmh:
@@ -1343,22 +1366,35 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> loadSavedRuns() async {
     final hiveRuns = await _historyService.loadRuns();
     final durableMaps = await _durableStorage.pullSavedRuns();
-    final byId = <String, SavedRun>{
-      for (final r in hiveRuns) r.id: r,
-    };
+    final byId = <String, SavedRun>{};
+    final durableIds = <String>{};
+
     for (final map in durableMaps) {
       try {
         final run = SavedRun.fromJson(map);
-        byId.putIfAbsent(run.id, () => run);
+        durableIds.add(run.id);
+        byId[run.id] = run;
       } catch (_) {}
     }
+
+    if (durableIds.isNotEmpty) {
+      // Public/SAF disk is source of truth — drop Hive orphans (e.g. archived).
+      for (final h in hiveRuns) {
+        if (!durableIds.contains(h.id)) {
+          await _historyService.deleteRun(h.id);
+        }
+      }
+    } else {
+      for (final h in hiveRuns) {
+        byId.putIfAbsent(h.id, () => h);
+      }
+    }
+
     _savedRuns = byId.values.toList()
       ..sort((a, b) => b.dateTime.compareTo(a.dateTime));
-    // Mirror any durable-only runs into Hive
+
     for (final run in _savedRuns) {
-      if (!hiveRuns.any((h) => h.id == run.id)) {
-        await _historyService.saveRun(run);
-      }
+      await _historyService.saveRun(run);
     }
     notifyListeners();
     _pushCarStateThrottled(force: true);
@@ -1490,32 +1526,74 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
 
     if (nhra) {
-      add('60 ft (1 ft)', fmt(m.time60ftRollout ?? m.time60ft));
-      add('330 ft', fmt(m.time330ftRollout ?? m.time330ft));
-      add('0–60 mph', fmt(m.time0to60mphRollout ?? m.time0to60mph));
-      add('0–100 km/h', fmt(m.time0to100kmhRollout ?? m.time0to100kmh));
-      add('1/8 mile', fmt(m.time18MileRollout ?? m.time18Mile));
-      add('1/8 trap', trap(m.trap18Mile));
-      add('1000 ft', fmt(m.time1000ftRollout ?? m.time1000ft));
-      add('1/4 mile', fmt(m.time14MileRollout ?? m.time14Mile));
-      add('1/4 trap', trap(m.trap14Mile));
-      add('1/2 mile', fmt(m.time12MileRollout ?? m.time12Mile));
+      if (isOfficialTestIdVisible('60ft')) {
+        add('60 ft (1 ft)', fmt(m.time60ftRollout ?? m.time60ft));
+      }
+      if (isOfficialTestIdVisible('330ft')) {
+        add('330 ft', fmt(m.time330ftRollout ?? m.time330ft));
+      }
+      if (isOfficialTestIdVisible('0-50kmh')) {
+        add('0–50 km/h', fmt(m.time0to50kmhRollout ?? m.time0to50kmh));
+      }
+      if (isOfficialTestIdVisible('0-60mph')) {
+        add('0–60 mph', fmt(m.time0to60mphRollout ?? m.time0to60mph));
+      }
+      if (isOfficialTestIdVisible('0-100kmh')) {
+        add('0–100 km/h', fmt(m.time0to100kmhRollout ?? m.time0to100kmh));
+      }
+      if (isOfficialTestIdVisible('1/8mile')) {
+        add('1/8 mile', fmt(m.time18MileRollout ?? m.time18Mile));
+        add('1/8 trap', trap(m.trap18Mile));
+      }
+      if (isOfficialTestIdVisible('1000ft')) {
+        add('1000 ft', fmt(m.time1000ftRollout ?? m.time1000ft));
+      }
+      if (isOfficialTestIdVisible('1/4mile')) {
+        add('1/4 mile', fmt(m.time14MileRollout ?? m.time14Mile));
+        add('1/4 trap', trap(m.trap14Mile));
+      }
+      if (isOfficialTestIdVisible('1/2mile')) {
+        add('1/2 mile', fmt(m.time12MileRollout ?? m.time12Mile));
+      }
     } else {
-      add('60 ft', fmt(m.time60ft));
-      add('330 ft', fmt(m.time330ft));
-      add('0–60 mph', fmt(m.time0to60mph));
-      add('0–100 km/h', fmt(m.time0to100kmh));
-      add('1/8 mile', fmt(m.time18Mile));
-      add('1/8 trap', trap(m.trap18Mile));
-      add('1000 ft', fmt(m.time1000ft));
-      add('1000 trap', trap(m.trap1000ft));
-      add('1/4 mile', fmt(m.time14Mile));
-      add('1/4 trap', trap(m.trap14Mile));
-      add('1/2 mile', fmt(m.time12Mile));
-      add('1/2 trap', trap(m.trap12Mile));
+      if (isOfficialTestIdVisible('60ft')) {
+        add('60 ft', fmt(m.time60ft));
+      }
+      if (isOfficialTestIdVisible('330ft')) {
+        add('330 ft', fmt(m.time330ft));
+      }
+      if (isOfficialTestIdVisible('0-50kmh')) {
+        add('0–50 km/h', fmt(m.time0to50kmh));
+      }
+      if (isOfficialTestIdVisible('0-60mph')) {
+        add('0–60 mph', fmt(m.time0to60mph));
+      }
+      if (isOfficialTestIdVisible('0-100kmh')) {
+        add('0–100 km/h', fmt(m.time0to100kmh));
+      }
+      if (isOfficialTestIdVisible('1/8mile')) {
+        add('1/8 mile', fmt(m.time18Mile));
+        add('1/8 trap', trap(m.trap18Mile));
+      }
+      if (isOfficialTestIdVisible('1000ft')) {
+        add('1000 ft', fmt(m.time1000ft));
+        add('1000 trap', trap(m.trap1000ft));
+      }
+      if (isOfficialTestIdVisible('1/4mile')) {
+        add('1/4 mile', fmt(m.time14Mile));
+        add('1/4 trap', trap(m.trap14Mile));
+      }
+      if (isOfficialTestIdVisible('1/2mile')) {
+        add('1/2 mile', fmt(m.time12Mile));
+        add('1/2 trap', trap(m.trap12Mile));
+      }
     }
-    add('0–200 km/h', fmt(m.time0to200kmh));
-    add('100–200 km/h', fmt(m.time100to200kmh));
+    if (isOfficialTestIdVisible('0-200kmh')) {
+      add('0–200 km/h', fmt(m.time0to200kmh));
+    }
+    if (isOfficialTestIdVisible('100-200kmh')) {
+      add('100–200 km/h', fmt(m.time100to200kmh));
+    }
     add('Vmax', trap(m.history.isEmpty
         ? null
         : m.history.map((e) => e.speedKmh).reduce(max)));
@@ -1746,6 +1824,8 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
       } else if (_activeIntervalTarget ==
           RaceIntervalTarget.zeroToOneHundredKmh) {
         _activeIntervalTarget = RaceIntervalTarget.zeroToSixtyMph;
+      } else if (_activeIntervalTarget == RaceIntervalTarget.zeroToFiftyKmh) {
+        _activeIntervalTarget = RaceIntervalTarget.zeroToSixtyMph;
       } else if (_activeIntervalTarget ==
           RaceIntervalTarget.eightyToOneTwentyKmh) {
         _activeIntervalTarget = RaceIntervalTarget.fiftyToSeventyFiveMph;
@@ -1808,7 +1888,7 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   void setCueVolume(double value) {
-    final v = value.clamp(0.3, 1.0);
+    final v = value.clamp(0.3, 1.3);
     if ((v - _cueVolume).abs() < 0.001) return;
     _cueVolume = v;
     _milestoneAudio.setVolume(_cueVolume);
@@ -1915,6 +1995,22 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
       return;
     }
     _optionalAudioMilestones = next;
+    _saveSettings();
+    notifyListeners();
+  }
+
+  void setResultFieldVisible(VisibleResultField f, bool enabled) {
+    final next = Set<VisibleResultField>.from(_visibleResultFields);
+    if (enabled) {
+      next.add(f);
+    } else {
+      next.remove(f);
+    }
+    if (next.length == _visibleResultFields.length &&
+        next.containsAll(_visibleResultFields)) {
+      return;
+    }
+    _visibleResultFields = next;
     _saveSettings();
     notifyListeners();
   }
@@ -2200,7 +2296,7 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
     if (data.containsKey('cueVolume')) {
       _cueVolume = ((data['cueVolume'] as num?)?.toDouble() ?? _cueVolume)
-          .clamp(0.3, 1.0);
+          .clamp(0.3, 1.3);
       _milestoneAudio.setVolume(_cueVolume);
     }
     if (data.containsKey('headsetMediaArmEnabled')) {
@@ -2223,6 +2319,20 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
         }
       }
       _optionalAudioMilestones = parsed;
+    }
+    final visibleRaw = data['visibleResultFields'];
+    if (visibleRaw is List) {
+      final parsed = <VisibleResultField>{};
+      for (final item in visibleRaw) {
+        final name = item.toString();
+        for (final f in VisibleResultField.values) {
+          if (f.name == name || f.id == name) {
+            parsed.add(f);
+            break;
+          }
+        }
+      }
+      _visibleResultFields = parsed;
     }
     final finishName = data['finishCelebration'] as String?;
     if (finishName != null) {
@@ -2321,6 +2431,8 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
         if (_lastCarResult != null) 'lastCarResult': _lastCarResult,
         'optionalAudioMilestones':
             _optionalAudioMilestones.map((e) => e.name).toList(),
+        'visibleResultFields':
+            _visibleResultFields.map((e) => e.name).toList(),
         'finishCelebration': _finishCelebration.name,
         'loggerTagsText': _loggerTagsText,
         'loggerNotes': _loggerNotes,

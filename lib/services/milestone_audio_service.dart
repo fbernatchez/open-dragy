@@ -30,6 +30,9 @@ class MilestoneAudioService {
   bool _disposed = false;
   bool _playedTargetFinish = false;
 
+  /// Platform players are 0..1; >1 uses [CueAudioFocus] stream boost.
+  double get _playerVolume => _volume.clamp(0.0, 1.0);
+
   bool get enabled => _enabled;
   AudioCueMode get mode => _mode;
   double get volume => _volume;
@@ -56,14 +59,15 @@ class MilestoneAudioService {
         ),
       );
       await _beepPlayer.setReleaseMode(ReleaseMode.stop);
-      await _beepPlayer.setVolume(_volume);
+      await _beepPlayer.setVolume(_playerVolume);
 
       await _tts.setLanguage('en-US');
       await _tts.setSpeechRate(0.48);
-      await _tts.setVolume(_volume);
+      await _tts.setVolume(_playerVolume);
       await _tts.setPitch(1.05);
       await _tts.awaitSpeakCompletion(true);
       await _tts.setAudioAttributesForNavigation();
+      await CueAudioFocus.setGainLinear(_volume);
       _ready = true;
     } catch (_) {
       _ready = false;
@@ -71,9 +75,10 @@ class MilestoneAudioService {
   }
 
   void setVolume(double value) {
-    _volume = value.clamp(0.3, 1.0);
-    unawaited(_beepPlayer.setVolume(_volume));
-    unawaited(_tts.setVolume(_volume));
+    _volume = value.clamp(0.3, 1.3);
+    unawaited(_beepPlayer.setVolume(_playerVolume));
+    unawaited(_tts.setVolume(_playerVolume));
+    unawaited(CueAudioFocus.setGainLinear(_volume));
   }
 
   void setEnabled(bool value) {
@@ -105,7 +110,7 @@ class MilestoneAudioService {
   Future<void> _speak(String text) async {
     await CueAudioFocus.acquire();
     try {
-      await _tts.setVolume(_volume);
+      await _tts.setVolume(_playerVolume);
       await _tts.speak(text, focus: true);
     } finally {
       await CueAudioFocus.release();
@@ -115,8 +120,8 @@ class MilestoneAudioService {
   Future<void> playTestCue() async {
     if (_disposed) return;
     if (!_ready) await init();
-    await _beepPlayer.setVolume(_volume);
-    await _tts.setVolume(_volume);
+    await _beepPlayer.setVolume(_playerVolume);
+    await _tts.setVolume(_playerVolume);
     if (_mode == AudioCueMode.beep) {
       await CueAudioFocus.acquire();
       try {
@@ -133,8 +138,8 @@ class MilestoneAudioService {
   Future<void> announceArmed() async {
     if (_disposed) return;
     if (!_ready) await init();
-    await _beepPlayer.setVolume(_volume);
-    await _tts.setVolume(_volume);
+    await _beepPlayer.setVolume(_playerVolume);
+    await _tts.setVolume(_playerVolume);
     if (_mode == AudioCueMode.beep) {
       await CueAudioFocus.acquire();
       try {
@@ -156,8 +161,8 @@ class MilestoneAudioService {
   Future<void> announceDisarmed() async {
     if (_disposed) return;
     if (!_ready) await init();
-    await _beepPlayer.setVolume(_volume);
-    await _tts.setVolume(_volume);
+    await _beepPlayer.setVolume(_playerVolume);
+    await _tts.setVolume(_playerVolume);
     if (_mode == AudioCueMode.beep) {
       await CueAudioFocus.acquire();
       try {
@@ -220,6 +225,13 @@ class MilestoneAudioService {
       _BeepPattern.single,
     );
     if (isMetric) {
+      maybe(
+        '0-50kmh',
+        previous.time0to50kmh,
+        next.time0to50kmh,
+        'Fifty',
+        _BeepPattern.single,
+      );
       maybe(
         '100kmh',
         previous.time0to100kmh,
@@ -349,7 +361,7 @@ class MilestoneAudioService {
     if (_disposed) return;
     final asset = long ? 'sounds/cue_beep_long.wav' : 'sounds/cue_beep.wav';
     try {
-      await _beepPlayer.setVolume(_volume);
+      await _beepPlayer.setVolume(_playerVolume);
       await _beepPlayer.stop();
       await _beepPlayer.play(AssetSource(asset));
       await _beepPlayer.onPlayerComplete.first.timeout(

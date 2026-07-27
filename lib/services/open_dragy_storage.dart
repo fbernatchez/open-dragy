@@ -123,7 +123,8 @@ class OpenDragyStorage {
     if (await oldRides.exists()) {
       for (final entity in oldRides.listSync()) {
         if (entity is! File) continue;
-        final name = entity.uri.pathSegments.last;
+        final name = entityBaseName(entity);
+        if (name.isEmpty) continue;
         final dest = File('$_publicRidesPath/$name');
         if (!await dest.exists()) {
           await entity.copy(dest.path);
@@ -134,7 +135,8 @@ class OpenDragyStorage {
     if (await oldRuns.exists()) {
       for (final entity in oldRuns.listSync()) {
         if (entity is! File) continue;
-        final name = entity.uri.pathSegments.last;
+        final name = entityBaseName(entity);
+        if (name.isEmpty) continue;
         final dest = File('$_publicRunsPath/$name');
         if (!await dest.exists()) {
           await entity.copy(dest.path);
@@ -456,6 +458,14 @@ class OpenDragyStorage {
     return null;
   }
 
+  /// Directory/file basename. [Uri.pathSegments.last] is often `""` when the
+  /// path ends with `/` (common from [Directory.listSync] on Android).
+  static String entityBaseName(FileSystemEntity entity) {
+    final fromUri = entity.uri.pathSegments.where((s) => s.isNotEmpty);
+    if (fromUri.isNotEmpty) return fromUri.last;
+    return RunFileNames.baseName(entity.path);
+  }
+
   Future<List<Map<String, dynamic>>> pullSavedRuns() async {
     if (_mode == 'saf') {
       final runs = await _subdir(_runsSubdir);
@@ -499,9 +509,8 @@ class OpenDragyStorage {
     final seen = <String>{};
     for (final entity in localDir.listSync()) {
       if (entity is Directory) {
-        final runId = entity.uri.pathSegments.isNotEmpty
-            ? entity.uri.pathSegments.last
-            : entity.path.split(Platform.pathSeparator).last;
+        final runId = entityBaseName(entity);
+        if (runId.isEmpty) continue;
         final metrics = await _firstExistingRunFile(
           entity,
           RunFileNames.legacyInnerMetricsNames(runId),
@@ -509,6 +518,8 @@ class OpenDragyStorage {
         if (metrics == null) continue;
         final map = await _readRunJsonFile(metrics);
         if (map == null) continue;
+        // Prefer folder id when JSON is missing/corrupt id.
+        map.putIfAbsent('id', () => runId);
         final id = map['id']?.toString();
         if (id != null) seen.add(id);
         out.add(map);
