@@ -257,8 +257,7 @@ class RideRecorder {
       final manifest = {
         'format': 'open-dragy-logger',
         'version': 3,
-        'gpsCsvColumns':
-            'elapsed_ms,time_utc,lat,lon,speed_kmh,hacc_m,fix_type,heading_deg,hdop,sats,alt_m',
+        'gpsCsvColumns': RunRawCapture.gpsCsvHeader,
         'sessionId': sessionId,
         'startedAt': _startedAt?.toUtc().toIso8601String(),
         'endedAt': endedAt.toIso8601String(),
