@@ -1164,7 +1164,7 @@ void main() {
 
       var distance = metrics.distanceMeters;
       for (var i = 1; i <= 10; i++) {
-        final speed = 5.0 + i * 5.0;
+        final speed = 5.0 + i * 2.0;
         metrics = engine.updateMetrics(
           metrics,
           speed,
@@ -1186,8 +1186,87 @@ void main() {
 
       // ~1 s at rising speed should stay well under 1/8 mile (201 m).
       expect(distance, lessThan(120.0));
-      expect(metrics.elapsedTime, closeTo(1.0, 0.15));
+      // Launch t0 is ~100100 (0.5→1.0 cross); +1.0 s of accepted ticks → ~1.4 s.
+      expect(metrics.elapsedTime, closeTo(1.4, 0.15));
       expect(metrics.time18Mile, isNull);
+    });
+
+    test('standing-start 0-100 uses iTOW zero-crossing with uneven GPS gaps', () {
+      final engine = PhysicsEngine();
+      var metrics = engine.reset();
+
+      // Speeds / iTOW:
+      // 0.0@0, 0.2@100, 0.4@200, 0.8@500 (300 ms gap), 4.0@600 commit
+      // Zero-cross 0.5 between 0.4@200 and 0.8@500 → t0 = 275 ms
+      const samples = <(double, int)>[
+        (0.0, 0),
+        (0.2, 100),
+        (0.4, 200),
+        (0.8, 500),
+        (4.0, 600),
+      ];
+
+      for (final (speed, itow) in samples) {
+        metrics = engine.updateMetrics(
+          metrics,
+          speed,
+          100.0,
+          isArmed: true,
+          runMode: 'drag',
+          targetDistance: 0.25,
+          targetDistanceUnit: 'mile',
+          targetStartSpeed: null,
+          targetEndSpeed: null,
+          targetSpeedUnit: null,
+          intervalStartSpeed: 0.0,
+          intervalEndSpeed: 0.0,
+          gpsTimeMs: 200000 + itow,
+        );
+      }
+
+      expect(metrics.isRunning, isTrue);
+      // Old uniform-dt would give ~0.175 s; iTOW chain → 0.325 s.
+      expect(metrics.elapsedTime, closeTo(0.325, 0.01));
+
+      final t0Ms = PhysicsEngine.interpolateGpsTimeMs(
+        t0Ms: 200200,
+        v0: 0.4,
+        t1Ms: 200500,
+        v1: 0.8,
+        targetKmh: PhysicsEngine.zeroCrossingThreshold,
+      );
+      expect(t0Ms, closeTo(200275.0, 0.01));
+
+      // Gentle accel so IMU outlier gate does not reject (+2 km/h / 100 ms).
+      var speed = 4.0;
+      var itow = 600;
+      while (metrics.time0to100kmh == null && speed < 120) {
+        speed += 2.0;
+        itow += 100;
+        metrics = engine.updateMetrics(
+          metrics,
+          speed,
+          100.0,
+          isArmed: true,
+          runMode: 'drag',
+          targetDistance: 0.25,
+          targetDistanceUnit: 'mile',
+          targetStartSpeed: null,
+          targetEndSpeed: null,
+          targetSpeedUnit: null,
+          intervalStartSpeed: 0.0,
+          intervalEndSpeed: 0.0,
+          gpsTimeMs: 200000 + itow,
+        );
+      }
+
+      expect(metrics.time0to100kmh, isNotNull);
+
+      // Offline iTOW interpolate: last sample below 100 and first at/above.
+      // Speeds after commit: 6@700, 8@800, ... 100@5400, 102@5500
+      // Cross at exactly 100 @ itow 5400 → elapsed = (5400 - 275) / 1000
+      final expected = (5400 - 275) / 1000.0;
+      expect(metrics.time0to100kmh, closeTo(expected, 0.02));
     });
   });
 }

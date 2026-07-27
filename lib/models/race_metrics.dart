@@ -3,12 +3,15 @@ class DataPoint {
   final double speedKmh;
   final double gForce;
   final double? altitude; // Elevation in meters
+  /// GPS iTOW milliseconds when known (NAV-PVT); used for launch timing.
+  final int? gpsTimeMs;
 
   const DataPoint({
     required this.elapsedTime,
     required this.speedKmh,
     required this.gForce,
     this.altitude,
+    this.gpsTimeMs,
   });
 
   Map<String, dynamic> toJson() {
@@ -17,6 +20,7 @@ class DataPoint {
       'speedKmh': speedKmh,
       'gForce': gForce,
       'altitude': altitude,
+      if (gpsTimeMs != null) 'gpsTimeMs': gpsTimeMs,
     };
   }
 
@@ -28,6 +32,7 @@ class DataPoint {
       altitude: json['altitude'] != null
           ? (json['altitude'] as num).toDouble()
           : null,
+      gpsTimeMs: (json['gpsTimeMs'] as num?)?.toInt(),
     );
   }
 }

@@ -32,6 +32,31 @@ class PhysicsEngine {
 
   double get lastValidDt => _lastValidDt ?? 0.1;
 
+  /// GPS week–aware delta in milliseconds (iTOW).
+  static int deltaGpsMs(int fromMs, int toMs) {
+    var d = toMs - fromMs;
+    if (d < 0) {
+      d += 604800000;
+    }
+    return d;
+  }
+
+  static double deltaGpsSeconds(int fromMs, int toMs) =>
+      deltaGpsMs(fromMs, toMs) / 1000.0;
+
+  /// Interpolate GPS time (ms) where speed crosses [targetKmh] between two samples.
+  static double interpolateGpsTimeMs({
+    required int t0Ms,
+    required double v0,
+    required int t1Ms,
+    required double v1,
+    required double targetKmh,
+  }) {
+    if (v1 == v0) return t1Ms.toDouble();
+    final frac = (targetKmh - v0) / (v1 - v0);
+    return t0Ms + frac * deltaGpsMs(t0Ms, t1Ms);
+  }
+
   RaceMetrics updateMetrics(
     RaceMetrics current,
     double newSpeedKmh,
@@ -81,6 +106,7 @@ class PhysicsEngine {
       speedKmh: newSpeedKmh,
       gForce: current.gForce,
       altitude: currentAltitude,
+      gpsTimeMs: gpsTimeMs,
     ));
     if (_preRunBuffer.length > 50) {
       _preRunBuffer.removeAt(0);
@@ -223,16 +249,27 @@ class PhysicsEngine {
           if (_preRunBuffer.length >= 2) {
             double prevSpeed = _preRunBuffer[_preRunBuffer.length - 2].speedKmh;
             if (prevSpeed <= intervalStartSpeed && newSpeedKmh > intervalStartSpeed) {
-              // Trigger! Calculate the exact start crossing point.
-              double speedDiff = newSpeedKmh - prevSpeed;
-              double fraction = (intervalStartSpeed - prevSpeed) / speedDiff;
-              
-              // Time offset from the crossing point to the current tick
-              double elapsedOffset = (1.0 - fraction) * currentDt;
+              // Trigger! Exact start crossing — prefer iTOW between the two samples.
+              final prevPoint = _preRunBuffer[_preRunBuffer.length - 2];
+              final currPoint = _preRunBuffer[_preRunBuffer.length - 1];
+              final speedDiff = newSpeedKmh - prevSpeed;
+              final fraction = (intervalStartSpeed - prevSpeed) / speedDiff;
+
+              final prevMs = prevPoint.gpsTimeMs;
+              final currMs = currPoint.gpsTimeMs;
+              final stepDt = (prevMs != null && currMs != null)
+                  ? deltaGpsSeconds(prevMs, currMs)
+                  : currentDt;
+              final elapsedOffset = (1.0 - fraction) * stepDt;
 
               // Average speed during this fractional step (m/s)
-              double avgSpeedMs = ((intervalStartSpeed / 3.6) + (newSpeedKmh / 3.6)) / 2;
-              double initialDistance = avgSpeedMs * elapsedOffset;
+              final avgSpeedMs =
+                  ((intervalStartSpeed / 3.6) + (newSpeedKmh / 3.6)) / 2;
+              final initialDistance = avgSpeedMs * elapsedOffset;
+
+              final startGpsMs = (prevMs != null && currMs != null)
+                  ? (prevMs + fraction * deltaGpsMs(prevMs, currMs)).round()
+                  : null;
 
               RaceMetrics simulated = current.copyWith(
                 isRunning: true,
@@ -253,12 +290,14 @@ class PhysicsEngine {
                     speedKmh: intervalStartSpeed,
                     gForce: current.gForce,
                     altitude: currentAltitude,
+                    gpsTimeMs: startGpsMs,
                   ),
                   DataPoint(
                     elapsedTime: elapsedOffset,
                     speedKmh: newSpeedKmh,
                     gForce: smoothedGForce,
                     altitude: currentAltitude,
+                    gpsTimeMs: currMs,
                   ),
                 ],
               );
@@ -302,7 +341,14 @@ class PhysicsEngine {
           _stoppedTicks = 0;
         }
 
-        return _integrateDrag(current, newSpeedKmh, currentAltitude, currentDt, smoothedGForce);
+        return _integrateDrag(
+          current,
+          newSpeedKmh,
+          currentAltitude,
+          currentDt,
+          smoothedGForce,
+          gpsTimeMs: gpsTimeMs,
+        );
       } else {
         // Interval Mode
         // Auto-cancel logic: if speed drops below starting speed - 10 km/h for 2 seconds, cancel the run
@@ -331,6 +377,7 @@ class PhysicsEngine {
           intervalStartSpeed: intervalStartSpeed,
           intervalEndSpeed: intervalEndSpeed,
           currentDt: currentDt,
+          gpsTimeMs: gpsTimeMs,
         );
       }
     }
@@ -341,8 +388,9 @@ class PhysicsEngine {
     double newSpeedKmh,
     double currentAltitude,
     double currentDt,
-    double smoothedGForce,
-  ) {
+    double smoothedGForce, {
+    int? gpsTimeMs,
+  }) {
     final currentSpeedMs = current.speedKmh / 3.6;
     final newSpeedMs = newSpeedKmh / 3.6;
 
@@ -360,6 +408,7 @@ class PhysicsEngine {
           speedKmh: newSpeedKmh,
           gForce: smoothedGForce,
           altitude: currentAltitude,
+          gpsTimeMs: gpsTimeMs,
         ),
       );
 
@@ -698,6 +747,7 @@ class PhysicsEngine {
     required double intervalStartSpeed,
     required double intervalEndSpeed,
     required double currentDt,
+    int? gpsTimeMs,
   }) {
     final currentSpeedMs = current.speedKmh / 3.6;
     final newSpeedMs = newSpeedKmh / 3.6;
@@ -716,6 +766,7 @@ class PhysicsEngine {
           speedKmh: newSpeedKmh,
           gForce: smoothedGForce,
           altitude: currentAltitude,
+          gpsTimeMs: gpsTimeMs,
         ),
       );
 
@@ -796,11 +847,11 @@ class PhysicsEngine {
   }) {
     final commitKmh = launchCommitThresholdForSAcc(sAccMps);
     if (newSpeedKmh > commitKmh && _preRunBuffer.length >= 2) {
-      int k = _preRunBuffer.length - 1;
-      int crossingIndex = -1;
+      final k = _preRunBuffer.length - 1;
+      var crossingIndex = -1;
 
       // Scan backwards to find the most recent zero-crossing transition
-      for (int j = k - 1; j >= 0; j--) {
+      for (var j = k - 1; j >= 0; j--) {
         if (_preRunBuffer[j].speedKmh <= zeroCrossingThreshold &&
             _preRunBuffer[j + 1].speedKmh > zeroCrossingThreshold) {
           crossingIndex = j;
@@ -808,70 +859,100 @@ class PhysicsEngine {
         }
       }
 
-      if (crossingIndex != -1) {
-        double vStart = _preRunBuffer[crossingIndex].speedKmh;
-        double vEnd = _preRunBuffer[crossingIndex + 1].speedKmh;
-        double startFraction =
-            (zeroCrossingThreshold - vStart) / (vEnd - vStart);
+      if (crossingIndex == -1) return null;
 
-        // Time offset from the crossing point to the current tick
-        double elapsedOffset = (k - crossingIndex - startFraction) * currentDt;
+      final vStart = _preRunBuffer[crossingIndex].speedKmh;
+      final vEnd = _preRunBuffer[crossingIndex + 1].speedKmh;
+      final startFraction =
+          (zeroCrossingThreshold - vStart) / (vEnd - vStart);
 
-        // Integrate distance for the first fractional step
-        double firstStepTime = currentDt * (1.0 - startFraction);
-        double avgSpeedMs =
-            ((zeroCrossingThreshold / 3.6) + (vEnd / 3.6)) / 2;
-        double initialDistance = avgSpeedMs * firstStepTime;
+      final tCross0 = _preRunBuffer[crossingIndex].gpsTimeMs;
+      final tCross1 = _preRunBuffer[crossingIndex + 1].gpsTimeMs;
+      final tNow = _preRunBuffer[k].gpsTimeMs;
+      final useItow = tCross0 != null && tCross1 != null && tNow != null;
 
-        // Integrate distance for all subsequent steps
-        for (int j = crossingIndex + 1; j < k; j++) {
-          double stepAvgSpeedMs =
-              ((_preRunBuffer[j].speedKmh / 3.6) + (_preRunBuffer[j + 1].speedKmh / 3.6)) / 2;
-          initialDistance += stepAvgSpeedMs * currentDt;
+      // Per-sample step dt from iTOW (or uniform fallback).
+      double stepDt(int fromIdx, int toIdx) {
+        if (useItow) {
+          return deltaGpsSeconds(
+            _preRunBuffer[fromIdx].gpsTimeMs!,
+            _preRunBuffer[toIdx].gpsTimeMs!,
+          );
         }
+        return currentDt;
+      }
 
-        int delayTicks = 2;
-        int getShiftedIndex(int idx) => (idx - delayTicks).clamp(0, _preRunBuffer.length - 1);
+      final firstFullStepDt = stepDt(crossingIndex, crossingIndex + 1);
+      final firstStepTime = firstFullStepDt * (1.0 - startFraction);
 
-        List<DataPoint> initialHistory = [];
-        // Zero crossing point
-        initialHistory.add(DataPoint(
+      var elapsedOffset = firstStepTime;
+      for (var j = crossingIndex + 1; j < k; j++) {
+        elapsedOffset += stepDt(j, j + 1);
+      }
+
+      var initialDistance = 0.0;
+      final firstAvgMs =
+          ((zeroCrossingThreshold / 3.6) + (vEnd / 3.6)) / 2;
+      initialDistance += firstAvgMs * firstStepTime;
+      for (var j = crossingIndex + 1; j < k; j++) {
+        final stepAvgSpeedMs =
+            ((_preRunBuffer[j].speedKmh / 3.6) +
+                    (_preRunBuffer[j + 1].speedKmh / 3.6)) /
+                2;
+        initialDistance += stepAvgSpeedMs * stepDt(j, j + 1);
+      }
+
+      final t0Ms = useItow
+          ? tCross0 + startFraction * deltaGpsMs(tCross0, tCross1)
+          : null;
+
+      const delayTicks = 2;
+      int getShiftedIndex(int idx) =>
+          (idx - delayTicks).clamp(0, _preRunBuffer.length - 1);
+
+      final initialHistory = <DataPoint>[
+        DataPoint(
           elapsedTime: 0.0,
           speedKmh: 0.0, // Start exactly at 0 to match physical reality
           gForce: _preRunBuffer[getShiftedIndex(crossingIndex)].gForce,
           altitude: _preRunBuffer[crossingIndex].altitude ?? currentAltitude,
-        ));
+          gpsTimeMs: t0Ms?.round(),
+        ),
+      ];
 
-        // Points from crossingIndex + 1 to k
-        for (int j = crossingIndex + 1; j <= k; j++) {
-          double tJ = firstStepTime + (j - (crossingIndex + 1)) * currentDt;
-          initialHistory.add(DataPoint(
-            elapsedTime: tJ,
-            speedKmh: _preRunBuffer[j].speedKmh,
-            gForce: _preRunBuffer[getShiftedIndex(j)].gForce,
-            altitude: _preRunBuffer[j].altitude ?? currentAltitude,
-          ));
+      for (var j = crossingIndex + 1; j <= k; j++) {
+        final double tJ;
+        if (useItow && t0Ms != null) {
+          var dMs = _preRunBuffer[j].gpsTimeMs! - t0Ms;
+          if (dMs < 0) dMs += 604800000;
+          tJ = dMs / 1000.0;
+        } else {
+          tJ = firstStepTime + (j - (crossingIndex + 1)) * currentDt;
         }
-
-        RaceMetrics simulated = current.copyWith(
-          isRunning: true,
-          elapsedTime: elapsedOffset,
-          distanceMeters: initialDistance,
-          speedKmh: newSpeedKmh,
-          gForce: current.gForce,
-          startAltitude: currentAltitude,
-          runMode: runMode,
-          targetDistance: targetDistance,
-          targetDistanceUnit: targetDistanceUnit,
-          targetStartSpeed: targetStartSpeed,
-          targetEndSpeed: targetEndSpeed,
-          targetSpeedUnit: targetSpeedUnit,
-          history: initialHistory,
-        );
-
-        // Buffer is kept for ongoing history
-        return simulated;
+        initialHistory.add(DataPoint(
+          elapsedTime: tJ,
+          speedKmh: _preRunBuffer[j].speedKmh,
+          gForce: _preRunBuffer[getShiftedIndex(j)].gForce,
+          altitude: _preRunBuffer[j].altitude ?? currentAltitude,
+          gpsTimeMs: _preRunBuffer[j].gpsTimeMs,
+        ));
       }
+
+      return current.copyWith(
+        isRunning: true,
+        elapsedTime: elapsedOffset,
+        distanceMeters: initialDistance,
+        speedKmh: newSpeedKmh,
+        gForce: current.gForce,
+        startAltitude: currentAltitude,
+        runMode: runMode,
+        targetDistance: targetDistance,
+        targetDistanceUnit: targetDistanceUnit,
+        targetStartSpeed: targetStartSpeed,
+        targetEndSpeed: targetEndSpeed,
+        targetSpeedUnit: targetSpeedUnit,
+        history: initialHistory,
+      );
     }
     return null;
   }
