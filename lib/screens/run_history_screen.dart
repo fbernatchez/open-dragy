@@ -737,6 +737,7 @@ class RunHistoryCard extends StatelessWidget {
                           Flexible(
                             child: Text(
                               'Duration: ${metrics.elapsedTime.toStringAsFixed(1)}s',
+                              overflow: TextOverflow.ellipsis,
                               style: GoogleFonts.roboto(
                                 fontSize: 12,
                                 color: Colors.white54,

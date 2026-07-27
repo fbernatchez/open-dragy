@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../models/imu_orientation.dart';
 import '../providers/dragy_provider.dart';
 import 'audio_milestones_screen.dart';
 import 'ride_logs_screen.dart';
@@ -54,6 +55,30 @@ class SettingsScreen extends StatelessWidget {
                 : 'Standard timing without NHRA rules',
             value: dragy.useNhraRules,
             onChanged: (v) => dragy.setUseNhraRules(v),
+          ),
+
+          _SectionHeader(label: 'Hardware'),
+          _SettingsChoice(
+            icon: Icons.sensors,
+            title: 'IMU long axis',
+            subtitle:
+                '${dragy.imuLongAxis.description} · live G ${dragy.metrics.gForce.toStringAsFixed(2)}',
+            options: const [
+              _ChoiceOption('X', ImuLongAxis.x),
+              _ChoiceOption('Y', ImuLongAxis.y),
+              _ChoiceOption('Z', ImuLongAxis.z),
+            ],
+            selected: dragy.imuLongAxis,
+            onSelected: (v) => dragy.setImuLongAxis(v as ImuLongAxis),
+          ),
+          _SettingsToggle(
+            icon: Icons.swap_vert,
+            title: 'Invert forward G',
+            subtitle: dragy.imuInvertLongitudinal
+                ? 'Flipped box — accel is +G'
+                : 'Normal — accel forward = +G (green)',
+            value: dragy.imuInvertLongitudinal,
+            onChanged: (v) => dragy.setImuInvertLongitudinal(v),
           ),
 
           _SectionHeader(label: 'Display'),
@@ -133,7 +158,7 @@ class SettingsScreen extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          '${(dragy.cueVolume * 100).round()}% · ducks other media briefly',
+                          '${(dragy.cueVolume * 100).round()}% · ducks/pauses other media during cue',
                           style: GoogleFonts.roboto(
                             color: Colors.white38,
                             fontSize: 12,

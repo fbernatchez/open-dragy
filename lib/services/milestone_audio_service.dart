@@ -5,6 +5,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 
 import '../models/app_cues.dart';
 import '../models/race_metrics.dart';
+import 'cue_audio_focus.dart';
 
 /// Beep / spoken cues when drag/interval milestones are first reached.
 ///
@@ -43,8 +44,8 @@ class MilestoneAudioService {
             stayAwake: true,
             contentType: AndroidContentType.sonification,
             usageType: AndroidUsageType.assistanceNavigationGuidance,
-            // Transient (not mayDuck-only): stronger duck of Spotify/media on BT.
-            audioFocus: AndroidAudioFocus.gainTransient,
+            // Exclusive focus: pause other media so the cue is clear at normal volume.
+            audioFocus: AndroidAudioFocus.gainTransientExclusive,
           ),
           iOS: AudioContextIOS(
             category: AVAudioSessionCategory.playback,
@@ -101,15 +102,30 @@ class MilestoneAudioService {
     _speaking = false;
   }
 
+  Future<void> _speak(String text) async {
+    await CueAudioFocus.acquire();
+    try {
+      await _tts.setVolume(_volume);
+      await _tts.speak(text, focus: true);
+    } finally {
+      await CueAudioFocus.release();
+    }
+  }
+
   Future<void> playTestCue() async {
     if (_disposed) return;
     if (!_ready) await init();
     await _beepPlayer.setVolume(_volume);
     await _tts.setVolume(_volume);
     if (_mode == AudioCueMode.beep) {
-      await _playPattern(_BeepPattern.finish);
+      await CueAudioFocus.acquire();
+      try {
+        await _playPattern(_BeepPattern.finish);
+      } finally {
+        await CueAudioFocus.release();
+      }
     } else {
-      await _tts.speak('Quarter mile');
+      await _speak('Quarter mile');
     }
   }
 
@@ -120,14 +136,19 @@ class MilestoneAudioService {
     await _beepPlayer.setVolume(_volume);
     await _tts.setVolume(_volume);
     if (_mode == AudioCueMode.beep) {
-      await _playToneForced(long: true);
-      await Future<void>.delayed(const Duration(milliseconds: 120));
-      await _playToneForced(long: false);
-      await Future<void>.delayed(const Duration(milliseconds: 90));
-      await _playToneForced(long: false);
+      await CueAudioFocus.acquire();
+      try {
+        await _playToneForced(long: true);
+        await Future<void>.delayed(const Duration(milliseconds: 120));
+        await _playToneForced(long: false);
+        await Future<void>.delayed(const Duration(milliseconds: 90));
+        await _playToneForced(long: false);
+      } finally {
+        await CueAudioFocus.release();
+      }
     } else {
       try {
-        await _tts.speak('Armed');
+        await _speak('Armed');
       } catch (_) {}
     }
   }
@@ -138,10 +159,15 @@ class MilestoneAudioService {
     await _beepPlayer.setVolume(_volume);
     await _tts.setVolume(_volume);
     if (_mode == AudioCueMode.beep) {
-      await _playToneForced(long: false);
+      await CueAudioFocus.acquire();
+      try {
+        await _playToneForced(long: false);
+      } finally {
+        await CueAudioFocus.release();
+      }
     } else {
       try {
-        await _tts.speak('Disarmed');
+        await _speak('Disarmed');
       } catch (_) {}
     }
   }
@@ -275,9 +301,14 @@ class MilestoneAudioService {
           await init();
         }
         if (_mode == AudioCueMode.beep) {
-          await _playPattern(cue.pattern);
+          await CueAudioFocus.acquire();
+          try {
+            await _playPattern(cue.pattern);
+          } finally {
+            await CueAudioFocus.release();
+          }
         } else if (_ready && _enabled && !_disposed) {
-          await _tts.speak(cue.phrase);
+          await _speak(cue.phrase);
         }
       }
     } finally {
@@ -337,6 +368,7 @@ class MilestoneAudioService {
     try {
       await _beepPlayer.dispose();
     } catch (_) {}
+    await CueAudioFocus.release();
   }
 }
 

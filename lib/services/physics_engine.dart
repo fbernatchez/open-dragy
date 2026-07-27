@@ -15,6 +15,13 @@ class PhysicsEngine {
   static const double zeroCrossingThreshold =
       0.5; // km/h threshold for interpolating exact start
 
+  /// Raise the standing-start commit when speed accuracy (sAcc) is poor.
+  /// [sAccMps] in m/s; unknown (null/≤0) keeps the base 3 km/h gate.
+  static double launchCommitThresholdForSAcc(double? sAccMps) {
+    if (sAccMps == null || sAccMps <= 0) return launchCommitThreshold;
+    final noiseKmh = sAccMps * 3.6 * 2.5;
+    return noiseKmh > launchCommitThreshold ? noiseKmh : launchCommitThreshold;
+  }
 
   final List<DataPoint> _preRunBuffer = [];
   int _stoppedTicks = 0;
@@ -40,6 +47,8 @@ class PhysicsEngine {
     required double intervalEndSpeed,
     double? gpsTimeSeconds,
     int? gpsTimeMs,
+    double? sAccMps,
+    bool allowStandingLaunch = true,
   }) {
     // Calculate current dynamic dt — prefer GPS iTOW (ms) over UTC seconds.
     double currentDt = _lastValidDt ?? 0.1;
@@ -155,20 +164,23 @@ class PhysicsEngine {
         }
 
         // 2. Launch Detection & Validation
-        final triggered = _tryTriggerStandingStart(
-          current,
-          newSpeedKmh,
-          currentAltitude,
-          runMode: 'drag',
-          targetDistance: targetDistance,
-          targetDistanceUnit: targetDistanceUnit,
-          targetStartSpeed: targetStartSpeed,
-          targetEndSpeed: targetEndSpeed,
-          targetSpeedUnit: targetSpeedUnit,
-          currentDt: currentDt,
-        );
-        if (triggered != null) {
-          return triggered;
+        if (allowStandingLaunch) {
+          final triggered = _tryTriggerStandingStart(
+            current,
+            newSpeedKmh,
+            currentAltitude,
+            runMode: 'drag',
+            targetDistance: targetDistance,
+            targetDistanceUnit: targetDistanceUnit,
+            targetStartSpeed: targetStartSpeed,
+            targetEndSpeed: targetEndSpeed,
+            targetSpeedUnit: targetSpeedUnit,
+            currentDt: currentDt,
+            sAccMps: sAccMps,
+          );
+          if (triggered != null) {
+            return triggered;
+          }
         }
 
         // We are stopped or moving slowly (creeping/GPS wandering).
@@ -189,20 +201,23 @@ class PhysicsEngine {
       } else {
         // Interval Mode
         if (intervalStartSpeed == 0.0) {
-          final triggered = _tryTriggerStandingStart(
-            current,
-            newSpeedKmh,
-            currentAltitude,
-            runMode: 'interval',
-            targetDistance: targetDistance,
-            targetDistanceUnit: targetDistanceUnit,
-            targetStartSpeed: targetStartSpeed,
-            targetEndSpeed: targetEndSpeed,
-            targetSpeedUnit: targetSpeedUnit,
-            currentDt: currentDt,
-          );
-          if (triggered != null) {
-            return triggered;
+          if (allowStandingLaunch) {
+            final triggered = _tryTriggerStandingStart(
+              current,
+              newSpeedKmh,
+              currentAltitude,
+              runMode: 'interval',
+              targetDistance: targetDistance,
+              targetDistanceUnit: targetDistanceUnit,
+              targetStartSpeed: targetStartSpeed,
+              targetEndSpeed: targetEndSpeed,
+              targetSpeedUnit: targetSpeedUnit,
+              currentDt: currentDt,
+              sAccMps: sAccMps,
+            );
+            if (triggered != null) {
+              return triggered;
+            }
           }
         } else {
           if (_preRunBuffer.length >= 2) {
@@ -777,8 +792,10 @@ class PhysicsEngine {
     required double? targetEndSpeed,
     required String? targetSpeedUnit,
     required double currentDt,
+    double? sAccMps,
   }) {
-    if (newSpeedKmh > launchCommitThreshold && _preRunBuffer.length >= 2) {
+    final commitKmh = launchCommitThresholdForSAcc(sAccMps);
+    if (newSpeedKmh > commitKmh && _preRunBuffer.length >= 2) {
       int k = _preRunBuffer.length - 1;
       int crossingIndex = -1;
 

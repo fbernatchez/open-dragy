@@ -214,6 +214,21 @@ class _StatsPanel extends StatelessWidget {
             children: [
               _StatChip(label: 'SAT', value: '${dragy.satellites}'),
               _StatChip(label: 'Fix', value: dragy.fixTypeLabel),
+              _StatChip(label: 'TTFF', value: dragy.ttffLabel),
+              _StatChip(label: 'Held', value: dragy.fixAgeLabel),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              _StatChip(
+                label: 'Speed',
+                value: '${speed.toStringAsFixed(1)} km/h',
+              ),
+              _StatChip(
+                label: 'sAcc',
+                value: dragy.sAccLabel,
+              ),
               _StatChip(
                 label: 'hAcc',
                 value: dragy.hAccLabel,
@@ -228,10 +243,6 @@ class _StatsPanel extends StatelessWidget {
           Row(
             children: [
               _StatChip(
-                label: 'Speed',
-                value: '${speed.toStringAsFixed(1)} km/h',
-              ),
-              _StatChip(
                 label: 'Alt',
                 value: dragy.altitude != 0
                     ? '${dragy.altitude.toStringAsFixed(0)} m'
@@ -240,6 +251,10 @@ class _StatsPanel extends StatelessWidget {
               _StatChip(
                 label: 'Ready',
                 value: dragy.isGpsReady ? 'YES' : 'NO',
+              ),
+              _StatChip(
+                label: 'PVT',
+                value: dragy.usedPvt ? 'YES' : 'NO',
               ),
               _StatChip(
                 label: 'Link',
@@ -257,7 +272,7 @@ class _StatsPanel extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            'NAV-PVT · multi-GNSS + SBAS (EGNOS)',
+            'TTFF = connect→first 3D · Held = continuous 3D',
             style: GoogleFonts.roboto(
               color: Colors.white38,
               fontSize: 11,

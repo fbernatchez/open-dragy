@@ -4,6 +4,9 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.media.AudioAttributes
+import android.media.AudioFocusRequest
+import android.media.AudioManager
 import android.os.Build
 import android.os.Bundle
 import io.flutter.embedding.android.FlutterActivity
@@ -13,9 +16,12 @@ import io.flutter.plugin.common.MethodChannel
 class MainActivity : FlutterActivity() {
     private var debugChannel: MethodChannel? = null
     private var mediaChannel: MethodChannel? = null
+    private var cueAudioChannel: MethodChannel? = null
     private var debugReceiver: BroadcastReceiver? = null
     private var carCmdReceiver: BroadcastReceiver? = null
     private var mediaSession: ArmMediaSessionController? = null
+    private var cueFocusRequest: AudioFocusRequest? = null
+    private var cueFocusHeld: Boolean = false
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -27,6 +33,23 @@ class MainActivity : FlutterActivity() {
             flutterEngine.dartExecutor.binaryMessenger,
             MEDIA_CHANNEL,
         )
+        cueAudioChannel = MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            CUE_AUDIO_CHANNEL,
+        )
+        cueAudioChannel?.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "acquireFocus" -> {
+                    acquireCueAudioFocus()
+                    result.success(null)
+                }
+                "releaseFocus" -> {
+                    releaseCueAudioFocus()
+                    result.success(null)
+                }
+                else -> result.notImplemented()
+            }
+        }
         mediaChannel?.setMethodCallHandler { call, result ->
             when (call.method) {
                 "setEnabled" -> {
@@ -113,6 +136,50 @@ class MainActivity : FlutterActivity() {
                 else -> result.notImplemented()
             }
         }
+    }
+
+    /** Pause/duck other media during cues — does not change volume levels. */
+    private fun acquireCueAudioFocus() {
+        val am = getSystemService(AUDIO_SERVICE) as? AudioManager ?: return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            if (cueFocusRequest == null) {
+                val attrs = AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                    .build()
+                cueFocusRequest = AudioFocusRequest.Builder(
+                    AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE,
+                )
+                    .setAudioAttributes(attrs)
+                    .setOnAudioFocusChangeListener { }
+                    .build()
+            }
+            val req = cueFocusRequest ?: return
+            cueFocusHeld =
+                am.requestAudioFocus(req) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+        } else {
+            @Suppress("DEPRECATION")
+            cueFocusHeld = am.requestAudioFocus(
+                null,
+                AudioManager.STREAM_MUSIC,
+                AudioManager.AUDIOFOCUS_GAIN_TRANSIENT,
+            ) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+        }
+    }
+
+    private fun releaseCueAudioFocus() {
+        if (!cueFocusHeld) return
+        val am = getSystemService(AUDIO_SERVICE) as? AudioManager ?: return
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                cueFocusRequest?.let { am.abandonAudioFocusRequest(it) }
+            } else {
+                @Suppress("DEPRECATION")
+                am.abandonAudioFocus(null)
+            }
+        } catch (_: Exception) {
+        }
+        cueFocusHeld = false
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -277,6 +344,7 @@ class MainActivity : FlutterActivity() {
     companion object {
         private const val DEBUG_CHANNEL = "opendragy/debug"
         private const val MEDIA_CHANNEL = "opendragy/media_arm"
+        private const val CUE_AUDIO_CHANNEL = "opendragy/cue_audio"
         const val EXTRA_CMD = "cmd"
     }
 }

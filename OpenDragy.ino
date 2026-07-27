@@ -348,10 +348,14 @@ static void parseNavPvt(const uint8_t *p, uint16_t len) {
   gPvtFresh = true;
 }
 
+static bool gHaveRealPvt = false;
+static unsigned long gLastPvtMs = 0;
+
 /**
  * ODGP v1 — 52 bytes little-endian.
  * magic 'ODGP' | ver | fixType | flags | numSV | iTOW | lon | lat | hMSL |
  * gSpeed | headMot | hAcc | vAcc | sAcc | year | month day hour min sec | pad
+ * flags: bit0=gnssFixOK, bit1=real NAV-PVT; pad=1 if real PVT.
  */
 static void notifyOdgp() {
   if (!pTxCharacteristic || !pTxCccd || !pTxCccd->getNotifications()) {
@@ -364,7 +368,8 @@ static void notifyOdgp() {
   pkt[3] = 'P';
   pkt[4] = 1; // version
   pkt[5] = gPvt.fixType;
-  pkt[6] = gPvt.flags;
+  // App ODGP flags: bit0 = gnssFixOK, bit1 = real NAV-PVT (not NMEA fill).
+  pkt[6] = (uint8_t)((gPvt.flags & 0x01) | (gHaveRealPvt ? 0x02 : 0x00));
   pkt[7] = gPvt.numSV;
   wrU32(pkt + 8, gPvt.iTOW);
   wrI32(pkt + 12, gPvt.lon);
@@ -381,7 +386,7 @@ static void notifyOdgp() {
   pkt[48] = gPvt.hour;
   pkt[49] = gPvt.min;
   pkt[50] = gPvt.sec;
-  pkt[51] = 0;
+  pkt[51] = gHaveRealPvt ? 1 : 0;
   pTxCharacteristic->setValue(pkt, sizeof(pkt));
   pTxCharacteristic->notify();
 }
@@ -393,8 +398,6 @@ static uint8_t ubxState = 0; // 0 idle/NMEA, 1 got B5, 2 collecting UBX
 static uint16_t ubxNeed = 0;
 static char nmeaBuf[128];
 static size_t nmeaLen = 0;
-static bool gHaveRealPvt = false;
-static unsigned long gLastPvtMs = 0;
 uint32_t gNmeaLines = 0;
 
 static bool parseCoordNmea(const char *field, char hemi, double &outDeg) {

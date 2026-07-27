@@ -28,6 +28,7 @@ import '../models/gps_pvt_sample.dart';
 import '../models/raw_run_log.dart';
 import '../utils/run_id.dart';
 import '../models/run_trust.dart';
+import '../models/imu_orientation.dart';
 import '../models/satellite_sv.dart';
 
 export '../models/app_cues.dart';
@@ -117,6 +118,13 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
   double _vAccM = 0.0;
   double get vAccM => _vAccM;
 
+  /// Speed accuracy from NAV-PVT (m/s). 0 = unknown.
+  double _sAccMps = 0.0;
+  double get sAccMps => _sAccMps;
+
+  bool _usedPvt = false;
+  bool get usedPvt => _usedPvt;
+
   double _pdop = 0.0;
   double get pdop => _pdop;
 
@@ -132,13 +140,28 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
   int? _fixMode;
   int? get fixMode => _fixMode;
 
-  /// Dragy-class gate: prefer hAcc ≤ 5 m + 3D fix; fallback HDOP ≤ 2.
+  /// Max sAcc (m/s) allowed to arm / treat GPS as ready (~1.8 km/h).
+  static const double maxSAccReadyMps = 0.5;
+
+  /// Soft ceiling: above this, block standing launch even if still "ready".
+  static const double maxSAccLaunchMps = 0.75;
+
+  /// Dragy-class gate: hAcc ≤ 5 m + sAcc ≤ 0.5 m/s + 3D; fallback HDOP ≤ 2.
   bool get isGpsReady {
     if (_satellites < 4) return false;
     if (_hAccM > 0) {
-      return _fixType >= 3 && _hAccM <= 5.0;
+      if (_fixType < 3 || _hAccM > 5.0) return false;
+      if (_sAccMps > 0 && _sAccMps > maxSAccReadyMps) return false;
+      return true;
     }
     return _hdop > 0.0 && _hdop <= 2.0;
+  }
+
+  /// Standing-start allowed: ready GPS and speed accuracy not spiking.
+  bool get allowStandingLaunch {
+    if (!isGpsReady) return false;
+    if (_sAccMps > 0 && _sAccMps > maxSAccLaunchMps) return false;
+    return true;
   }
 
   /// Compact label for UI: ∞ until fix has a sane horizontal accuracy.
@@ -151,6 +174,63 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
     if (_fixType < 2 || _vAccM <= 0 || _vAccM > 99.9) return '∞';
     return '${_vAccM.toStringAsFixed(1)} m';
   }
+
+  String get sAccLabel {
+    if (_fixType < 2 || _sAccMps <= 0 || _sAccMps > 99.9) return '∞';
+    return '${(_sAccMps * 3.6).toStringAsFixed(1)} km/h';
+  }
+
+  /// When continuous 3D fix was acquired (null if no hold).
+  DateTime? _fixHeldSince;
+  DateTime? get fixHeldSince => _fixHeldSince;
+
+  /// BLE connect / start of cold-ish search for this session.
+  DateTime? _gpsSearchStartedAt;
+
+  /// Time from connect → first 3D fix (frozen once acquired).
+  Duration? _ttffDuration;
+  Duration? get ttffDuration => _ttffDuration;
+
+  /// Continuous 3D fix duration for GPS debug UI.
+  Duration? get fixHoldDuration {
+    final since = _fixHeldSince;
+    if (since == null) return null;
+    return DateTime.now().difference(since);
+  }
+
+  static String _formatGpsDuration(Duration d) {
+    final totalSec = d.inSeconds;
+    if (totalSec < 60) return '${totalSec}s';
+    final m = totalSec ~/ 60;
+    final s = totalSec % 60;
+    if (m < 60) return '${m}m ${s.toString().padLeft(2, '0')}s';
+    final h = m ~/ 60;
+    final rm = m % 60;
+    return '${h}h ${rm}m';
+  }
+
+  String get fixAgeLabel {
+    final d = fixHoldDuration;
+    if (d == null) return '—';
+    return _formatGpsDuration(d);
+  }
+
+  /// Time-to-first-fix after BLE connect; while searching shows live elapsed.
+  String get ttffLabel {
+    final done = _ttffDuration;
+    if (done != null) return _formatGpsDuration(done);
+    final start = _gpsSearchStartedAt;
+    if (start == null || !_isConnected) return '—';
+    return '${_formatGpsDuration(DateTime.now().difference(start))}…';
+  }
+
+  /// Axis along the car (default Y = original OpenDragy mount).
+  ImuLongAxis _imuLongAxis = ImuLongAxis.y;
+  ImuLongAxis get imuLongAxis => _imuLongAxis;
+
+  /// Flip sign when the box is rotated 180° (accel shows as braking).
+  bool _imuInvertLongitudinal = false;
+  bool get imuInvertLongitudinal => _imuInvertLongitudinal;
 
   String get fixTypeLabel {
     switch (_fixType) {
@@ -595,6 +675,9 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
         _satelliteDetailActive = false;
         _skySatellites = const [];
         _gsvByTalker.clear();
+        _fixHeldSince = null;
+        _gpsSearchStartedAt = null;
+        _ttffDuration = null;
         if (!_isRideRecording) {
           _isArmed = false;
           _cancelArmCalibration();
@@ -614,6 +697,9 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
       } else {
         _stopAutoConnectLoop();
         _stopReconnectLoop();
+        _gpsSearchStartedAt = DateTime.now();
+        _ttffDuration = null;
+        _fixHeldSince = null;
         _applyScreenPolicy();
         if (_satelliteDetailActive) {
           unawaited(_sendSatelliteDetailConfig(enable: true));
@@ -726,6 +812,13 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
           updated = true;
         }
 
+        // NMEA fallback: treat quality ≥ 1 + sats as a held fix.
+        final q = data.fixQuality ?? _fixQuality ?? 0;
+        final sats = data.satellites ?? _satellites;
+        if (data.fixQuality != null || data.satellites != null) {
+          _updateFixHold(q >= 1 && sats >= 4);
+        }
+
         if (_isRideRecording &&
             _latitude != null &&
             _longitude != null &&
@@ -768,7 +861,7 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
       try {
         final parts = csv.split(',');
         if (parts.length >= 3) {
-          // Assuming BMI160 format: "X,Y,Z" raw integers
+          // BMI160 ±8g → 4096 LSB/g (ACCEL_RANGE 0x08).
           final ax = int.parse(parts[0].trim()) / 4096.0;
           final ay = int.parse(parts[1].trim()) / 4096.0;
           final az = int.parse(parts[2].trim()) / 4096.0;
@@ -803,8 +896,14 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
             az: az,
             gravity: _gravityRef,
           );
-          // Y axis = longitudinal G after typical ESP mount (90° pivot).
-          double gForce = linear.y;
+          // Mount remap: pick long axis + optional invert (Settings → Hardware).
+          double gForce = longitudinalG(
+            ax: linear.x,
+            ay: linear.y,
+            az: linear.z,
+            axis: _imuLongAxis,
+            invert: _imuInvertLongitudinal,
+          );
 
           // Slow EMA only when idle and gravity ref not yet established.
           if (_gravityRef == null &&
@@ -844,6 +943,8 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
     print(
       '[GPS] ODGP sv=${fix.numSV} fix=${fix.fixType} '
       'hAcc=${fix.hAccM.toStringAsFixed(2)}m '
+      'sAcc=${fix.sAccMps.toStringAsFixed(2)}m/s '
+      'pvt=${fix.usedPvt} '
       'spd=${fix.speedKmh.toStringAsFixed(1)}',
     );
     _satellites = fix.numSV;
@@ -852,8 +953,13 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
     _fixMode = fix.fixType >= 3 ? 3 : (fix.fixType >= 2 ? 2 : 1);
     _hAccM = fix.hAccM;
     _vAccM = fix.vAccM;
+    _sAccMps = fix.sAccMps;
+    _usedPvt = fix.usedPvt;
     _hdop = fix.hdopApprox;
     _altitude = fix.altitudeM;
+    _updateFixHold(
+      fix.valid && fix.fixType >= 3 && fix.numSV >= 4,
+    );
     if (fix.valid) {
       _latitude = fix.latitude;
       _longitude = fix.longitude;
@@ -942,6 +1048,8 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
       intervalEndSpeed: intervalEndSpeed,
       gpsTimeSeconds: gpsTimeSeconds,
       gpsTimeMs: gpsTimeMs,
+      sAccMps: _sAccMps > 0 ? _sAccMps : null,
+      allowStandingLaunch: allowStandingLaunch,
     );
     final isRunning = _metrics.isRunning;
 
@@ -1585,6 +1693,36 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
+  void setImuLongAxis(ImuLongAxis axis) {
+    if (_imuLongAxis == axis) return;
+    _imuLongAxis = axis;
+    _idleLongitudinalOffset = 0.0;
+    _cancelArmCalibration();
+    _saveSettings();
+    notifyListeners();
+  }
+
+  void setImuInvertLongitudinal(bool invert) {
+    if (_imuInvertLongitudinal == invert) return;
+    _imuInvertLongitudinal = invert;
+    _idleLongitudinalOffset = 0.0;
+    _cancelArmCalibration();
+    _saveSettings();
+    notifyListeners();
+  }
+
+  void _updateFixHold(bool holding) {
+    if (holding) {
+      final now = DateTime.now();
+      if (_ttffDuration == null && _gpsSearchStartedAt != null) {
+        _ttffDuration = now.difference(_gpsSearchStartedAt!);
+      }
+      _fixHeldSince ??= now;
+    } else if (_fixHeldSince != null) {
+      _fixHeldSince = null;
+    }
+  }
+
   void _syncActiveTargetToUnit() {
     if (_isMetric) {
       if (_activeIntervalTarget == RaceIntervalTarget.sixtyToOneThirtyMph) {
@@ -1857,8 +1995,9 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
     _armCalibSamples.clear();
   }
 
-  Future<void> toggleArm() async {
-    if (_isLoggerMode) return;
+  /// Returns an error message when arming is blocked; null on success.
+  Future<String?> toggleArm() async {
+    if (_isLoggerMode) return null;
     if (_metrics.isRunning) {
       _isArmed = false;
       _cancelArmCalibration();
@@ -1867,6 +2006,10 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
       _lastGpsUpdateTime = null;
       await _releasePocketOrKeepAlive();
     } else {
+      if (!_isArmed && !isGpsReady) {
+        notifyListeners();
+        return 'Waiting for GPS (hAcc ≤ 5 m, sAcc ≤ 0.5 m/s)';
+      }
       _isArmed = !_isArmed;
       if (_isArmed) {
         _metrics = _physicsEngine.reset();
@@ -1886,6 +2029,7 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
     notifyListeners();
     _pushCarStateThrottled(force: true);
+    return null;
   }
 
   Future<String?> setLoggerMode(bool enabled) async {
@@ -2123,6 +2267,17 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
           (data['customIntervalEndSpeed'] as num).toDouble();
     }
     _loadAidingFromMap(data);
+    final longAxisName = data['imuLongAxis'] as String?;
+    if (longAxisName != null) {
+      _imuLongAxis = ImuLongAxis.values.firstWhere(
+        (e) => e.name == longAxisName,
+        orElse: () => _imuLongAxis,
+      );
+    }
+    if (data.containsKey('imuInvertLongitudinal')) {
+      _imuInvertLongitudinal =
+          data['imuInvertLongitudinal'] as bool? ?? _imuInvertLongitudinal;
+    }
     final lastBle = data['lastBleDeviceId'] as String?;
     if (lastBle != null && lastBle.isNotEmpty) {
       _bleReconnectId = lastBle;
@@ -2180,6 +2335,8 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
         if (_aidingLatitude != null) 'aidingAltitude': _aidingAltitude,
         if (_aidingSavedAt != null)
           'aidingSavedAtMs': _aidingSavedAt!.millisecondsSinceEpoch,
+        'imuLongAxis': _imuLongAxis.name,
+        'imuInvertLongitudinal': _imuInvertLongitudinal,
       };
 
   Future<String?> startRideRecording() async {

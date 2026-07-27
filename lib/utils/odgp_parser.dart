@@ -45,6 +45,9 @@ class OdgpFix {
   });
 
   bool get gnssFixOk => (flags & 0x01) != 0;
+
+  /// Real UBX-NAV-PVT: FW bit1, or non-zero sAcc (NMEA fill leaves sAcc=0).
+  bool get usedPvt => (flags & 0x02) != 0 || sAccMps > 0;
   bool get is3d => fixType >= 3;
   bool get valid => gnssFixOk && fixType >= 2;
 

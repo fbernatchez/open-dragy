@@ -864,7 +864,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   !metrics.isRunning)) ...[
                             const SizedBox(height: 16),
                             ElevatedButton(
-                              onPressed: () => dragy.toggleArm(),
+                              onPressed: () async {
+                                final err = await dragy.toggleArm();
+                                if (err != null && context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(err),
+                                      backgroundColor: Colors.amber.shade800,
+                                    ),
+                                  );
+                                }
+                              },
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: dragy.isArmed
                                     ? Colors.redAccent
@@ -1199,84 +1209,93 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   vertical: 16.0,
                 ),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Signal Confidence (Top Left) → satellite detail
-                    Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const SatelliteStatusScreen(),
-                            ),
-                          );
-                        },
-                        borderRadius: BorderRadius.circular(12),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: isConnected
-                                ? Colors.amberAccent.withOpacity(0.1)
-                                : Colors.white.withOpacity(0.04),
+                    Flexible(
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      const SatelliteStatusScreen(),
+                                ),
+                              );
+                            },
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: isConnected
-                                  ? Colors.amberAccent.withOpacity(0.5)
-                                  : Colors.white.withOpacity(0.12),
-                            ),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Row(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                color: isConnected
+                                    ? Colors.amberAccent.withOpacity(0.1)
+                                    : Colors.white.withOpacity(0.04),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: isConnected
+                                      ? Colors.amberAccent.withOpacity(0.5)
+                                      : Colors.white.withOpacity(0.12),
+                                ),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(
-                                    Icons.satellite_alt,
-                                    color: isConnected
-                                        ? Colors.amberAccent
-                                        : Colors.white30,
-                                    size: 16,
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.satellite_alt,
+                                        color: isConnected
+                                            ? Colors.amberAccent
+                                            : Colors.white30,
+                                        size: 16,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        isConnected
+                                            ? '${dragy.satellites} SAT'
+                                            : 'NO GPS',
+                                        style: GoogleFonts.robotoMono(
+                                          color: isConnected
+                                              ? Colors.amberAccent
+                                              : Colors.white30,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  const SizedBox(width: 8),
+                                  const SizedBox(height: 4),
                                   Text(
                                     isConnected
-                                        ? '${dragy.satellites} SAT'
-                                        : 'NO GPS',
+                                        ? 'sAcc ${dragy.sAccLabel}'
+                                        : 'Offline',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                     style: GoogleFonts.robotoMono(
                                       color: isConnected
                                           ? Colors.amberAccent
-                                          : Colors.white30,
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.bold,
+                                              .withOpacity(0.8)
+                                          : Colors.white24,
+                                      fontSize: 12,
                                     ),
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 4),
-                              Text(
-                                isConnected
-                                    ? 'hAcc ${dragy.hAccLabel}'
-                                    : 'Offline',
-                                style: GoogleFonts.robotoMono(
-                                  color: isConnected
-                                      ? Colors.amberAccent.withOpacity(0.8)
-                                      : Colors.white24,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
+                            ),
                           ),
                         ),
                       ),
                     ),
+                    const SizedBox(width: 8),
 
                     // Action buttons (Garage, History, Settings & Connection)
                     Row(
