@@ -190,6 +190,37 @@ static void disableNmeaOutputOnce() {
   enableNavPvtUart1();
 }
 
+// --- IMU (BMI160) configuration -----------------------------------------------
+
+/** Configure BMI160 accelerometer to ±8g range (0x08 in ACCEL_RANGE register).
+ *  Prevents clipping on hard launches while maintaining sufficient resolution.
+ *  Falls back to default 2g if configuration fails.
+ */
+static void configureBmi160AccelRange() {
+  if (!imuReady) return;
+  
+  // BMI160 register 0x41: ACCEL_RANGE
+  // 0x03 = ±2g (default)
+  // 0x05 = ±4g
+  // 0x08 = ±8g
+  // 0x0C = ±16g
+  
+  const uint8_t ACCEL_RANGE_REG = 0x41;
+  const uint8_t ACCEL_8G = 0x08;
+  
+  Wire.beginTransmission(0x69);
+  Wire.write(ACCEL_RANGE_REG);
+  Wire.write(ACCEL_8G);
+  int result = Wire.endTransmission();
+  
+  if (result == 0) {
+    Serial.println("[IMU] BMI160 accelerometer range set to ±8g");
+  } else {
+    Serial.printf("[IMU] Failed to set ±8g range (error %d), using default ±2g\n", result);
+  }
+  delay(10);
+}
+
 // --- Fix state from NAV-PVT ------------------------------------------------
 
 struct PvtFix {
@@ -562,6 +593,8 @@ void setup() {
     if (bmi160.I2cInit(0x69) == BMI160_OK) {
       Serial.println("-> BMI160 OK");
       imuReady = true;
+      // Configure accelerometer to ±8g range to prevent clipping on hard launches
+      configureBmi160AccelRange();
     } else if (attempts < 3) {
       delay(200);
     }
