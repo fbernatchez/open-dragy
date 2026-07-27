@@ -1118,6 +1118,77 @@ void main() {
         closeTo(1.89, 0.01),
       );
     });
+
+    test('ODGP iTOW uses sub-second dt within same UTC second', () {
+      final engine = PhysicsEngine();
+      var metrics = engine.reset();
+
+      // Arm and creep to populate buffer (same UTC second on all samples).
+      for (var i = 0; i < 5; i++) {
+        metrics = engine.updateMetrics(
+          metrics,
+          i * 0.5,
+          100.0,
+          isArmed: true,
+          runMode: 'drag',
+          targetDistance: 0.125,
+          targetDistanceUnit: 'mile',
+          targetStartSpeed: null,
+          targetEndSpeed: null,
+          targetSpeedUnit: null,
+          intervalStartSpeed: 0.0,
+          intervalEndSpeed: 0.0,
+          gpsTimeSeconds: 50.0,
+          gpsTimeMs: 100000 + i * 100,
+        );
+      }
+
+      // Launch — 10 Hz updates, 100 ms apart, still same UTC second.
+      metrics = engine.updateMetrics(
+        metrics,
+        5.0,
+        100.0,
+        isArmed: true,
+        runMode: 'drag',
+        targetDistance: 0.125,
+        targetDistanceUnit: 'mile',
+        targetStartSpeed: null,
+        targetEndSpeed: null,
+        targetSpeedUnit: null,
+        intervalStartSpeed: 0.0,
+        intervalEndSpeed: 0.0,
+        gpsTimeSeconds: 50.0,
+        gpsTimeMs: 100500,
+      );
+      expect(metrics.isRunning, isTrue);
+
+      var distance = metrics.distanceMeters;
+      for (var i = 1; i <= 10; i++) {
+        final speed = 5.0 + i * 5.0;
+        metrics = engine.updateMetrics(
+          metrics,
+          speed,
+          100.0,
+          isArmed: true,
+          runMode: 'drag',
+          targetDistance: 0.125,
+          targetDistanceUnit: 'mile',
+          targetStartSpeed: null,
+          targetEndSpeed: null,
+          targetSpeedUnit: null,
+          intervalStartSpeed: 0.0,
+          intervalEndSpeed: 0.0,
+          gpsTimeSeconds: 50.0,
+          gpsTimeMs: 100500 + i * 100,
+        );
+        distance = metrics.distanceMeters;
+      }
+
+      // ~1 s at rising speed should stay well under 1/8 mile (201 m).
+      expect(distance, lessThan(120.0));
+      expect(metrics.elapsedTime, closeTo(1.0, 0.15));
+      expect(metrics.time18Mile, isNull);
+    });
   });
 }
 

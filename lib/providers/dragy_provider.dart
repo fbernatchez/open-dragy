@@ -575,7 +575,7 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
         notifyListeners();
         _needsUiUpdate = false;
       }
-      if (_headsetMediaArmEnabled && dirty) {
+      if (dirty) {
         _pushCarStateThrottled();
       }
     });
@@ -835,6 +835,7 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
       _applySpeedSample(
         speedKmh: fix.speedKmh.clamp(0.0, 500.0),
         gpsTimeSeconds: fix.timeSeconds,
+        gpsTimeMs: fix.iTOW,
       );
     }
 
@@ -871,6 +872,7 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
   void _applySpeedSample({
     required double speedKmh,
     double? gpsTimeSeconds,
+    int? gpsTimeMs,
   }) {
     _recentSpeeds.add(speedKmh);
     if (_recentSpeeds.length > 5) {
@@ -894,6 +896,7 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
       intervalStartSpeed: intervalStartSpeed,
       intervalEndSpeed: intervalEndSpeed,
       gpsTimeSeconds: gpsTimeSeconds,
+      gpsTimeMs: gpsTimeMs,
     );
     final isRunning = _metrics.isRunning;
 
