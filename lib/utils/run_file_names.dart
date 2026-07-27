@@ -1,24 +1,45 @@
 /// File layout for saved drag runs under `/OpenDragy/runs/`.
 ///
-/// One folder per run (timestamp = folder name). Sensor files use short names
-/// inside the folder — same idea as `.odpkg` (`manifest.json` + `gps.csv`).
+/// One folder per run; timestamp stays in folder name **and** in each file
+/// so GPS/IMU CSVs stay identifiable when copied together for comparison.
 class RunFileNames {
   RunFileNames._();
-
-  static const metricsFileName = 'run.json';
-  static const gpsFileName = 'gps.csv';
-  static const imuFileName = 'imu.csv';
 
   /// e.g. `2026-07-27_05-41-53`
   static String runDirectory(String runId) => runId;
 
-  static String metricsJson(String runId) => '$runId/$metricsFileName';
+  static String metricsFileBase(String runId) => '$runId.json';
 
-  static String gpsCsv(String runId) => '$runId/$gpsFileName';
+  static String gpsFileBase(String runId) => '${runId}_gps.csv';
 
-  static String imuCsv(String runId) => '$runId/$imuFileName';
+  static String imuFileBase(String runId) => '${runId}_imu.csv';
 
-  /// Flat layout (JSON at runs root, CSV prefixed).
+  static String metricsJson(String runId) =>
+      '${runDirectory(runId)}/${metricsFileBase(runId)}';
+
+  static String gpsCsv(String runId) =>
+      '${runDirectory(runId)}/${gpsFileBase(runId)}';
+
+  static String imuCsv(String runId) =>
+      '${runDirectory(runId)}/${imuFileBase(runId)}';
+
+  /// File names that may exist inside `{runId}/` from older builds.
+  static List<String> legacyInnerMetricsNames(String runId) => [
+        metricsFileBase(runId),
+        'run.json',
+      ];
+
+  static List<String> legacyInnerGpsNames(String runId) => [
+        gpsFileBase(runId),
+        'gps.csv',
+      ];
+
+  static List<String> legacyInnerImuNames(String runId) => [
+        imuFileBase(runId),
+        'imu.csv',
+      ];
+
+  /// Flat layout at `runs/` root (no per-run folder).
   static String legacyFlatMetricsJson(String runId) => '$runId.json';
 
   static String legacyFlatGpsCsv(String runId) => '${runId}_gps.csv';

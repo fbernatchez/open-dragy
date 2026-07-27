@@ -386,19 +386,19 @@ class OpenDragyStorage {
     final content = const JsonEncoder.withIndent('  ').convert(data);
     await _writeSavedRunFile(
       runId,
-      RunFileNames.metricsFileName,
+      RunFileNames.metricsFileBase(runId),
       content,
     );
   }
 
-  /// Raw CSV under `runs/{runId}/gps.csv` and `imu.csv`.
+  /// Raw CSV under `runs/{runId}/{runId}_gps.csv` and `{runId}_imu.csv`.
   Future<void> pushSavedRunRawCsv({
     required String runId,
     required String gpsCsv,
     required String imuCsv,
   }) async {
-    await _writeSavedRunFile(runId, RunFileNames.gpsFileName, gpsCsv);
-    await _writeSavedRunFile(runId, RunFileNames.imuFileName, imuCsv);
+    await _writeSavedRunFile(runId, RunFileNames.gpsFileBase(runId), gpsCsv);
+    await _writeSavedRunFile(runId, RunFileNames.imuFileBase(runId), imuCsv);
   }
 
   Future<void> deleteSavedRunFiles(String runId) async {
@@ -445,6 +445,17 @@ class OpenDragyStorage {
     }
   }
 
+  Future<File?> _firstExistingRunFile(
+    Directory runDir,
+    List<String> candidates,
+  ) async {
+    for (final name in candidates) {
+      final file = File('${runDir.path}/$name');
+      if (await file.exists()) return file;
+    }
+    return null;
+  }
+
   Future<List<Map<String, dynamic>>> pullSavedRuns() async {
     if (_mode == 'saf') {
       final runs = await _subdir(_runsSubdir);
@@ -454,15 +465,17 @@ class OpenDragyStorage {
           final docs = await runs.listDocuments();
           for (final doc in docs) {
             if (doc.isDirectory) {
-              final localRunDir = Directory('${localDir.path}/${doc.name}');
+              final runId = doc.name;
+              final localRunDir = Directory('${localDir.path}/$runId');
               if (!await localRunDir.exists()) {
                 await localRunDir.create(recursive: true);
               }
-              for (final name in [
-                RunFileNames.metricsFileName,
-                RunFileNames.gpsFileName,
-                RunFileNames.imuFileName,
-              ]) {
+              final names = <String>{
+                ...RunFileNames.legacyInnerMetricsNames(runId),
+                ...RunFileNames.legacyInnerGpsNames(runId),
+                ...RunFileNames.legacyInnerImuNames(runId),
+              };
+              for (final name in names) {
                 final child = await doc.find(name);
                 if (child == null || child.isDirectory) continue;
                 final cached = await child.cache();
@@ -486,10 +499,14 @@ class OpenDragyStorage {
     final seen = <String>{};
     for (final entity in localDir.listSync()) {
       if (entity is Directory) {
-        final metrics = File(
-          '${entity.path}/${RunFileNames.metricsFileName}',
+        final runId = entity.uri.pathSegments.isNotEmpty
+            ? entity.uri.pathSegments.last
+            : entity.path.split(Platform.pathSeparator).last;
+        final metrics = await _firstExistingRunFile(
+          entity,
+          RunFileNames.legacyInnerMetricsNames(runId),
         );
-        if (!await metrics.exists()) continue;
+        if (metrics == null) continue;
         final map = await _readRunJsonFile(metrics);
         if (map == null) continue;
         final id = map['id']?.toString();
