@@ -6,6 +6,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../utils/run_file_names.dart';
+
 /// Durable data under `/storage/emulated/0/OpenDragy` (all-files access)
 /// with optional SAF folder as fallback.
 class OpenDragyStorage {
@@ -357,39 +359,68 @@ class OpenDragyStorage {
     } catch (_) {}
   }
 
-  /// Raw CSV under `runs/{runId}/` (JSON stays flat in `runs/{runId}.json`).
+  /// Raw CSV next to `{runId}.json` as `{runId}_gps.csv` / `{runId}_imu.csv`.
   Future<void> pushSavedRunRawCsv({
     required String runId,
     required String gpsCsv,
     required String imuCsv,
   }) async {
-    const gpsName = 'gps.csv';
-    const imuName = 'imu.csv';
+    final gpsName = RunFileNames.gpsCsv(runId);
+    final imuName = RunFileNames.imuCsv(runId);
 
     final localDir = await localRunsDirectory();
-    final rawDir = Directory('${localDir.path}/$runId');
-    if (!await rawDir.exists()) {
-      await rawDir.create(recursive: true);
-    }
-    await File('${rawDir.path}/$gpsName').writeAsString(gpsCsv);
-    await File('${rawDir.path}/$imuName').writeAsString(imuCsv);
+    await File('${localDir.path}/$gpsName').writeAsString(gpsCsv);
+    await File('${localDir.path}/$imuName').writeAsString(imuCsv);
 
     if (_mode != 'saf') return;
     final runs = await _subdir(_runsSubdir);
     if (runs == null) return;
     try {
-      var rawFolder = await runs.find(runId);
-      if (rawFolder == null || !rawFolder.isDirectory) {
-        rawFolder = await runs.createDirectory(runId);
-      }
-      if (rawFolder == null) return;
       for (final entry in [
         (gpsName, gpsCsv),
         (imuName, imuCsv),
       ]) {
-        final existing = await rawFolder.find(entry.$1);
+        final existing = await runs.find(entry.$1);
         if (existing != null) await existing.delete();
-        await rawFolder.createFile(name: entry.$1, content: entry.$2);
+        await runs.createFile(name: entry.$1, content: entry.$2);
+      }
+    } catch (_) {}
+  }
+
+  Future<void> deleteSavedRunFiles(String runId) async {
+    final localDir = await localRunsDirectory();
+    for (final name in [
+      RunFileNames.metricsJson(runId),
+      RunFileNames.gpsCsv(runId),
+      RunFileNames.imuCsv(runId),
+    ]) {
+      final file = File('${localDir.path}/$name');
+      if (await file.exists()) {
+        await file.delete();
+      }
+    }
+    final legacyDir = Directory('${localDir.path}/$runId');
+    if (await legacyDir.exists()) {
+      await legacyDir.delete(recursive: true);
+    }
+
+    if (_mode != 'saf') return;
+    final runs = await _subdir(_runsSubdir);
+    if (runs == null) return;
+    for (final name in [
+      RunFileNames.metricsJson(runId),
+      RunFileNames.gpsCsv(runId),
+      RunFileNames.imuCsv(runId),
+    ]) {
+      try {
+        final doc = await runs.find(name);
+        if (doc != null) await doc.delete();
+      } catch (_) {}
+    }
+    try {
+      final folder = await runs.find(runId);
+      if (folder != null && folder.isDirectory) {
+        await folder.delete();
       }
     } catch (_) {}
   }

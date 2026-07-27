@@ -25,6 +25,7 @@ import '../services/media_arm_bridge.dart';
 import '../models/app_cues.dart';
 import '../models/gps_pvt_sample.dart';
 import '../models/raw_run_log.dart';
+import '../utils/run_id.dart';
 import '../models/satellite_sv.dart';
 
 export '../models/app_cues.dart';
@@ -1248,7 +1249,11 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
     // Filter out creeping / GPS wander blips
     if (duration >= 1.0 && maxSpeed >= 10.0) {
       final vehicle = activeVehicle;
-      final runId = DateTime.now().millisecondsSinceEpoch.toString();
+      final runAt = DateTime.now();
+      final runId = RunId.allocate(
+        runAt,
+        _savedRuns.map((r) => r.id),
+      );
 
       final rawGps = List<RawGpsSample>.from(_runRaw.gps);
       final rawImu = List<RawImuSample>.from(_runRaw.imu);
@@ -1258,7 +1263,7 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
 
       final savedRun = SavedRun(
         id: runId,
-        dateTime: DateTime.now(),
+        dateTime: runAt,
         metrics: runMetrics,
         temperature: null,
         humidity: null,
@@ -1464,6 +1469,7 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void> deleteRun(String id) async {
     await _historyService.deleteRun(id);
+    await _durableStorage.deleteSavedRunFiles(id);
     _savedRuns.removeWhere((r) => r.id == id);
     notifyListeners();
   }

@@ -14,7 +14,7 @@ OpenDragy is a high-precision, open-source vehicle performance timer that measur
 * **Helmet Audio Cues**: Optional beeps or spoken English milestones through Bluetooth / intercom (navigation-style audio routing). The selected drag or interval finish is always announced; extras (60 ft, 0–100 km/h, ⅛ mile, …) are toggled in **Settings → Milestone cues**. Distinct beep patterns: 1 short / 2 short / long+2 short for finish.
 * **Finish Celebration**: Optional full-screen flash or checkered-flag overlay when the selected target completes (only while the display is on).
 * **ARM IMU Zero**: After you tap **ARM**, ~0.5 s of IMU samples set the longitudinal G baseline so a lightly tilted mount reads ~0 G at rest.
-* **Raw Drag Logs**: Every valid timed run saves metrics JSON plus raw GPS/IMU CSV under `/OpenDragy/runs/{id}/` for PC analysis (NHRA / non-NHRA, charts, re-scoring later).
+* **Raw Drag Logs**: Every valid timed run saves metrics JSON plus raw GPS/IMU CSV under `/OpenDragy/runs/` for PC analysis (NHRA / non-NHRA, charts, re-scoring later).
 * **Wakelock Integration**: Intelligently keeps your device screen awake and active during armed and ongoing runs, so you never miss your telemetry.
 * **Pocket Mode**: Built primarily for motorcycle use — the phone screen may turn off while a quiet foreground service keeps timing / logger alive with the phone in a pocket or tank bag.
 * **BLE Auto-Connect**: Automatically scans and reconnects to an advertising `OpenDragy` unit (remembers the last device; faster retries while the app is in the foreground). Manual disconnect pauses auto-connect until you open the device picker again.
@@ -38,9 +38,9 @@ OpenDragy is a high-precision, open-source vehicle performance timer that measur
 5. After a clean pull, check run detail for `Raw log · … GPS · … IMU`, or pull files from:
 
 ```text
-/OpenDragy/runs/{runId}.json      # metrics + embedded raw block
-/OpenDragy/runs/{runId}/gps.csv   # raw GPS
-/OpenDragy/runs/{runId}/imu.csv   # raw IMU (g)
+/OpenDragy/runs/{runId}.json           # metrics + embedded raw block
+/OpenDragy/runs/{runId}_gps.csv        # raw GPS (timestamp prefix)
+/OpenDragy/runs/{runId}_imu.csv        # raw IMU (g)
 ```
 
 ---
