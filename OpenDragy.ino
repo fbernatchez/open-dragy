@@ -38,9 +38,22 @@ bool imuReady = false;
 #define CHARACTERISTIC_UUID_IMU "6e400004-b5a3-f393-e0a9-e50e24dcca9e"
 
 unsigned long lastImuTime = 0;
-const int imuInterval = 10; // 100 Hz, matches BMI160 ODR
+/** BLE IMU notify rate — keep BMI160 ODR at 100 Hz + LPF; don't flood the radio. */
+const int imuInterval = 25; // 40 Hz over BLE
 unsigned long lastOdgpNotifyMs = 0;
-const unsigned long kOdgpMinIntervalMs = 80; // ~10 Hz, slight slack
+/** Min gap between ODGP notifies; <100 ms so a short backlog can catch up. */
+const unsigned long kOdgpMinIntervalMs = 50;
+
+// Small ODGP TX ring — absorbs BLE stalls (e.g. phone A2DP music) without dropping iTOW ticks.
+static const size_t kOdgpQueueCap = 16;
+static uint8_t odgpQueue[kOdgpQueueCap][52];
+static uint8_t odgpQHead = 0;
+static uint8_t odgpQTail = 0;
+static uint8_t odgpQCount = 0;
+static uint32_t gOdgpEnqueued = 0;
+static uint32_t gOdgpSent = 0;
+static uint32_t gOdgpDropped = 0;
+static uint32_t gImuNotifies = 0;
 
 // --- UBX helpers -----------------------------------------------------------
 
@@ -357,11 +370,7 @@ static unsigned long gLastPvtMs = 0;
  * gSpeed | headMot | hAcc | vAcc | sAcc | year | month day hour min sec | pad
  * flags: bit0=gnssFixOK, bit1=real NAV-PVT; pad=1 if real PVT.
  */
-static void notifyOdgp() {
-  if (!pTxCharacteristic || !pTxCccd || !pTxCccd->getNotifications()) {
-    return;
-  }
-  uint8_t pkt[52];
+static void packOdgp(uint8_t *pkt) {
   pkt[0] = 'O';
   pkt[1] = 'D';
   pkt[2] = 'G';
@@ -387,8 +396,38 @@ static void notifyOdgp() {
   pkt[49] = gPvt.min;
   pkt[50] = gPvt.sec;
   pkt[51] = gHaveRealPvt ? 1 : 0;
-  pTxCharacteristic->setValue(pkt, sizeof(pkt));
+}
+
+static void enqueueOdgpFromGPvt() {
+  uint8_t pkt[52];
+  packOdgp(pkt);
+  if (odgpQCount >= kOdgpQueueCap) {
+    // Drop oldest — prefer fresher fixes when BLE is badly stalled.
+    odgpQTail = (uint8_t)((odgpQTail + 1) % kOdgpQueueCap);
+    odgpQCount--;
+    gOdgpDropped++;
+  }
+  memcpy(odgpQueue[odgpQHead], pkt, 52);
+  odgpQHead = (uint8_t)((odgpQHead + 1) % kOdgpQueueCap);
+  odgpQCount++;
+  gOdgpEnqueued++;
+}
+
+static void drainOdgpQueue() {
+  if (odgpQCount == 0 || !pTxCharacteristic || !pTxCccd ||
+      !pTxCccd->getNotifications() || !deviceConnected) {
+    return;
+  }
+  const unsigned long now = millis();
+  if (lastOdgpNotifyMs != 0 && (now - lastOdgpNotifyMs) < kOdgpMinIntervalMs) {
+    return;
+  }
+  pTxCharacteristic->setValue(odgpQueue[odgpQTail], 52);
   pTxCharacteristic->notify();
+  odgpQTail = (uint8_t)((odgpQTail + 1) % kOdgpQueueCap);
+  odgpQCount--;
+  lastOdgpNotifyMs = now;
+  gOdgpSent++;
 }
 
 // UBX + NMEA byte pump
@@ -694,13 +733,10 @@ void loop() {
   if (gPvtFresh) {
     gPvtFresh = false;
     if (deviceConnected && notifyEnabled(pTxCccd)) {
-      const unsigned long now = millis();
-      if (now - lastOdgpNotifyMs >= kOdgpMinIntervalMs) {
-        lastOdgpNotifyMs = now;
-        notifyOdgp();
-      }
+      enqueueOdgpFromGPvt();
     }
   }
+  drainOdgpQueue();
 
   {
     const unsigned long now = millis();
@@ -708,14 +744,20 @@ void loop() {
       gLastGpsStatusMs = now;
       Serial.printf(
           "[GPS] ubx=%lu pvt=%lu nmea=%lu src=%s sv=%u fix=%u hAcc=%.1fm "
-          "spd=%.1fkm/h ble=%d\n",
+          "spd=%.1fkm/h ble=%d odgp q=%u enq=%lu sent=%lu drop=%lu imu=%lu\n",
           (unsigned long)gUbxFrames, (unsigned long)gPvtCount,
           (unsigned long)gNmeaLines, gHaveRealPvt ? "PVT" : "NMEA", gPvt.numSV,
           gPvt.fixType, gPvt.hAcc / 1000.0, (gPvt.gSpeed / 1000.0) * 3.6,
-          deviceConnected ? 1 : 0);
+          deviceConnected ? 1 : 0, (unsigned)odgpQCount,
+          (unsigned long)gOdgpEnqueued, (unsigned long)gOdgpSent,
+          (unsigned long)gOdgpDropped, (unsigned long)gImuNotifies);
       gUbxFrames = 0;
       gPvtCount = 0;
       gNmeaLines = 0;
+      gOdgpEnqueued = 0;
+      gOdgpSent = 0;
+      gOdgpDropped = 0;
+      gImuNotifies = 0;
       // Keep asking for NAV-PVT until it sticks.
       if (!gHaveRealPvt) {
         enableNavPvtUart1();
@@ -735,6 +777,7 @@ void loop() {
                accelGyro[4], accelGyro[5]);
       pImuCharacteristic->setValue((uint8_t *)imuData, strlen(imuData));
       pImuCharacteristic->notify();
+      gImuNotifies++;
     }
   }
 
