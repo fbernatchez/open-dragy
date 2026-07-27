@@ -19,6 +19,7 @@ class PhysicsEngine {
   final List<DataPoint> _preRunBuffer = [];
   int _stoppedTicks = 0;
   int _rejectedCount = 0;
+  int? _lastGpsTimeMs;
   double? _lastGpsTimeSeconds;
   double? _lastValidDt;
 
@@ -38,19 +39,31 @@ class PhysicsEngine {
     required double intervalStartSpeed,
     required double intervalEndSpeed,
     double? gpsTimeSeconds,
+    int? gpsTimeMs,
   }) {
-    // Calculate current dynamic dt
+    // Calculate current dynamic dt — prefer GPS iTOW (ms) over UTC seconds.
     double currentDt = _lastValidDt ?? 0.1;
-    if (gpsTimeSeconds != null && _lastGpsTimeSeconds != null) {
+    if (gpsTimeMs != null && _lastGpsTimeMs != null) {
+      var deltaMs = gpsTimeMs - _lastGpsTimeMs!;
+      if (deltaMs < 0) {
+        deltaMs += 604800000; // GPS week rollover
+      }
+      final delta = deltaMs / 1000.0;
+      if (delta > 0.001 && delta < 2.0) {
+        currentDt = delta;
+        _lastValidDt = delta;
+      }
+    } else if (gpsTimeSeconds != null && _lastGpsTimeSeconds != null) {
       double delta = gpsTimeSeconds - _lastGpsTimeSeconds!;
       if (delta < 0) {
-        delta += 86400.0; // handle midnight rollover
+        delta += 86400.0; // handle midnight rollover (NMEA)
       }
       if (delta > 0.01 && delta < 2.0) {
         currentDt = delta;
         _lastValidDt = delta;
       }
     }
+    _lastGpsTimeMs = gpsTimeMs;
     _lastGpsTimeSeconds = gpsTimeSeconds;
 
     // 0. Maintain Rolling Buffer (50 ticks) for 200ms G-Force latency shifting
@@ -850,6 +863,7 @@ class PhysicsEngine {
     _preRunBuffer.clear();
     _stoppedTicks = 0;
     _rejectedCount = 0;
+    _lastGpsTimeMs = null;
     _lastGpsTimeSeconds = null;
     _lastValidDt = null;
     return RaceMetrics();

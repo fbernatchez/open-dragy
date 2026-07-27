@@ -1,12 +1,18 @@
 package com.fb_engineering.open_dragy
 
+import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.media.AudioAttributes
+import android.media.AudioFocusRequest
+import android.media.AudioManager
+import android.os.Build
 import android.os.Bundle
 import android.support.v4.media.MediaMetadataCompat
 import android.support.v4.media.session.MediaSessionCompat
 import android.support.v4.media.session.PlaybackStateCompat
 import android.view.KeyEvent
+import androidx.media.session.MediaButtonReceiver
 
 /**
  * Active MediaSession so Cardo / AA media Next/Previous reach OpenDragy
@@ -18,9 +24,13 @@ class ArmMediaSessionController(
     private val onPrevious: () -> Unit,
 ) {
     private var session: MediaSessionCompat? = null
+    private var audioManager: AudioManager? = null
+    private var audioFocusRequest: AudioFocusRequest? = null
 
     fun start() {
         if (session != null) return
+        audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        requestAudioFocus()
         val s = MediaSessionCompat(context, "OpenDragyArm")
         s.setFlags(
             MediaSessionCompat.FLAG_HANDLES_MEDIA_BUTTONS or
@@ -81,23 +91,69 @@ class ArmMediaSessionController(
                 }
             }
         })
+        val mediaButtonIntent = Intent(Intent.ACTION_MEDIA_BUTTON).apply {
+            setClass(context, MediaButtonReceiver::class.java)
+        }
+        val mediaButtonPi = PendingIntent.getBroadcast(
+            context,
+            0,
+            mediaButtonIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        s.setMediaButtonReceiver(mediaButtonPi)
         session = s
         s.isActive = true
         publishState()
     }
 
     fun stop() {
+        abandonAudioFocus()
         session?.isActive = false
         session?.release()
         session = null
+    }
+
+    private fun requestAudioFocus() {
+        val am = audioManager ?: return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val attrs = AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_MEDIA)
+                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                .build()
+            val req = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+                .setAudioAttributes(attrs)
+                .setAcceptsDelayedFocusGain(true)
+                .build()
+            audioFocusRequest = req
+            am.requestAudioFocus(req)
+        } else {
+            @Suppress("DEPRECATION")
+            am.requestAudioFocus(
+                null,
+                AudioManager.STREAM_MUSIC,
+                AudioManager.AUDIOFOCUS_GAIN,
+            )
+        }
+    }
+
+    private fun abandonAudioFocus() {
+        val am = audioManager ?: return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            audioFocusRequest?.let { am.abandonAudioFocusRequest(it) }
+            audioFocusRequest = null
+        } else {
+            @Suppress("DEPRECATION")
+            am.abandonAudioFocus(null)
+        }
     }
 
     fun publishState() {
         val s = session ?: return
         val state = when {
             CarStateStore.running -> PlaybackStateCompat.STATE_PLAYING
-            CarStateStore.armed -> PlaybackStateCompat.STATE_BUFFERING
-            else -> PlaybackStateCompat.STATE_PAUSED
+            CarStateStore.armed -> PlaybackStateCompat.STATE_PLAYING
+            CarStateStore.enabled -> PlaybackStateCompat.STATE_PAUSED
+            else -> PlaybackStateCompat.STATE_STOPPED
         }
         val actions = (
             PlaybackStateCompat.ACTION_SKIP_TO_NEXT or
