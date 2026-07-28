@@ -9,6 +9,7 @@ void main() {
       elapsedMs: 100,
       timeUtc: '2026-07-27T03:41:40.287983Z',
       pvt: const GpsPvtSample(
+        valid: false,
         speedKmh: 54.3,
         latitude: 49.26,
         longitude: 16.97,
@@ -26,12 +27,14 @@ void main() {
     );
 
     final restored = RawGpsSample.fromJson(sample.toJson());
+    expect(restored.valid, isFalse);
     expect(restored.iTowMs, 123456789);
     expect(restored.hAccM, 0.28);
     expect(restored.vAccM, 0.35);
     expect(restored.sAccMps, 0.08);
     expect(restored.usedPvt, isTrue);
     expect(restored.fixType, 3);
+    expect(restored.latitude, 49.26);
   });
 
   test('RunRawCapture GPS CSV includes NAV-PVT header and values', () {
@@ -58,7 +61,7 @@ void main() {
     final fix = OdgpFix(
       version: 1,
       fixType: 3,
-      flags: 1,
+      flags: 3,
       numSV: 14,
       iTOW: 555000,
       latitude: 49.0,
@@ -78,6 +81,7 @@ void main() {
     );
 
     final pvt = GpsPvtSample.fromOdgp(fix, hdopApprox: 0.1);
+    expect(pvt.valid, isTrue);
     expect(pvt.iTowMs, 555000);
     expect(pvt.hAccM, 0.25);
     expect(pvt.usedPvt, isTrue);

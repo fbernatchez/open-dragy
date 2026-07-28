@@ -5,20 +5,27 @@ import 'raw_run_log.dart';
 import 'run_trust.dart';
 
 class SavedRun {
+  static const int currentAlgorithmVersion = 2;
+
   final String id;
   final DateTime dateTime;
   final RaceMetrics metrics;
+  final int algorithmVersion;
   final String? notes;
   final double? temperature; // in Celsius
   final double? humidity; // in %
   /// Wind speed at 10 m (m/s).
   final double? windSpeedMps;
+
   /// Meteorological wind-from direction (degrees).
   final double? windFromDeg;
+
   /// Surface pressure (hPa).
   final double? pressureHpa;
+
   /// Average GPS heading during the timed run (degrees).
   final double? runHeadingDeg;
+
   /// Positive = headwind along run heading (m/s).
   final double? headwindMps;
   final String? vehicleId;
@@ -40,6 +47,7 @@ class SavedRun {
     required this.id,
     required this.dateTime,
     required this.metrics,
+    this.algorithmVersion = currentAlgorithmVersion,
     this.notes,
     this.temperature,
     this.humidity,
@@ -69,6 +77,7 @@ class SavedRun {
     String? id,
     DateTime? dateTime,
     RaceMetrics? metrics,
+    int? algorithmVersion,
     String? notes,
     double? temperature,
     double? humidity,
@@ -88,6 +97,7 @@ class SavedRun {
       id: id ?? this.id,
       dateTime: dateTime ?? this.dateTime,
       metrics: metrics ?? this.metrics,
+      algorithmVersion: algorithmVersion ?? this.algorithmVersion,
       notes: notes ?? this.notes,
       temperature: temperature ?? this.temperature,
       humidity: humidity ?? this.humidity,
@@ -110,6 +120,7 @@ class SavedRun {
       'id': id,
       'dateTime': dateTime.toIso8601String(),
       'metrics': metrics.toJson(),
+      'algorithmVersion': algorithmVersion,
       'notes': notes,
       'temperature': temperature,
       'humidity': humidity,
@@ -123,7 +134,7 @@ class SavedRun {
       if (trust != null) 'trust': trust!.toJson(),
       if (rawGps != null || rawImu != null)
         'raw': {
-          'version': 1,
+          'version': 3,
           'runStartElapsedMs': rawRunStartElapsedMs,
           'gps': rawGps?.map((e) => e.toJson()).toList() ?? const [],
           'imu': rawImu?.map((e) => e.toJson()).toList() ?? const [],
@@ -168,6 +179,7 @@ class SavedRun {
       metrics: RaceMetrics.fromJson(
         Map<String, dynamic>.from(json['metrics'] as Map),
       ),
+      algorithmVersion: (json['algorithmVersion'] as num?)?.toInt() ?? 1,
       notes: json['notes'] as String?,
       temperature: json['temperature'] != null
           ? (json['temperature'] as num).toDouble()

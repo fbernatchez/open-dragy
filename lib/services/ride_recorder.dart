@@ -35,9 +35,7 @@ class RideRecorder {
         .whereType<File>()
         .where((f) => f.path.toLowerCase().endsWith('.odlog.json'))
         .toList();
-    files.sort(
-      (a, b) => b.lastModifiedSync().compareTo(a.lastModifiedSync()),
-    );
+    files.sort((a, b) => b.lastModifiedSync().compareTo(a.lastModifiedSync()));
     return files;
   }
 
@@ -48,9 +46,7 @@ class RideRecorder {
         .whereType<File>()
         .where((f) => f.path.toLowerCase().endsWith('.gpx'))
         .toList();
-    files.sort(
-      (a, b) => b.lastModifiedSync().compareTo(a.lastModifiedSync()),
-    );
+    files.sort((a, b) => b.lastModifiedSync().compareTo(a.lastModifiedSync()));
     return files;
   }
 
@@ -88,7 +84,10 @@ class RideRecorder {
     if (manifest == null) return const [];
     final raw = manifest['tags'];
     if (raw is List) {
-      return raw.map((e) => e.toString().trim()).where((e) => e.isNotEmpty).toList();
+      return raw
+          .map((e) => e.toString().trim())
+          .where((e) => e.isNotEmpty)
+          .toList();
     }
     return const [];
   }
@@ -125,9 +124,7 @@ class RideRecorder {
       'xmlns="http://www.topografix.com/GPX/1/1">',
     );
     _sink!.writeln('  <metadata>');
-    _sink!.writeln(
-      '    <time>${_formatUtc(_startedAt!.toUtc())}</time>',
-    );
+    _sink!.writeln('    <time>${_formatUtc(_startedAt!.toUtc())}</time>');
     final desc = _notes != null ? '$name — ${_notes!}' : name;
     _sink!.writeln('    <desc>${_escapeXml(desc)}</desc>');
     if (_tags.isNotEmpty) {
@@ -161,9 +158,7 @@ class RideRecorder {
     if (_sink == null) return;
 
     final t = timeUtc ?? DateTime.now().toUtc();
-    _sink!.writeln(
-      '      <trkpt lat="$latitude" lon="$longitude">',
-    );
+    _sink!.writeln('      <trkpt lat="$latitude" lon="$longitude">');
     if (altitudeMeters != null) {
       _sink!.writeln('        <ele>$altitudeMeters</ele>');
     }
@@ -187,6 +182,7 @@ class RideRecorder {
   Future<void> appendGpsRow({
     required double latitude,
     required double longitude,
+    bool valid = true,
     double? altitudeMeters,
     double? speedKmh,
     int? iTowMs,
@@ -212,13 +208,16 @@ class RideRecorder {
     final vacc = vAccMeters != null && vAccMeters > 0
         ? vAccMeters.toStringAsFixed(3)
         : '';
-    final sacc = sAccMps != null && sAccMps > 0 ? sAccMps.toStringAsFixed(3) : '';
+    final sacc = sAccMps != null && sAccMps > 0
+        ? sAccMps.toStringAsFixed(3)
+        : '';
     final fix = fixType?.toString() ?? '';
     final hdg = headingDeg?.toStringAsFixed(2) ?? '';
     final hd = hdop?.toStringAsFixed(2) ?? '';
     final sats = satellites?.toString() ?? '';
     await _gpsCsvFile!.writeAsString(
-      '$elapsedMs,${_formatUtc(t)},$itow,$latitude,$longitude,$spd,'
+      '$elapsedMs,${_formatUtc(t)},${valid ? 1 : 0},'
+      '$itow,$latitude,$longitude,$spd,'
       '$hacc,$vacc,$sacc,$hdg,$fix,$hd,$sats,$alt,${usedPvt ? 1 : 0}\n',
       mode: FileMode.append,
     );

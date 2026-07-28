@@ -4,6 +4,7 @@ import 'gps_pvt_sample.dart';
 class RawGpsSample {
   final int elapsedMs;
   final String timeUtc;
+  final bool valid;
   final double? latitude;
   final double? longitude;
   final double? altitudeM;
@@ -21,6 +22,7 @@ class RawGpsSample {
   const RawGpsSample({
     required this.elapsedMs,
     required this.timeUtc,
+    this.valid = true,
     this.latitude,
     this.longitude,
     this.altitudeM,
@@ -47,6 +49,7 @@ class RawGpsSample {
     return RawGpsSample(
       elapsedMs: elapsedMs,
       timeUtc: timeUtc,
+      valid: pvt.valid,
       latitude: pvt.latitude,
       longitude: pvt.longitude,
       altitudeM: pvt.altitudeM,
@@ -64,28 +67,35 @@ class RawGpsSample {
   }
 
   Map<String, dynamic> toJson() => {
-        'elapsedMs': elapsedMs,
-        'timeUtc': timeUtc,
-        'lat': latitude,
-        'lon': longitude,
-        'altM': altitudeM,
-        'speedKmh': speedKmh,
-        'iTowMs': iTowMs,
-        'hAccM': hAccM,
-        'vAccM': vAccM,
-        'sAccMps': sAccMps,
-        'headingDeg': headingDeg,
-        'fixType': fixType,
-        'fixQuality': fixType,
-        'hdop': hdop,
-        'sats': satellites,
-        'usedPvt': usedPvt,
-      };
+    'elapsedMs': elapsedMs,
+    'timeUtc': timeUtc,
+    'valid': valid,
+    'lat': latitude,
+    'lon': longitude,
+    'altM': altitudeM,
+    'speedKmh': speedKmh,
+    'iTowMs': iTowMs,
+    'hAccM': hAccM,
+    'vAccM': vAccM,
+    'sAccMps': sAccMps,
+    'headingDeg': headingDeg,
+    'fixType': fixType,
+    'fixQuality': fixType,
+    'hdop': hdop,
+    'sats': satellites,
+    'usedPvt': usedPvt,
+  };
 
   factory RawGpsSample.fromJson(Map<String, dynamic> json) {
     return RawGpsSample(
       elapsedMs: (json['elapsedMs'] as num?)?.toInt() ?? 0,
       timeUtc: json['timeUtc'] as String? ?? '',
+      valid:
+          json['valid'] as bool? ??
+          ((json['fixType'] as num?)?.toInt() ??
+                  (json['fixQuality'] as num?)?.toInt() ??
+                  0) >=
+              3,
       latitude: (json['lat'] as num?)?.toDouble(),
       longitude: (json['lon'] as num?)?.toDouble(),
       altitudeM: (json['altM'] as num?)?.toDouble(),
@@ -95,7 +105,8 @@ class RawGpsSample {
       vAccM: (json['vAccM'] as num?)?.toDouble(),
       sAccMps: (json['sAccMps'] as num?)?.toDouble(),
       headingDeg: (json['headingDeg'] as num?)?.toDouble(),
-      fixType: (json['fixType'] as num?)?.toInt() ??
+      fixType:
+          (json['fixType'] as num?)?.toInt() ??
           (json['fixQuality'] as num?)?.toInt(),
       hdop: (json['hdop'] as num?)?.toDouble(),
       satellites: (json['sats'] as num?)?.toInt(),
@@ -119,11 +130,11 @@ class RawImuSample {
   });
 
   Map<String, dynamic> toJson() => {
-        'elapsedMs': elapsedMs,
-        'axG': axG,
-        'ayG': ayG,
-        'azG': azG,
-      };
+    'elapsedMs': elapsedMs,
+    'axG': axG,
+    'ayG': ayG,
+    'azG': azG,
+  };
 
   factory RawImuSample.fromJson(Map<String, dynamic> json) {
     return RawImuSample(
@@ -202,19 +213,10 @@ class RunRawCapture {
     }
   }
 
-  void addImu({
-    required double axG,
-    required double ayG,
-    required double azG,
-  }) {
+  void addImu({required double axG, required double ayG, required double azG}) {
     if (_startedAtUtc == null) return;
     imu.add(
-      RawImuSample(
-        elapsedMs: _elapsedNow(),
-        axG: axG,
-        ayG: ayG,
-        azG: azG,
-      ),
+      RawImuSample(elapsedMs: _elapsedNow(), axG: axG, ayG: ayG, azG: azG),
     );
     if (!_runActive && imu.length > maxPreImu) {
       imu.removeRange(0, imu.length - maxPreImu);
@@ -225,14 +227,14 @@ class RunRawCapture {
 
   /// Snapshot for persistence (deep-enough for our immutable sample classes).
   Map<String, dynamic> toJsonBlock() => {
-        'version': 2,
-        'runStartElapsedMs': runStartElapsedMs,
-        'gps': gps.map((e) => e.toJson()).toList(),
-        'imu': imu.map((e) => e.toJson()).toList(),
-      };
+    'version': 3,
+    'runStartElapsedMs': runStartElapsedMs,
+    'gps': gps.map((e) => e.toJson()).toList(),
+    'imu': imu.map((e) => e.toJson()).toList(),
+  };
 
   static const String gpsCsvHeader =
-      'elapsed_ms,time_utc,i_tow_ms,lat,lon,speed_kmh,'
+      'elapsed_ms,time_utc,valid,i_tow_ms,lat,lon,speed_kmh,'
       'h_acc_m,v_acc_m,s_acc_mps,heading_deg,fix_type,hdop,sats,alt_m,used_pvt';
 
   static String imuCsvHeader() => 'elapsed_ms,ax_g,ay_g,az_g';
@@ -242,6 +244,7 @@ class RunRawCapture {
     for (final s in gps) {
       buf.writeln(
         '${s.elapsedMs},${s.timeUtc},'
+        '${s.valid ? 1 : 0},'
         '${s.iTowMs ?? ''},'
         '${s.latitude ?? ''},${s.longitude ?? ''},'
         '${s.speedKmh != null ? s.speedKmh!.toStringAsFixed(3) : ''},'

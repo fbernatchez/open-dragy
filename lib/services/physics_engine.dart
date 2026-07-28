@@ -1,8 +1,7 @@
 import '../models/race_metrics.dart';
+import 'gps_epoch_classifier.dart';
 
 class PhysicsEngine {
-  static const double gAcceleration = 9.80665; // m/s^2
-
   static const double distance60ft = 18.288;
   static const double distance330ft = 100.584;
   static const double distance18Mile = 201.168;
@@ -24,36 +23,29 @@ class PhysicsEngine {
   }
 
   final List<DataPoint> _preRunBuffer = [];
-  /// High-rate longitudinal G samples stamped with latest GPS iTOW (when known).
-  final List<_ImuGSample> _imuGBuffer = [];
   int _stoppedTicks = 0;
-  int _rejectedCount = 0;
+  int? _lastSeenGpsTimeMs;
   int? _lastGpsTimeMs;
   double? _lastGpsTimeSeconds;
   double? _lastValidDt;
-
-  static const double imuLaunchGThreshold = 0.18;
-  static const double imuLaunchGQuiet = 0.10;
-  /// Prefer IMU edge over GPS zero-cross only when it leads by at most this.
-  static const double imuLeadMaxSeconds = 0.35;
+  GpsEpochStatus? _lastGpsEpochStatus;
 
   double get lastValidDt => _lastValidDt ?? 0.1;
-
-  /// Feed calibrated longitudinal G (~20 Hz). Used to pull launch t0 earlier than GPS.
-  void noteImuG(double gForce) {
-    _imuGBuffer.add(_ImuGSample(gpsTimeMs: _lastGpsTimeMs, gForce: gForce));
-    while (_imuGBuffer.length > 80) {
-      _imuGBuffer.removeAt(0);
-    }
-  }
+  int? get lastSeenGpsTimeMs => _lastSeenGpsTimeMs;
+  int? get lastAcceptedGpsTimeMs => _lastGpsTimeMs;
+  GpsEpochStatus? get lastGpsEpochStatus => _lastGpsEpochStatus;
 
   /// GPS week–aware delta in milliseconds (iTOW).
   static int deltaGpsMs(int fromMs, int toMs) {
-    var d = toMs - fromMs;
-    if (d < 0) {
-      d += 604800000;
+    final decision = GpsEpochClassifier.classify(
+      previousAcceptedMs: fromMs,
+      currentMs: toMs,
+      gapThresholdMs: GpsEpochClassifier.gpsWeekMs,
+    );
+    if (!decision.shouldProcess || decision.deltaMs == null) {
+      throw ArgumentError('GPS epochs are duplicate or out of order');
     }
-    return d;
+    return decision.deltaMs!;
   }
 
   static double deltaGpsSeconds(int fromMs, int toMs) =>
@@ -91,83 +83,61 @@ class PhysicsEngine {
     bool allowStandingLaunch = true,
   }) {
     // Calculate current dynamic dt — prefer GPS iTOW (ms) over UTC seconds.
+    // Duplicate/out-of-order epochs must not mutate any calculation state.
     double currentDt = _lastValidDt ?? 0.1;
-    if (gpsTimeMs != null && _lastGpsTimeMs != null) {
-      var deltaMs = gpsTimeMs - _lastGpsTimeMs!;
-      if (deltaMs < 0) {
-        deltaMs += 604800000; // GPS week rollover
+    if (gpsTimeMs != null) {
+      _lastSeenGpsTimeMs = gpsTimeMs;
+      final epoch = GpsEpochClassifier.classify(
+        previousAcceptedMs: _lastGpsTimeMs,
+        currentMs: gpsTimeMs,
+      );
+      _lastGpsEpochStatus = epoch.status;
+      if (!epoch.shouldProcess) {
+        return current;
       }
-      final delta = deltaMs / 1000.0;
-      if (delta > 0.001 && delta < 2.0) {
-        currentDt = delta;
-        _lastValidDt = delta;
+      if (epoch.deltaMs != null) {
+        currentDt = epoch.deltaMs! / 1000.0;
+        _lastValidDt = currentDt;
       }
+      _lastGpsTimeMs = gpsTimeMs;
     } else if (gpsTimeSeconds != null && _lastGpsTimeSeconds != null) {
       double delta = gpsTimeSeconds - _lastGpsTimeSeconds!;
       if (delta < 0) {
-        delta += 86400.0; // handle midnight rollover (NMEA)
+        final isMidnightRollover =
+            _lastGpsTimeSeconds! >= 86340.0 && gpsTimeSeconds <= 60.0;
+        if (!isMidnightRollover) {
+          return current;
+        }
+        delta += 86400.0;
       }
-      if (delta > 0.01 && delta < 2.0) {
-        currentDt = delta;
-        _lastValidDt = delta;
+      if (delta == 0) {
+        return current;
       }
+      currentDt = delta;
+      _lastValidDt = delta;
     }
-    _lastGpsTimeMs = gpsTimeMs;
     _lastGpsTimeSeconds = gpsTimeSeconds;
 
-    // 0. Maintain Rolling Buffer (50 ticks) for 200ms G-Force latency shifting
-    _preRunBuffer.add(DataPoint(
-      elapsedTime: current.isRunning ? current.elapsedTime : 0.0,
-      speedKmh: newSpeedKmh,
-      gForce: current.gForce,
-      altitude: currentAltitude,
-      gpsTimeMs: gpsTimeMs,
-    ));
+    // Maintain a short pre-run GPS buffer for retroactive launch interpolation.
+    _preRunBuffer.add(
+      DataPoint(
+        elapsedTime: current.isRunning ? current.elapsedTime : 0.0,
+        speedKmh: newSpeedKmh,
+        gForce: current.gForce,
+        altitude: currentAltitude,
+        gpsTimeMs: gpsTimeMs,
+      ),
+    );
     if (_preRunBuffer.length > 50) {
       _preRunBuffer.removeAt(0);
     }
 
-    int delayTicks = 2; // 200ms at 10Hz
-    double shiftedGForce = current.gForce;
-    if (_preRunBuffer.length > delayTicks) {
-      shiftedGForce = _preRunBuffer[_preRunBuffer.length - 1 - delayTicks].gForce;
-    }
-
-    // Smooth G-Force slightly
-    double smoothedGForce = shiftedGForce;
+    // IMU has no sample timestamp yet. Keep G diagnostic-only and do not apply
+    // a tick-based latency shift that changes with the GPS notification rate.
+    double smoothedGForce = current.gForce;
     if (current.history.isNotEmpty) {
       smoothedGForce =
-          (current.history.last.gForce * 0.7) + (shiftedGForce * 0.3);
-    }
-
-    // 0.5 Sensor-Fusion Outlier Rejection
-    // Validate the GPS speed jump against the delayed IMU acceleration.
-    double lastSpeed = current.isRunning
-        ? current.speedKmh
-        : (_preRunBuffer.length > 1 ? _preRunBuffer[_preRunBuffer.length - 2].speedKmh : 0.0);
-
-    if (_preRunBuffer.isNotEmpty || current.isRunning) {
-      double actualDeltaKmh = newSpeedKmh - lastSpeed;
-      double expectedDeltaKmh = (shiftedGForce * gAcceleration * currentDt) * 3.6;
-      double dynamicToleranceKmh = (1.0 * gAcceleration * currentDt) * 3.6;
-
-      if (actualDeltaKmh > 0 &&
-          (actualDeltaKmh - expectedDeltaKmh).abs() > dynamicToleranceKmh) {
-        _rejectedCount++;
-        if (_rejectedCount > 2) {
-          // 200ms of sustained mismatch
-          _rejectedCount = 0;
-          if (!current.isRunning) {
-            // Accept new reality (e.g., GPS reconnect) but do not clear buffer to maintain latency
-          }
-        } else {
-          return current; // Ignore this likely GPS multipath glitch
-        }
-      } else {
-        _rejectedCount = 0;
-      }
-    } else {
-      _rejectedCount = 0;
+          (current.history.last.gForce * 0.7) + (current.gForce * 0.3);
     }
 
     // If not armed and not running, just return current with updated speed and altitude
@@ -178,23 +148,30 @@ class PhysicsEngine {
       return current.copyWith(
         speedKmh: displaySpeed,
         isRunning: false,
-        distanceMeters: current.history.isNotEmpty ? current.distanceMeters : 0.0,
+        distanceMeters: current.history.isNotEmpty
+            ? current.distanceMeters
+            : 0.0,
         elapsedTime: current.history.isNotEmpty ? current.elapsedTime : 0.0,
-        startAltitude: current.history.isNotEmpty ? current.startAltitude : currentAltitude,
+        startAltitude: current.history.isNotEmpty
+            ? current.startAltitude
+            : currentAltitude,
       );
     }
 
     if (!current.isRunning) {
-
       if (runMode == 'drag') {
         // Armed state
         if (newSpeedKmh == 0.0) {
           return current.copyWith(
             speedKmh: 0.0,
-            distanceMeters: current.history.isNotEmpty ? current.distanceMeters : 0.0,
+            distanceMeters: current.history.isNotEmpty
+                ? current.distanceMeters
+                : 0.0,
             elapsedTime: current.history.isNotEmpty ? current.elapsedTime : 0.0,
             gForce: current.gForce,
-            startAltitude: current.history.isNotEmpty ? current.startAltitude : currentAltitude,
+            startAltitude: current.history.isNotEmpty
+                ? current.startAltitude
+                : currentAltitude,
             runMode: 'drag',
             targetDistance: targetDistance,
             targetDistanceUnit: targetDistanceUnit,
@@ -228,10 +205,14 @@ class PhysicsEngine {
         double displaySpeed = newSpeedKmh < 2.0 ? 0.0 : newSpeedKmh;
         return current.copyWith(
           speedKmh: displaySpeed,
-          distanceMeters: current.history.isNotEmpty ? current.distanceMeters : 0.0,
+          distanceMeters: current.history.isNotEmpty
+              ? current.distanceMeters
+              : 0.0,
           elapsedTime: current.history.isNotEmpty ? current.elapsedTime : 0.0,
           gForce: current.gForce,
-          startAltitude: current.history.isNotEmpty ? current.startAltitude : currentAltitude,
+          startAltitude: current.history.isNotEmpty
+              ? current.startAltitude
+              : currentAltitude,
           runMode: 'drag',
           targetDistance: targetDistance,
           targetDistanceUnit: targetDistanceUnit,
@@ -263,7 +244,8 @@ class PhysicsEngine {
         } else {
           if (_preRunBuffer.length >= 2) {
             double prevSpeed = _preRunBuffer[_preRunBuffer.length - 2].speedKmh;
-            if (prevSpeed <= intervalStartSpeed && newSpeedKmh > intervalStartSpeed) {
+            if (prevSpeed <= intervalStartSpeed &&
+                newSpeedKmh > intervalStartSpeed) {
               // Trigger! Exact start crossing — prefer iTOW between the two samples.
               final prevPoint = _preRunBuffer[_preRunBuffer.length - 2];
               final currPoint = _preRunBuffer[_preRunBuffer.length - 1];
@@ -326,10 +308,14 @@ class PhysicsEngine {
         double displaySpeed = newSpeedKmh < 2.0 ? 0.0 : newSpeedKmh;
         return current.copyWith(
           speedKmh: displaySpeed,
-          distanceMeters: current.history.isNotEmpty ? current.distanceMeters : 0.0,
+          distanceMeters: current.history.isNotEmpty
+              ? current.distanceMeters
+              : 0.0,
           elapsedTime: current.history.isNotEmpty ? current.elapsedTime : 0.0,
           gForce: current.gForce,
-          startAltitude: current.history.isNotEmpty ? current.startAltitude : currentAltitude,
+          startAltitude: current.history.isNotEmpty
+              ? current.startAltitude
+              : currentAltitude,
           runMode: 'interval',
           targetDistance: targetDistance,
           targetDistanceUnit: targetDistanceUnit,
@@ -490,11 +476,14 @@ class PhysicsEngine {
     }
 
     // 60 ft Rollout (target: 60ft + 1ft = 18.288 + 0.3048 = 18.5928 meters)
-    if (t60ftRollout == null && rollout1ft != null && newDistance >= (distance60ft + 0.3048)) {
+    if (t60ftRollout == null &&
+        rollout1ft != null &&
+        newDistance >= (distance60ft + 0.3048)) {
       double distDiff = newDistance - current.distanceMeters;
       double absTime;
       if (distDiff > 0) {
-        double fraction = ((distance60ft + 0.3048) - current.distanceMeters) / distDiff;
+        double fraction =
+            ((distance60ft + 0.3048) - current.distanceMeters) / distDiff;
         absTime = current.elapsedTime + (currentDt * fraction);
       } else {
         absTime = newElapsedTime;
@@ -517,11 +506,14 @@ class PhysicsEngine {
     }
 
     // 330 ft Rollout (target: distance330ft + 0.3048)
-    if (t330ftRollout == null && rollout1ft != null && newDistance >= (distance330ft + 0.3048)) {
+    if (t330ftRollout == null &&
+        rollout1ft != null &&
+        newDistance >= (distance330ft + 0.3048)) {
       double distDiff = newDistance - current.distanceMeters;
       double absTime;
       if (distDiff > 0) {
-        double fraction = ((distance330ft + 0.3048) - current.distanceMeters) / distDiff;
+        double fraction =
+            ((distance330ft + 0.3048) - current.distanceMeters) / distDiff;
         absTime = current.elapsedTime + (currentDt * fraction);
       } else {
         absTime = newElapsedTime;
@@ -605,7 +597,8 @@ class PhysicsEngine {
       if (distDiff > 0) {
         double fraction = (distance18Mile - current.distanceMeters) / distDiff;
         t18 = current.elapsedTime + (currentDt * fraction);
-        trap18 = current.speedKmh + ((newSpeedKmh - current.speedKmh) * fraction);
+        trap18 =
+            current.speedKmh + ((newSpeedKmh - current.speedKmh) * fraction);
       } else {
         t18 = newElapsedTime;
         trap18 = newSpeedKmh;
@@ -613,11 +606,14 @@ class PhysicsEngine {
     }
 
     // 1/8 mile Rollout (target: distance18Mile + 0.3048)
-    if (t18Rollout == null && rollout1ft != null && newDistance >= (distance18Mile + 0.3048)) {
+    if (t18Rollout == null &&
+        rollout1ft != null &&
+        newDistance >= (distance18Mile + 0.3048)) {
       double distDiff = newDistance - current.distanceMeters;
       double absTime;
       if (distDiff > 0) {
-        double fraction = ((distance18Mile + 0.3048) - current.distanceMeters) / distDiff;
+        double fraction =
+            ((distance18Mile + 0.3048) - current.distanceMeters) / distDiff;
         absTime = current.elapsedTime + (currentDt * fraction);
       } else {
         absTime = newElapsedTime;
@@ -631,7 +627,8 @@ class PhysicsEngine {
       if (distDiff > 0) {
         double fraction = (distance1000ft - current.distanceMeters) / distDiff;
         t1000ft = current.elapsedTime + (currentDt * fraction);
-        trap1000 = current.speedKmh + ((newSpeedKmh - current.speedKmh) * fraction);
+        trap1000 =
+            current.speedKmh + ((newSpeedKmh - current.speedKmh) * fraction);
       } else {
         t1000ft = newElapsedTime;
         trap1000 = newSpeedKmh;
@@ -639,11 +636,14 @@ class PhysicsEngine {
     }
 
     // 1000 ft Rollout (target: distance1000ft + 0.3048)
-    if (t1000Rollout == null && rollout1ft != null && newDistance >= (distance1000ft + 0.3048)) {
+    if (t1000Rollout == null &&
+        rollout1ft != null &&
+        newDistance >= (distance1000ft + 0.3048)) {
       double distDiff = newDistance - current.distanceMeters;
       double absTime;
       if (distDiff > 0) {
-        double fraction = ((distance1000ft + 0.3048) - current.distanceMeters) / distDiff;
+        double fraction =
+            ((distance1000ft + 0.3048) - current.distanceMeters) / distDiff;
         absTime = current.elapsedTime + (currentDt * fraction);
       } else {
         absTime = newElapsedTime;
@@ -657,7 +657,8 @@ class PhysicsEngine {
       if (distDiff > 0) {
         double fraction = (distance14Mile - current.distanceMeters) / distDiff;
         t14 = current.elapsedTime + (currentDt * fraction);
-        trap14 = current.speedKmh + ((newSpeedKmh - current.speedKmh) * fraction);
+        trap14 =
+            current.speedKmh + ((newSpeedKmh - current.speedKmh) * fraction);
       } else {
         t14 = newElapsedTime;
         trap14 = newSpeedKmh;
@@ -665,11 +666,14 @@ class PhysicsEngine {
     }
 
     // 1/4 mile Rollout (target: distance14Mile + 0.3048)
-    if (t14Rollout == null && rollout1ft != null && newDistance >= (distance14Mile + 0.3048)) {
+    if (t14Rollout == null &&
+        rollout1ft != null &&
+        newDistance >= (distance14Mile + 0.3048)) {
       double distDiff = newDistance - current.distanceMeters;
       double absTime;
       if (distDiff > 0) {
-        double fraction = ((distance14Mile + 0.3048) - current.distanceMeters) / distDiff;
+        double fraction =
+            ((distance14Mile + 0.3048) - current.distanceMeters) / distDiff;
         absTime = current.elapsedTime + (currentDt * fraction);
       } else {
         absTime = newElapsedTime;
@@ -683,7 +687,8 @@ class PhysicsEngine {
       if (distDiff > 0) {
         double fraction = (distance12Mile - current.distanceMeters) / distDiff;
         t12 = current.elapsedTime + (currentDt * fraction);
-        trap12 = current.speedKmh + ((newSpeedKmh - current.speedKmh) * fraction);
+        trap12 =
+            current.speedKmh + ((newSpeedKmh - current.speedKmh) * fraction);
       } else {
         t12 = newElapsedTime;
         trap12 = newSpeedKmh;
@@ -691,11 +696,14 @@ class PhysicsEngine {
     }
 
     // 1/2 mile Rollout (target: distance12Mile + 0.3048)
-    if (t12Rollout == null && rollout1ft != null && newDistance >= (distance12Mile + 0.3048)) {
+    if (t12Rollout == null &&
+        rollout1ft != null &&
+        newDistance >= (distance12Mile + 0.3048)) {
       double distDiff = newDistance - current.distanceMeters;
       double absTime;
       if (distDiff > 0) {
-        double fraction = ((distance12Mile + 0.3048) - current.distanceMeters) / distDiff;
+        double fraction =
+            ((distance12Mile + 0.3048) - current.distanceMeters) / distDiff;
         absTime = current.elapsedTime + (currentDt * fraction);
       } else {
         absTime = newElapsedTime;
@@ -738,7 +746,8 @@ class PhysicsEngine {
       if (newDistance >= targetDistanceMeters) {
         targetAchieved = true;
       }
-    } else if (current.targetEndSpeed != null && current.targetStartSpeed == 0.0) {
+    } else if (current.targetEndSpeed != null &&
+        current.targetStartSpeed == 0.0) {
       if (newSpeedKmh >= current.targetEndSpeed!) {
         targetAchieved = true;
       }
@@ -817,7 +826,7 @@ class PhysicsEngine {
 
     bool targetAchieved = false;
     double newElapsedTimeCalculated = newElapsedTime;
-    
+
     if (newSpeedKmh >= intervalEndSpeed) {
       targetAchieved = true;
       double speedDiff = newSpeedKmh - current.speedKmh;
@@ -834,31 +843,31 @@ class PhysicsEngine {
     double? t0_100kmh = current.time0to100kmh;
     double? t0_130mph = current.time0to130mph;
     double? t0_200kmh = current.time0to200kmh;
-    
+
     if (current.targetStartSpeed != null && current.targetEndSpeed != null) {
       if ((current.targetStartSpeed! - 96.56).abs() < 1.0 &&
           (current.targetEndSpeed! - 209.21).abs() < 1.0 &&
           current.targetSpeedUnit == 'mph') {
         t60_130 = newElapsedTimeCalculated;
       } else if ((current.targetStartSpeed! - 100.0).abs() < 0.1 &&
-                 (current.targetEndSpeed! - 200.0).abs() < 0.1 &&
-                 current.targetSpeedUnit == 'kmh') {
+          (current.targetEndSpeed! - 200.0).abs() < 0.1 &&
+          current.targetSpeedUnit == 'kmh') {
         t100_200 = newElapsedTimeCalculated;
       } else if (current.targetStartSpeed == 0.0) {
         if ((current.targetEndSpeed! - 96.56).abs() < 1.0 &&
             current.targetSpeedUnit == 'mph') {
           t0_60mph = newElapsedTimeCalculated;
         } else if ((current.targetEndSpeed! - 50.0).abs() < 0.1 &&
-                   current.targetSpeedUnit == 'kmh') {
+            current.targetSpeedUnit == 'kmh') {
           t0_50kmh = newElapsedTimeCalculated;
         } else if ((current.targetEndSpeed! - 100.0).abs() < 0.1 &&
-                   current.targetSpeedUnit == 'kmh') {
+            current.targetSpeedUnit == 'kmh') {
           t0_100kmh = newElapsedTimeCalculated;
         } else if ((current.targetEndSpeed! - 209.21).abs() < 1.0 &&
-                   current.targetSpeedUnit == 'mph') {
+            current.targetSpeedUnit == 'mph') {
           t0_130mph = newElapsedTimeCalculated;
         } else if ((current.targetEndSpeed! - 200.0).abs() < 0.1 &&
-                   current.targetSpeedUnit == 'kmh') {
+            current.targetSpeedUnit == 'kmh') {
           t0_200kmh = newElapsedTimeCalculated;
         }
       }
@@ -912,8 +921,7 @@ class PhysicsEngine {
 
       final vStart = _preRunBuffer[crossingIndex].speedKmh;
       final vEnd = _preRunBuffer[crossingIndex + 1].speedKmh;
-      final startFraction =
-          (zeroCrossingThreshold - vStart) / (vEnd - vStart);
+      final startFraction = (zeroCrossingThreshold - vStart) / (vEnd - vStart);
 
       final tCross0 = _preRunBuffer[crossingIndex].gpsTimeMs;
       final tCross1 = _preRunBuffer[crossingIndex + 1].gpsTimeMs;
@@ -939,48 +947,25 @@ class PhysicsEngine {
       }
 
       var initialDistance = 0.0;
-      final firstAvgMs =
-          ((zeroCrossingThreshold / 3.6) + (vEnd / 3.6)) / 2;
+      final firstAvgMs = ((zeroCrossingThreshold / 3.6) + (vEnd / 3.6)) / 2;
       initialDistance += firstAvgMs * firstStepTime;
       for (var j = crossingIndex + 1; j < k; j++) {
         final stepAvgSpeedMs =
             ((_preRunBuffer[j].speedKmh / 3.6) +
-                    (_preRunBuffer[j + 1].speedKmh / 3.6)) /
-                2;
+                (_preRunBuffer[j + 1].speedKmh / 3.6)) /
+            2;
         initialDistance += stepAvgSpeedMs * stepDt(j, j + 1);
       }
 
-      double? t0Ms = useItow
+      final t0Ms = useItow
           ? tCross0 + startFraction * deltaGpsMs(tCross0, tCross1)
           : null;
-      var launchSource = 'gps';
-
-      // Pull t0 earlier when longitudinal G rises before GPS speed zero-cross.
-      if (t0Ms != null) {
-        final imuEdge = _findImuLaunchEdge(atOrBeforeGpsMs: t0Ms.round());
-        if (imuEdge?.gpsTimeMs != null) {
-          final leadSec =
-              deltaGpsSeconds(imuEdge!.gpsTimeMs!, t0Ms.round());
-          final sAccPoor = sAccMps != null && sAccMps > 0.35;
-          if (leadSec >= 0.04 && leadSec <= imuLeadMaxSeconds) {
-            final leadMs = leadSec * 1000.0;
-            t0Ms = t0Ms - leadMs;
-            elapsedOffset += leadSec;
-            // Distance during the IMU-only lead is tiny at near-zero speed — skip.
-            launchSource = sAccPoor ? 'imu' : 'fused';
-          }
-        }
-      }
-
-      const delayTicks = 2;
-      int getShiftedIndex(int idx) =>
-          (idx - delayTicks).clamp(0, _preRunBuffer.length - 1);
 
       final initialHistory = <DataPoint>[
         DataPoint(
           elapsedTime: 0.0,
           speedKmh: 0.0,
-          gForce: _preRunBuffer[getShiftedIndex(crossingIndex)].gForce,
+          gForce: _preRunBuffer[crossingIndex].gForce,
           altitude: _preRunBuffer[crossingIndex].altitude ?? currentAltitude,
           gpsTimeMs: t0Ms?.round(),
         ),
@@ -995,13 +980,15 @@ class PhysicsEngine {
         } else {
           tJ = firstStepTime + (j - (crossingIndex + 1)) * currentDt;
         }
-        initialHistory.add(DataPoint(
-          elapsedTime: tJ,
-          speedKmh: _preRunBuffer[j].speedKmh,
-          gForce: _preRunBuffer[getShiftedIndex(j)].gForce,
-          altitude: _preRunBuffer[j].altitude ?? currentAltitude,
-          gpsTimeMs: _preRunBuffer[j].gpsTimeMs,
-        ));
+        initialHistory.add(
+          DataPoint(
+            elapsedTime: tJ,
+            speedKmh: _preRunBuffer[j].speedKmh,
+            gForce: _preRunBuffer[j].gForce,
+            altitude: _preRunBuffer[j].altitude ?? currentAltitude,
+            gpsTimeMs: _preRunBuffer[j].gpsTimeMs,
+          ),
+        );
       }
 
       return current.copyWith(
@@ -1011,7 +998,7 @@ class PhysicsEngine {
         speedKmh: newSpeedKmh,
         gForce: current.gForce,
         startAltitude: currentAltitude,
-        launchSource: launchSource,
+        launchSource: 'gps',
         runMode: runMode,
         targetDistance: targetDistance,
         targetDistanceUnit: targetDistanceUnit,
@@ -1024,40 +1011,14 @@ class PhysicsEngine {
     return null;
   }
 
-  /// Latest IMU G rising edge at/before the GPS zero-crossing epoch.
-  _ImuGSample? _findImuLaunchEdge({required int atOrBeforeGpsMs}) {
-    if (_imuGBuffer.length < 3) return null;
-    _ImuGSample? best;
-    for (var i = 1; i < _imuGBuffer.length; i++) {
-      final prev = _imuGBuffer[i - 1];
-      final curr = _imuGBuffer[i];
-      if (curr.gpsTimeMs == null) continue;
-      if (prev.gForce >= imuLaunchGQuiet) continue;
-      if (curr.gForce < imuLaunchGThreshold) continue;
-      // Must not be after GPS t0 (allow 50 ms jitter).
-      if (deltaGpsMs(atOrBeforeGpsMs, curr.gpsTimeMs!) > 50 &&
-          curr.gpsTimeMs! > atOrBeforeGpsMs) {
-        continue;
-      }
-      best = curr;
-    }
-    return best;
-  }
-
   RaceMetrics reset() {
     _preRunBuffer.clear();
-    _imuGBuffer.clear();
     _stoppedTicks = 0;
-    _rejectedCount = 0;
+    _lastSeenGpsTimeMs = null;
     _lastGpsTimeMs = null;
     _lastGpsTimeSeconds = null;
     _lastValidDt = null;
+    _lastGpsEpochStatus = null;
     return RaceMetrics();
   }
-}
-
-class _ImuGSample {
-  final int? gpsTimeMs;
-  final double gForce;
-  const _ImuGSample({required this.gpsTimeMs, required this.gForce});
 }

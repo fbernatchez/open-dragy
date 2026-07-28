@@ -2,6 +2,7 @@ import '../utils/odgp_parser.dart';
 
 /// NAV-PVT / ODGP fields for raw logging and future physics replay.
 class GpsPvtSample {
+  final bool valid;
   final double speedKmh;
   final double? latitude;
   final double? longitude;
@@ -17,6 +18,7 @@ class GpsPvtSample {
   final bool usedPvt;
 
   const GpsPvtSample({
+    this.valid = true,
     required this.speedKmh,
     this.latitude,
     this.longitude,
@@ -34,9 +36,10 @@ class GpsPvtSample {
 
   factory GpsPvtSample.fromOdgp(OdgpFix fix, {double? hdopApprox}) {
     return GpsPvtSample(
+      valid: fix.valid,
       speedKmh: fix.speedKmh,
-      latitude: fix.valid ? fix.latitude : null,
-      longitude: fix.valid ? fix.longitude : null,
+      latitude: fix.latitude,
+      longitude: fix.longitude,
       altitudeM: fix.altitudeM,
       iTowMs: fix.iTOW,
       fixType: fix.fixType,
@@ -46,7 +49,7 @@ class GpsPvtSample {
       sAccMps: fix.sAccMps > 0 ? fix.sAccMps : null,
       headingDeg: fix.headingDeg,
       hdop: hdopApprox,
-      usedPvt: true,
+      usedPvt: fix.usedPvt,
     );
   }
 }

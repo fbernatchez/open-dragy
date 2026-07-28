@@ -1,5 +1,6 @@
-﻿import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:open_dragy/services/physics_engine.dart';
+import 'package:open_dragy/services/gps_epoch_classifier.dart';
 import 'package:open_dragy/models/race_metrics.dart';
 import 'package:open_dragy/models/race_target.dart';
 
@@ -13,6 +14,8 @@ RaceMetrics _update(
   required String targetLabel,
   required double intervalStartSpeed,
   required double intervalEndSpeed,
+  int? gpsTimeMs,
+  double? sAccMps,
 }) {
   double? targetDistance;
   String? targetDistanceUnit;
@@ -49,6 +52,8 @@ RaceMetrics _update(
     targetSpeedUnit: targetSpeedUnit,
     intervalStartSpeed: intervalStartSpeed,
     intervalEndSpeed: intervalEndSpeed,
+    gpsTimeMs: gpsTimeMs,
+    sAccMps: sAccMps,
   );
 }
 
@@ -72,7 +77,8 @@ void main() {
       RaceMetrics metrics = RaceMetrics();
 
       // Even if speed goes up to 20 km/h, it should not trigger if not armed
-      metrics = _update(engine,
+      metrics = _update(
+        engine,
         metrics,
         0.0,
         100.0,
@@ -82,7 +88,8 @@ void main() {
         intervalStartSpeed: 96.5606,
         intervalEndSpeed: 209.2147,
       );
-      metrics = _update(engine,
+      metrics = _update(
+        engine,
         metrics,
         15.0,
         100.0,
@@ -100,7 +107,8 @@ void main() {
     test('detects launch when speed commits and armed', () {
       RaceMetrics metrics = RaceMetrics();
 
-      metrics = _update(engine,
+      metrics = _update(
+        engine,
         metrics,
         0.0,
         100.0,
@@ -112,7 +120,8 @@ void main() {
       );
       expect(metrics.isRunning, false);
 
-      metrics = _update(engine,
+      metrics = _update(
+        engine,
         metrics,
         0.1,
         100.0,
@@ -124,7 +133,8 @@ void main() {
       );
       expect(metrics.isRunning, false);
 
-      metrics = _update(engine,
+      metrics = _update(
+        engine,
         metrics,
         0.4,
         100.0,
@@ -136,7 +146,8 @@ void main() {
       );
       expect(metrics.isRunning, false);
 
-      metrics = _update(engine,
+      metrics = _update(
+        engine,
         metrics,
         3.2,
         100.0,
@@ -154,7 +165,8 @@ void main() {
     test('detects launch when speed commits with sudden start', () {
       RaceMetrics metrics = RaceMetrics();
 
-      metrics = _update(engine,
+      metrics = _update(
+        engine,
         metrics,
         0.0,
         100.0,
@@ -166,7 +178,8 @@ void main() {
       );
       expect(metrics.isRunning, false);
 
-      metrics = _update(engine,
+      metrics = _update(
+        engine,
         metrics,
         0.6,
         100.0,
@@ -178,7 +191,8 @@ void main() {
       );
       expect(metrics.isRunning, false);
 
-      metrics = _update(engine,
+      metrics = _update(
+        engine,
         metrics,
         1.8,
         100.0,
@@ -190,7 +204,8 @@ void main() {
       );
       expect(metrics.isRunning, false);
 
-      metrics = _update(engine,
+      metrics = _update(
+        engine,
         metrics,
         3.2,
         100.0,
@@ -207,20 +222,130 @@ void main() {
     test('detects launch when walking (slow acceleration)', () {
       RaceMetrics metrics = RaceMetrics();
 
-      metrics = _update(engine,metrics, 0.0, 100.0, isArmed: true, runMode: 'drag', targetLabel: '1/4 mile', intervalStartSpeed: 96.5606, intervalEndSpeed: 209.2147);
-      metrics = _update(engine,metrics, 0.3, 100.0, isArmed: true, runMode: 'drag', targetLabel: '1/4 mile', intervalStartSpeed: 96.5606, intervalEndSpeed: 209.2147);
-      metrics = _update(engine,metrics, 0.6, 100.0, isArmed: true, runMode: 'drag', targetLabel: '1/4 mile', intervalStartSpeed: 96.5606, intervalEndSpeed: 209.2147);
-      metrics = _update(engine,metrics, 0.9, 100.0, isArmed: true, runMode: 'drag', targetLabel: '1/4 mile', intervalStartSpeed: 96.5606, intervalEndSpeed: 209.2147);
-      metrics = _update(engine,metrics, 1.2, 100.0, isArmed: true, runMode: 'drag', targetLabel: '1/4 mile', intervalStartSpeed: 96.5606, intervalEndSpeed: 209.2147);
-      metrics = _update(engine,metrics, 1.5, 100.0, isArmed: true, runMode: 'drag', targetLabel: '1/4 mile', intervalStartSpeed: 96.5606, intervalEndSpeed: 209.2147);
-      metrics = _update(engine,metrics, 1.8, 100.0, isArmed: true, runMode: 'drag', targetLabel: '1/4 mile', intervalStartSpeed: 96.5606, intervalEndSpeed: 209.2147);
-      metrics = _update(engine,metrics, 2.1, 100.0, isArmed: true, runMode: 'drag', targetLabel: '1/4 mile', intervalStartSpeed: 96.5606, intervalEndSpeed: 209.2147);
-      metrics = _update(engine,metrics, 2.4, 100.0, isArmed: true, runMode: 'drag', targetLabel: '1/4 mile', intervalStartSpeed: 96.5606, intervalEndSpeed: 209.2147);
-      metrics = _update(engine,metrics, 2.7, 100.0, isArmed: true, runMode: 'drag', targetLabel: '1/4 mile', intervalStartSpeed: 96.5606, intervalEndSpeed: 209.2147);
+      metrics = _update(
+        engine,
+        metrics,
+        0.0,
+        100.0,
+        isArmed: true,
+        runMode: 'drag',
+        targetLabel: '1/4 mile',
+        intervalStartSpeed: 96.5606,
+        intervalEndSpeed: 209.2147,
+      );
+      metrics = _update(
+        engine,
+        metrics,
+        0.3,
+        100.0,
+        isArmed: true,
+        runMode: 'drag',
+        targetLabel: '1/4 mile',
+        intervalStartSpeed: 96.5606,
+        intervalEndSpeed: 209.2147,
+      );
+      metrics = _update(
+        engine,
+        metrics,
+        0.6,
+        100.0,
+        isArmed: true,
+        runMode: 'drag',
+        targetLabel: '1/4 mile',
+        intervalStartSpeed: 96.5606,
+        intervalEndSpeed: 209.2147,
+      );
+      metrics = _update(
+        engine,
+        metrics,
+        0.9,
+        100.0,
+        isArmed: true,
+        runMode: 'drag',
+        targetLabel: '1/4 mile',
+        intervalStartSpeed: 96.5606,
+        intervalEndSpeed: 209.2147,
+      );
+      metrics = _update(
+        engine,
+        metrics,
+        1.2,
+        100.0,
+        isArmed: true,
+        runMode: 'drag',
+        targetLabel: '1/4 mile',
+        intervalStartSpeed: 96.5606,
+        intervalEndSpeed: 209.2147,
+      );
+      metrics = _update(
+        engine,
+        metrics,
+        1.5,
+        100.0,
+        isArmed: true,
+        runMode: 'drag',
+        targetLabel: '1/4 mile',
+        intervalStartSpeed: 96.5606,
+        intervalEndSpeed: 209.2147,
+      );
+      metrics = _update(
+        engine,
+        metrics,
+        1.8,
+        100.0,
+        isArmed: true,
+        runMode: 'drag',
+        targetLabel: '1/4 mile',
+        intervalStartSpeed: 96.5606,
+        intervalEndSpeed: 209.2147,
+      );
+      metrics = _update(
+        engine,
+        metrics,
+        2.1,
+        100.0,
+        isArmed: true,
+        runMode: 'drag',
+        targetLabel: '1/4 mile',
+        intervalStartSpeed: 96.5606,
+        intervalEndSpeed: 209.2147,
+      );
+      metrics = _update(
+        engine,
+        metrics,
+        2.4,
+        100.0,
+        isArmed: true,
+        runMode: 'drag',
+        targetLabel: '1/4 mile',
+        intervalStartSpeed: 96.5606,
+        intervalEndSpeed: 209.2147,
+      );
+      metrics = _update(
+        engine,
+        metrics,
+        2.7,
+        100.0,
+        isArmed: true,
+        runMode: 'drag',
+        targetLabel: '1/4 mile',
+        intervalStartSpeed: 96.5606,
+        intervalEndSpeed: 209.2147,
+      );
 
       expect(metrics.isRunning, false);
 
-      metrics = _update(engine,metrics, 3.3, 100.0, isArmed: true, runMode: 'drag', targetLabel: '1/4 mile', intervalStartSpeed: 96.5606, intervalEndSpeed: 209.2147);
+      metrics = _update(
+        engine,
+        metrics,
+        3.3,
+        100.0,
+        isArmed: true,
+        runMode: 'drag',
+        targetLabel: '1/4 mile',
+        intervalStartSpeed: 96.5606,
+        intervalEndSpeed: 209.2147,
+      );
       expect(metrics.isRunning, true);
       expect(metrics.speedKmh, 3.3);
       expect(metrics.elapsedTime, closeTo(0.8333, 0.01));
@@ -229,48 +354,308 @@ void main() {
     test('integrates distance properly during run', () {
       RaceMetrics metrics = RaceMetrics();
 
-      metrics = _update(engine,metrics, 0.0, 100.0, isArmed: true, runMode: 'drag', targetLabel: '1/4 mile', intervalStartSpeed: 96.5606, intervalEndSpeed: 209.2147);
-      metrics = _update(engine,metrics, 0.1, 100.0, isArmed: true, runMode: 'drag', targetLabel: '1/4 mile', intervalStartSpeed: 96.5606, intervalEndSpeed: 209.2147);
-      metrics = _update(engine,metrics, 0.4, 100.0, isArmed: true, runMode: 'drag', targetLabel: '1/4 mile', intervalStartSpeed: 96.5606, intervalEndSpeed: 209.2147);
-      metrics = _update(engine,metrics, 3.2, 100.0, isArmed: true, runMode: 'drag', targetLabel: '1/4 mile', intervalStartSpeed: 96.5606, intervalEndSpeed: 209.2147);
+      metrics = _update(
+        engine,
+        metrics,
+        0.0,
+        100.0,
+        isArmed: true,
+        runMode: 'drag',
+        targetLabel: '1/4 mile',
+        intervalStartSpeed: 96.5606,
+        intervalEndSpeed: 209.2147,
+      );
+      metrics = _update(
+        engine,
+        metrics,
+        0.1,
+        100.0,
+        isArmed: true,
+        runMode: 'drag',
+        targetLabel: '1/4 mile',
+        intervalStartSpeed: 96.5606,
+        intervalEndSpeed: 209.2147,
+      );
+      metrics = _update(
+        engine,
+        metrics,
+        0.4,
+        100.0,
+        isArmed: true,
+        runMode: 'drag',
+        targetLabel: '1/4 mile',
+        intervalStartSpeed: 96.5606,
+        intervalEndSpeed: 209.2147,
+      );
+      metrics = _update(
+        engine,
+        metrics,
+        3.2,
+        100.0,
+        isArmed: true,
+        runMode: 'drag',
+        targetLabel: '1/4 mile',
+        intervalStartSpeed: 96.5606,
+        intervalEndSpeed: 209.2147,
+      );
       expect(metrics.isRunning, true);
 
       final initialDistance = metrics.distanceMeters;
 
       // Next step to 6.2 km/h
-      metrics = _update(engine,metrics, 6.2, 100.0, isArmed: true, runMode: 'drag', targetLabel: '1/4 mile', intervalStartSpeed: 96.5606, intervalEndSpeed: 209.2147);
+      metrics = _update(
+        engine,
+        metrics,
+        6.2,
+        100.0,
+        isArmed: true,
+        runMode: 'drag',
+        targetLabel: '1/4 mile',
+        intervalStartSpeed: 96.5606,
+        intervalEndSpeed: 209.2147,
+      );
 
       final expectedDeltaDistance = ((3.2 / 3.6) + (6.2 / 3.6)) / 2 * 0.1;
-      expect(metrics.distanceMeters, closeTo(initialDistance + expectedDeltaDistance, 0.001));
+      expect(
+        metrics.distanceMeters,
+        closeTo(initialDistance + expectedDeltaDistance, 0.001),
+      );
       expect(metrics.elapsedTime, closeTo(0.2, 0.01));
     });
 
-    test('rejects outliers and resets after sustained mismatch', () {
+    test('does not apply IMU-based rejection to GPS speed', () {
       RaceMetrics metrics = RaceMetrics();
 
-      metrics = _update(engine,metrics, 0.0, 100.0, isArmed: true, runMode: 'drag', targetLabel: '1/4 mile', intervalStartSpeed: 96.5606, intervalEndSpeed: 209.2147);
-      metrics = _update(engine,metrics, 0.1, 100.0, isArmed: true, runMode: 'drag', targetLabel: '1/4 mile', intervalStartSpeed: 96.5606, intervalEndSpeed: 209.2147);
-      metrics = _update(engine,metrics, 0.4, 100.0, isArmed: true, runMode: 'drag', targetLabel: '1/4 mile', intervalStartSpeed: 96.5606, intervalEndSpeed: 209.2147);
+      metrics = _update(
+        engine,
+        metrics,
+        0.0,
+        100.0,
+        isArmed: true,
+        runMode: 'drag',
+        targetLabel: '1/4 mile',
+        intervalStartSpeed: 96.5606,
+        intervalEndSpeed: 209.2147,
+        gpsTimeMs: 1000,
+      );
+      metrics = _update(
+        engine,
+        metrics,
+        0.1,
+        100.0,
+        isArmed: true,
+        runMode: 'drag',
+        targetLabel: '1/4 mile',
+        intervalStartSpeed: 96.5606,
+        intervalEndSpeed: 209.2147,
+        gpsTimeMs: 1100,
+      );
+      metrics = _update(
+        engine,
+        metrics,
+        0.4,
+        100.0,
+        isArmed: true,
+        runMode: 'drag',
+        targetLabel: '1/4 mile',
+        intervalStartSpeed: 96.5606,
+        intervalEndSpeed: 209.2147,
+        gpsTimeMs: 1200,
+      );
 
-      final beforeOutlier = metrics;
-      
-      metrics = _update(engine,metrics, 10.0, 100.0, isArmed: true, runMode: 'drag', targetLabel: '1/4 mile', intervalStartSpeed: 96.5606, intervalEndSpeed: 209.2147); // 1st outlier
-      expect(metrics.speedKmh, beforeOutlier.speedKmh); // Should be unchanged
+      metrics = _update(
+        engine,
+        metrics,
+        10.0,
+        100.0,
+        isArmed: true,
+        runMode: 'drag',
+        targetLabel: '1/4 mile',
+        intervalStartSpeed: 96.5606,
+        intervalEndSpeed: 209.2147,
+        gpsTimeMs: 1300,
+      );
+      expect(metrics.speedKmh, 10.0);
+      expect(metrics.launchSource, 'gps');
+    });
 
-      metrics = _update(engine,metrics, 10.0, 100.0, isArmed: true, runMode: 'drag', targetLabel: '1/4 mile', intervalStartSpeed: 96.5606, intervalEndSpeed: 209.2147); // 2nd outlier
-      expect(metrics.speedKmh, beforeOutlier.speedKmh); // Should be unchanged
+    test('duplicate and out-of-order iTOW do not mutate a running result', () {
+      RaceMetrics metrics = RaceMetrics();
+      metrics = _update(
+        engine,
+        metrics,
+        0.0,
+        100.0,
+        isArmed: true,
+        runMode: 'drag',
+        targetLabel: '1/4 mile',
+        intervalStartSpeed: 96.5606,
+        intervalEndSpeed: 209.2147,
+        gpsTimeMs: 1000,
+      );
+      metrics = _update(
+        engine,
+        metrics,
+        0.4,
+        100.0,
+        isArmed: true,
+        runMode: 'drag',
+        targetLabel: '1/4 mile',
+        intervalStartSpeed: 96.5606,
+        intervalEndSpeed: 209.2147,
+        gpsTimeMs: 1100,
+      );
+      metrics = _update(
+        engine,
+        metrics,
+        3.2,
+        100.0,
+        isArmed: true,
+        runMode: 'drag',
+        targetLabel: '1/4 mile',
+        intervalStartSpeed: 96.5606,
+        intervalEndSpeed: 209.2147,
+        gpsTimeMs: 1200,
+      );
+      expect(metrics.isRunning, isTrue);
 
-      metrics = _update(engine,metrics, 10.0, 100.0, isArmed: true, runMode: 'drag', targetLabel: '1/4 mile', intervalStartSpeed: 96.5606, intervalEndSpeed: 209.2147); // 3rd outlier (> 2) -> resets counter, clears buffer
-      expect(metrics.speedKmh, 10.0); // Accepts new speed, displays it
+      final accepted = metrics;
+      metrics = _update(
+        engine,
+        metrics,
+        20.0,
+        100.0,
+        isArmed: true,
+        runMode: 'drag',
+        targetLabel: '1/4 mile',
+        intervalStartSpeed: 96.5606,
+        intervalEndSpeed: 209.2147,
+        gpsTimeMs: 1200,
+      );
+      expect(metrics, same(accepted));
+      expect(engine.lastAcceptedGpsTimeMs, 1200);
+
+      metrics = _update(
+        engine,
+        metrics,
+        21.0,
+        100.0,
+        isArmed: true,
+        runMode: 'drag',
+        targetLabel: '1/4 mile',
+        intervalStartSpeed: 96.5606,
+        intervalEndSpeed: 209.2147,
+        gpsTimeMs: 1150,
+      );
+      expect(metrics, same(accepted));
+      expect(engine.lastSeenGpsTimeMs, 1150);
+      expect(engine.lastAcceptedGpsTimeMs, 1200);
+    });
+
+    test('gap uses actual elapsed time instead of the previous dt', () {
+      RaceMetrics metrics = RaceMetrics();
+      metrics = _update(
+        engine,
+        metrics,
+        0.0,
+        100.0,
+        isArmed: true,
+        runMode: 'drag',
+        targetLabel: '1/4 mile',
+        intervalStartSpeed: 96.5606,
+        intervalEndSpeed: 209.2147,
+        gpsTimeMs: 1000,
+      );
+      metrics = _update(
+        engine,
+        metrics,
+        0.4,
+        100.0,
+        isArmed: true,
+        runMode: 'drag',
+        targetLabel: '1/4 mile',
+        intervalStartSpeed: 96.5606,
+        intervalEndSpeed: 209.2147,
+        gpsTimeMs: 1100,
+      );
+      metrics = _update(
+        engine,
+        metrics,
+        3.2,
+        100.0,
+        isArmed: true,
+        runMode: 'drag',
+        targetLabel: '1/4 mile',
+        intervalStartSpeed: 96.5606,
+        intervalEndSpeed: 209.2147,
+        gpsTimeMs: 1200,
+      );
+
+      final beforeGap = metrics;
+      metrics = _update(
+        engine,
+        metrics,
+        10.0,
+        100.0,
+        isArmed: true,
+        runMode: 'drag',
+        targetLabel: '1/4 mile',
+        intervalStartSpeed: 96.5606,
+        intervalEndSpeed: 209.2147,
+        gpsTimeMs: 1700,
+      );
+
+      expect(engine.lastGpsEpochStatus, GpsEpochStatus.gap);
+      expect(metrics.elapsedTime - beforeGap.elapsedTime, closeTo(0.5, 1e-9));
     });
 
     test('does not launch if reset while moving', () {
       RaceMetrics metrics = RaceMetrics();
 
-      metrics = _update(engine,metrics, 0.0, 100.0, isArmed: true, runMode: 'drag', targetLabel: '1/4 mile', intervalStartSpeed: 96.5606, intervalEndSpeed: 209.2147);
-      metrics = _update(engine,metrics, 0.1, 100.0, isArmed: true, runMode: 'drag', targetLabel: '1/4 mile', intervalStartSpeed: 96.5606, intervalEndSpeed: 209.2147);
-      metrics = _update(engine,metrics, 0.4, 100.0, isArmed: true, runMode: 'drag', targetLabel: '1/4 mile', intervalStartSpeed: 96.5606, intervalEndSpeed: 209.2147);
-      metrics = _update(engine,metrics, 3.2, 100.0, isArmed: true, runMode: 'drag', targetLabel: '1/4 mile', intervalStartSpeed: 96.5606, intervalEndSpeed: 209.2147);
+      metrics = _update(
+        engine,
+        metrics,
+        0.0,
+        100.0,
+        isArmed: true,
+        runMode: 'drag',
+        targetLabel: '1/4 mile',
+        intervalStartSpeed: 96.5606,
+        intervalEndSpeed: 209.2147,
+      );
+      metrics = _update(
+        engine,
+        metrics,
+        0.1,
+        100.0,
+        isArmed: true,
+        runMode: 'drag',
+        targetLabel: '1/4 mile',
+        intervalStartSpeed: 96.5606,
+        intervalEndSpeed: 209.2147,
+      );
+      metrics = _update(
+        engine,
+        metrics,
+        0.4,
+        100.0,
+        isArmed: true,
+        runMode: 'drag',
+        targetLabel: '1/4 mile',
+        intervalStartSpeed: 96.5606,
+        intervalEndSpeed: 209.2147,
+      );
+      metrics = _update(
+        engine,
+        metrics,
+        3.2,
+        100.0,
+        isArmed: true,
+        runMode: 'drag',
+        targetLabel: '1/4 mile',
+        intervalStartSpeed: 96.5606,
+        intervalEndSpeed: 209.2147,
+      );
       expect(metrics.isRunning, true);
 
       // Reset the run manually
@@ -279,8 +664,18 @@ void main() {
       expect(metrics.speedKmh, 0.0);
 
       // Next GPS sample is still 30.0 km/h
-      metrics = _update(engine,metrics, 30.0, 100.0, isArmed: true, runMode: 'drag', targetLabel: '1/4 mile', intervalStartSpeed: 96.5606, intervalEndSpeed: 209.2147);
-      
+      metrics = _update(
+        engine,
+        metrics,
+        30.0,
+        100.0,
+        isArmed: true,
+        runMode: 'drag',
+        targetLabel: '1/4 mile',
+        intervalStartSpeed: 96.5606,
+        intervalEndSpeed: 209.2147,
+      );
+
       expect(metrics.isRunning, false);
       expect(metrics.speedKmh, 30.0);
     });
@@ -288,18 +683,68 @@ void main() {
     test('calculates correct overall slope for the run', () {
       RaceMetrics metrics = RaceMetrics();
 
-      metrics = _update(engine,metrics, 0.0, 100.0, isArmed: true, runMode: 'drag', targetLabel: '1/4 mile', intervalStartSpeed: 96.5606, intervalEndSpeed: 209.2147);
-      metrics = _update(engine,metrics, 0.1, 100.0, isArmed: true, runMode: 'drag', targetLabel: '1/4 mile', intervalStartSpeed: 96.5606, intervalEndSpeed: 209.2147);
-      metrics = _update(engine,metrics, 0.4, 100.0, isArmed: true, runMode: 'drag', targetLabel: '1/4 mile', intervalStartSpeed: 96.5606, intervalEndSpeed: 209.2147);
-      metrics = _update(engine,metrics, 3.2, 100.0, isArmed: true, runMode: 'drag', targetLabel: '1/4 mile', intervalStartSpeed: 96.5606, intervalEndSpeed: 209.2147);
+      metrics = _update(
+        engine,
+        metrics,
+        0.0,
+        100.0,
+        isArmed: true,
+        runMode: 'drag',
+        targetLabel: '1/4 mile',
+        intervalStartSpeed: 96.5606,
+        intervalEndSpeed: 209.2147,
+      );
+      metrics = _update(
+        engine,
+        metrics,
+        0.1,
+        100.0,
+        isArmed: true,
+        runMode: 'drag',
+        targetLabel: '1/4 mile',
+        intervalStartSpeed: 96.5606,
+        intervalEndSpeed: 209.2147,
+      );
+      metrics = _update(
+        engine,
+        metrics,
+        0.4,
+        100.0,
+        isArmed: true,
+        runMode: 'drag',
+        targetLabel: '1/4 mile',
+        intervalStartSpeed: 96.5606,
+        intervalEndSpeed: 209.2147,
+      );
+      metrics = _update(
+        engine,
+        metrics,
+        3.2,
+        100.0,
+        isArmed: true,
+        runMode: 'drag',
+        targetLabel: '1/4 mile',
+        intervalStartSpeed: 96.5606,
+        intervalEndSpeed: 209.2147,
+      );
 
       expect(metrics.startAltitude, 100.0);
 
       for (int i = 1; i <= 15; i++) {
         double currentAlt = 100.0 - (i * 0.1); // drops 0.1m per 0.1s step
-        metrics = _update(engine,metrics, 60.0, currentAlt, isArmed: true, runMode: 'drag', targetLabel: '1/4 mile', intervalStartSpeed: 96.5606, intervalEndSpeed: 209.2147);
+        metrics = _update(
+          engine,
+          metrics,
+          60.0,
+          currentAlt,
+          isArmed: true,
+          runMode: 'drag',
+          targetLabel: '1/4 mile',
+          intervalStartSpeed: 96.5606,
+          intervalEndSpeed: 209.2147,
+        );
       }
-      
+
       final double startAlt = metrics.startAltitude ?? 0.0;
       final double endAlt = metrics.history.isNotEmpty
           ? (metrics.history.last.altitude ?? startAlt)
@@ -310,27 +755,79 @@ void main() {
           : 0.0;
 
       expect(avgSlope, lessThan(0.0));
-      expect(avgSlope, closeTo(-7.17, 0.1));
+      // Every valid GPS step is now integrated. The former expectation relied
+      // on the IMU-based filter silently discarding the first speed steps.
+      expect(avgSlope, closeTo(-6.18, 0.1));
     });
 
     test('triggers drag milestones and completes at target 1/2 mile', () {
       RaceMetrics metrics = RaceMetrics();
 
-      metrics = _update(engine,metrics, 0.0, 100.0, isArmed: true, runMode: 'drag', targetLabel: '1/2 mile', intervalStartSpeed: 96.5606, intervalEndSpeed: 209.2147);
-      metrics = _update(engine,metrics, 0.5, 100.0, isArmed: true, runMode: 'drag', targetLabel: '1/2 mile', intervalStartSpeed: 96.5606, intervalEndSpeed: 209.2147);
-      metrics = _update(engine,metrics, 3.5, 100.0, isArmed: true, runMode: 'drag', targetLabel: '1/2 mile', intervalStartSpeed: 96.5606, intervalEndSpeed: 209.2147);
+      metrics = _update(
+        engine,
+        metrics,
+        0.0,
+        100.0,
+        isArmed: true,
+        runMode: 'drag',
+        targetLabel: '1/2 mile',
+        intervalStartSpeed: 96.5606,
+        intervalEndSpeed: 209.2147,
+      );
+      metrics = _update(
+        engine,
+        metrics,
+        0.5,
+        100.0,
+        isArmed: true,
+        runMode: 'drag',
+        targetLabel: '1/2 mile',
+        intervalStartSpeed: 96.5606,
+        intervalEndSpeed: 209.2147,
+      );
+      metrics = _update(
+        engine,
+        metrics,
+        3.5,
+        100.0,
+        isArmed: true,
+        runMode: 'drag',
+        targetLabel: '1/2 mile',
+        intervalStartSpeed: 96.5606,
+        intervalEndSpeed: 209.2147,
+      );
       expect(metrics.isRunning, true);
 
       double altitude = 100.0;
       double speed = 10.0;
-      
+
       while (metrics.isRunning && speed <= 220.0) {
         speed += 10.0;
-        metrics = _update(engine,metrics, speed, altitude, isArmed: true, runMode: 'drag', targetLabel: '1/2 mile', intervalStartSpeed: 96.5606, intervalEndSpeed: 209.2147);
+        metrics = _update(
+          engine,
+          metrics,
+          speed,
+          altitude,
+          isArmed: true,
+          runMode: 'drag',
+          targetLabel: '1/2 mile',
+          intervalStartSpeed: 96.5606,
+          intervalEndSpeed: 209.2147,
+        );
       }
 
       while (metrics.isRunning) {
-        metrics = _update(engine,metrics, 220.0, altitude, isArmed: true, runMode: 'drag', targetLabel: '1/2 mile', intervalStartSpeed: 96.5606, intervalEndSpeed: 209.2147);
+        metrics = _update(
+          engine,
+          metrics,
+          220.0,
+          altitude,
+          isArmed: true,
+          runMode: 'drag',
+          targetLabel: '1/2 mile',
+          intervalStartSpeed: 96.5606,
+          intervalEndSpeed: 209.2147,
+        );
       }
 
       // Verify that all timers were triggered
@@ -350,15 +847,34 @@ void main() {
       expect(metrics.isRunning, false); // completed 1/2 mile
     });
 
-    test('detects interval run launch, integrates, and completes at target 60-130 mph', () {
-      RaceMetrics metrics = RaceMetrics();
+    test(
+      'detects interval run launch, integrates, and completes at target 60-130 mph',
+      () {
+        RaceMetrics metrics = RaceMetrics();
 
-      // Arm in interval mode and accelerate gradually below start speed
-      double speed = 50.0;
-      while (speed <= 95.0) {
-        metrics = _update(engine,
+        // Arm in interval mode and accelerate gradually below start speed
+        double speed = 50.0;
+        while (speed <= 95.0) {
+          metrics = _update(
+            engine,
+            metrics,
+            speed,
+            100.0,
+            isArmed: true,
+            runMode: 'interval',
+            targetLabel: '60-130 mph',
+            intervalStartSpeed: 96.5606,
+            intervalEndSpeed: 209.2147,
+          );
+          speed += 3.0;
+        }
+        expect(metrics.isRunning, false);
+
+        // Speed crosses 60 mph (96.5606 km/h) -> Trigger!
+        metrics = _update(
+          engine,
           metrics,
-          speed,
+          98.0, // crosses 96.5606 from 95.0
           100.0,
           isArmed: true,
           runMode: 'interval',
@@ -366,32 +882,33 @@ void main() {
           intervalStartSpeed: 96.5606,
           intervalEndSpeed: 209.2147,
         );
-        speed += 3.0;
-      }
-      expect(metrics.isRunning, false);
+        expect(metrics.isRunning, true);
+        // elapsedTime should be the start fraction
+        expect(metrics.elapsedTime, closeTo(0.048, 0.01));
 
-      // Speed crosses 60 mph (96.5606 km/h) -> Trigger!
-      metrics = _update(engine,
-        metrics,
-        98.0, // crosses 96.5606 from 95.0
-        100.0,
-        isArmed: true,
-        runMode: 'interval',
-        targetLabel: '60-130 mph',
-        intervalStartSpeed: 96.5606,
-        intervalEndSpeed: 209.2147,
-      );
-      expect(metrics.isRunning, true);
-      // elapsedTime should be the start fraction
-      expect(metrics.elapsedTime, closeTo(0.048, 0.01)); 
+        // Accelerate towards 130 mph (209.2147 km/h)
+        speed = 98.0;
+        while (metrics.isRunning && speed <= 208.0) {
+          speed += 3.0;
+          metrics = _update(
+            engine,
+            metrics,
+            speed,
+            100.0,
+            isArmed: true,
+            runMode: 'interval',
+            targetLabel: '60-130 mph',
+            intervalStartSpeed: 96.5606,
+            intervalEndSpeed: 209.2147,
+          );
+        }
+        expect(metrics.isRunning, true);
 
-      // Accelerate towards 130 mph (209.2147 km/h)
-      speed = 98.0;
-      while (metrics.isRunning && speed <= 208.0) {
-        speed += 3.0;
-        metrics = _update(engine,
+        // Crosses 130 mph -> Finish!
+        metrics = _update(
+          engine,
           metrics,
-          speed,
+          210.0, // crosses 209.2147
           100.0,
           isArmed: true,
           runMode: 'interval',
@@ -399,24 +916,11 @@ void main() {
           intervalStartSpeed: 96.5606,
           intervalEndSpeed: 209.2147,
         );
-      }
-      expect(metrics.isRunning, true);
 
-      // Crosses 130 mph -> Finish!
-      metrics = _update(engine,
-        metrics,
-        210.0, // crosses 209.2147
-        100.0,
-        isArmed: true,
-        runMode: 'interval',
-        targetLabel: '60-130 mph',
-        intervalStartSpeed: 96.5606,
-        intervalEndSpeed: 209.2147,
-      );
-
-      expect(metrics.isRunning, false);
-      expect(metrics.time60to130mph, isNotNull);
-    });
+        expect(metrics.isRunning, false);
+        expect(metrics.time60to130mph, isNotNull);
+      },
+    );
 
     test('cancels interval run if speed drops', () {
       RaceMetrics metrics = RaceMetrics();
@@ -424,93 +928,189 @@ void main() {
       // Trigger start gradually
       double speed = 80.0;
       while (speed <= 95.0) {
-        metrics = _update(engine,metrics, speed, 100.0, isArmed: true, runMode: 'interval', targetLabel: '60-130 mph', intervalStartSpeed: 96.5606, intervalEndSpeed: 209.2147);
+        metrics = _update(
+          engine,
+          metrics,
+          speed,
+          100.0,
+          isArmed: true,
+          runMode: 'interval',
+          targetLabel: '60-130 mph',
+          intervalStartSpeed: 96.5606,
+          intervalEndSpeed: 209.2147,
+        );
         speed += 3.0;
       }
-      metrics = _update(engine,metrics, 98.0, 100.0, isArmed: true, runMode: 'interval', targetLabel: '60-130 mph', intervalStartSpeed: 96.5606, intervalEndSpeed: 209.2147);
+      metrics = _update(
+        engine,
+        metrics,
+        98.0,
+        100.0,
+        isArmed: true,
+        runMode: 'interval',
+        targetLabel: '60-130 mph',
+        intervalStartSpeed: 96.5606,
+        intervalEndSpeed: 209.2147,
+      );
       expect(metrics.isRunning, true);
 
       // Speed drops below start speed - 10 km/h (below 86.56 km/h) for 20 ticks
       for (int i = 0; i < 20; i++) {
-        metrics = _update(engine,metrics, 80.0, 100.0, isArmed: true, runMode: 'interval', targetLabel: '60-130 mph', intervalStartSpeed: 96.5606, intervalEndSpeed: 209.2147);
+        metrics = _update(
+          engine,
+          metrics,
+          80.0,
+          100.0,
+          isArmed: true,
+          runMode: 'interval',
+          targetLabel: '60-130 mph',
+          intervalStartSpeed: 96.5606,
+          intervalEndSpeed: 209.2147,
+        );
       }
 
       // Should cancel and isRunning should become false
       expect(metrics.isRunning, false);
     });
 
-    test('preserves run distance, elapsed time, and start altitude of completed run when stationary', () {
-      RaceMetrics metrics = RaceMetrics();
+    test(
+      'preserves run distance, elapsed time, and start altitude of completed run when stationary',
+      () {
+        RaceMetrics metrics = RaceMetrics();
 
-      metrics = _update(engine,metrics, 0.0, 100.0, isArmed: true, runMode: 'drag', targetLabel: '1/4 mile', intervalStartSpeed: 96.5606, intervalEndSpeed: 209.2147);
-      metrics = _update(engine,metrics, 0.1, 100.0, isArmed: true, runMode: 'drag', targetLabel: '1/4 mile', intervalStartSpeed: 96.5606, intervalEndSpeed: 209.2147);
-      metrics = _update(engine,metrics, 0.4, 100.0, isArmed: true, runMode: 'drag', targetLabel: '1/4 mile', intervalStartSpeed: 96.5606, intervalEndSpeed: 209.2147);
-      metrics = _update(engine,metrics, 3.2, 100.0, isArmed: true, runMode: 'drag', targetLabel: '1/4 mile', intervalStartSpeed: 96.5606, intervalEndSpeed: 209.2147);
-      expect(metrics.isRunning, true);
-
-      double currentAltitude = 100.0;
-      for (int i = 0; i < 150; i++) {
-        currentAltitude += 0.1;
-        metrics = _update(engine,metrics, 100.0, currentAltitude, isArmed: true, runMode: 'drag', targetLabel: '1/4 mile', intervalStartSpeed: 96.5606, intervalEndSpeed: 209.2147);
-      }
-      expect(metrics.isRunning, false);
-      expect(metrics.history.isNotEmpty, true);
-
-      final double completedDistance = metrics.distanceMeters;
-      final double completedElapsedTime = metrics.elapsedTime;
-      final double completedStartAltitude = metrics.startAltitude!;
-
-      // Stationary speed = 0.0, disarmed
-      metrics = _update(engine,metrics, 0.0, 150.0, isArmed: false, runMode: 'drag', targetLabel: '1/4 mile', intervalStartSpeed: 96.5606, intervalEndSpeed: 209.2147);
-
-      // Verify stats are preserved!
-      expect(metrics.isRunning, false);
-      expect(metrics.distanceMeters, completedDistance);
-      expect(metrics.elapsedTime, completedElapsedTime);
-      expect(metrics.startAltitude, completedStartAltitude);
-    });
-
-    test('does not calculate drag milestones for interval runs but calculates target interval milestone', () {
-      RaceMetrics metrics = RaceMetrics();
-      // Arm in interval mode and run a 50-75 mph target
-      // startSpeed: 50 mph = 80.4672 km/h
-      // endSpeed: 75 mph = 120.7008 km/h
-      
-      double speed = 75.0;
-      while (speed <= 125.0) {
-        metrics = engine.updateMetrics(
+        metrics = _update(
+          engine,
           metrics,
-          speed,
+          0.0,
           100.0,
           isArmed: true,
-          runMode: 'interval',
-          targetDistance: null,
-          targetDistanceUnit: null,
-          targetStartSpeed: 80.4672,
-          targetEndSpeed: 120.7008,
-          targetSpeedUnit: 'mph',
-          intervalStartSpeed: 80.4672,
-          intervalEndSpeed: 120.7008,
+          runMode: 'drag',
+          targetLabel: '1/4 mile',
+          intervalStartSpeed: 96.5606,
+          intervalEndSpeed: 209.2147,
         );
-        speed += 3.0;
-      }
-      expect(metrics.isRunning, false);
-      expect(metrics.elapsedTime, greaterThan(0.0));
-      
-      // Verify that getCompletedTimeForCategory for drag milestones returns null
-      expect(getCompletedTimeForCategory(metrics, '60ft'), isNull);
-      expect(getCompletedTimeForCategory(metrics, '0-60mph'), isNull);
-      
-      // Since 50-75mph was removed from official tests, it should return null via getCompletedTimeForCategory
-      expect(getCompletedTimeForCategory(metrics, '50-75mph'), isNull);
-    });
+        metrics = _update(
+          engine,
+          metrics,
+          0.1,
+          100.0,
+          isArmed: true,
+          runMode: 'drag',
+          targetLabel: '1/4 mile',
+          intervalStartSpeed: 96.5606,
+          intervalEndSpeed: 209.2147,
+        );
+        metrics = _update(
+          engine,
+          metrics,
+          0.4,
+          100.0,
+          isArmed: true,
+          runMode: 'drag',
+          targetLabel: '1/4 mile',
+          intervalStartSpeed: 96.5606,
+          intervalEndSpeed: 209.2147,
+        );
+        metrics = _update(
+          engine,
+          metrics,
+          3.2,
+          100.0,
+          isArmed: true,
+          runMode: 'drag',
+          targetLabel: '1/4 mile',
+          intervalStartSpeed: 96.5606,
+          intervalEndSpeed: 209.2147,
+        );
+        expect(metrics.isRunning, true);
+
+        double currentAltitude = 100.0;
+        for (int i = 0; i < 150; i++) {
+          currentAltitude += 0.1;
+          metrics = _update(
+            engine,
+            metrics,
+            100.0,
+            currentAltitude,
+            isArmed: true,
+            runMode: 'drag',
+            targetLabel: '1/4 mile',
+            intervalStartSpeed: 96.5606,
+            intervalEndSpeed: 209.2147,
+          );
+        }
+        expect(metrics.isRunning, false);
+        expect(metrics.history.isNotEmpty, true);
+
+        final double completedDistance = metrics.distanceMeters;
+        final double completedElapsedTime = metrics.elapsedTime;
+        final double completedStartAltitude = metrics.startAltitude!;
+
+        // Stationary speed = 0.0, disarmed
+        metrics = _update(
+          engine,
+          metrics,
+          0.0,
+          150.0,
+          isArmed: false,
+          runMode: 'drag',
+          targetLabel: '1/4 mile',
+          intervalStartSpeed: 96.5606,
+          intervalEndSpeed: 209.2147,
+        );
+
+        // Verify stats are preserved!
+        expect(metrics.isRunning, false);
+        expect(metrics.distanceMeters, completedDistance);
+        expect(metrics.elapsedTime, completedElapsedTime);
+        expect(metrics.startAltitude, completedStartAltitude);
+      },
+    );
+
+    test(
+      'does not calculate drag milestones for interval runs but calculates target interval milestone',
+      () {
+        RaceMetrics metrics = RaceMetrics();
+        // Arm in interval mode and run a 50-75 mph target
+        // startSpeed: 50 mph = 80.4672 km/h
+        // endSpeed: 75 mph = 120.7008 km/h
+
+        double speed = 75.0;
+        while (speed <= 125.0) {
+          metrics = engine.updateMetrics(
+            metrics,
+            speed,
+            100.0,
+            isArmed: true,
+            runMode: 'interval',
+            targetDistance: null,
+            targetDistanceUnit: null,
+            targetStartSpeed: 80.4672,
+            targetEndSpeed: 120.7008,
+            targetSpeedUnit: 'mph',
+            intervalStartSpeed: 80.4672,
+            intervalEndSpeed: 120.7008,
+          );
+          speed += 3.0;
+        }
+        expect(metrics.isRunning, false);
+        expect(metrics.elapsedTime, greaterThan(0.0));
+
+        // Verify that getCompletedTimeForCategory for drag milestones returns null
+        expect(getCompletedTimeForCategory(metrics, '60ft'), isNull);
+        expect(getCompletedTimeForCategory(metrics, '0-60mph'), isNull);
+
+        // Since 50-75mph was removed from official tests, it should return null via getCompletedTimeForCategory
+        expect(getCompletedTimeForCategory(metrics, '50-75mph'), isNull);
+      },
+    );
 
     test('standing-start interval run triggers and completes correctly', () {
       RaceMetrics metrics = RaceMetrics();
       // Custom 0-50 mph target
       // startSpeed: 0.0 mph = 0.0 km/h
       // endSpeed: 50.0 mph = 80.4672 km/h
-      
+
       // Arm in interval mode and keep speed at 0
       metrics = engine.updateMetrics(
         metrics,
@@ -585,55 +1185,25 @@ void main() {
       expect(metrics.elapsedTime, greaterThan(0.0));
     });
 
-    test('standing-start interval run cancels when speed drops below 3 km/h', () {
-      RaceMetrics metrics = RaceMetrics();
-      // Arm and trigger standing start
-      metrics = engine.updateMetrics(
-        metrics,
-        0.0,
-        100.0,
-        isArmed: true,
-        runMode: 'interval',
-        targetDistance: null,
-        targetDistanceUnit: null,
-        targetStartSpeed: 0.0,
-        targetEndSpeed: 80.4672,
-        targetSpeedUnit: 'mph',
-        intervalStartSpeed: 0.0,
-        intervalEndSpeed: 80.4672,
-      );
-      metrics = engine.updateMetrics(
-        metrics,
-        1.5,
-        100.0,
-        isArmed: true,
-        runMode: 'interval',
-        targetDistance: null,
-        targetDistanceUnit: null,
-        targetStartSpeed: 0.0,
-        targetEndSpeed: 80.4672,
-        targetSpeedUnit: 'mph',
-        intervalStartSpeed: 0.0,
-        intervalEndSpeed: 80.4672,
-      );
-      metrics = engine.updateMetrics(
-        metrics,
-        4.0,
-        100.0,
-        isArmed: true,
-        runMode: 'interval',
-        targetDistance: null,
-        targetDistanceUnit: null,
-        targetStartSpeed: 0.0,
-        targetEndSpeed: 80.4672,
-        targetSpeedUnit: 'mph',
-        intervalStartSpeed: 0.0,
-        intervalEndSpeed: 80.4672,
-      );
-      expect(metrics.isRunning, true);
-
-      // Drops below 3.0 km/h for 20 ticks (2 seconds)
-      for (int i = 0; i < 20; i++) {
+    test(
+      'standing-start interval run cancels when speed drops below 3 km/h',
+      () {
+        RaceMetrics metrics = RaceMetrics();
+        // Arm and trigger standing start
+        metrics = engine.updateMetrics(
+          metrics,
+          0.0,
+          100.0,
+          isArmed: true,
+          runMode: 'interval',
+          targetDistance: null,
+          targetDistanceUnit: null,
+          targetStartSpeed: 0.0,
+          targetEndSpeed: 80.4672,
+          targetSpeedUnit: 'mph',
+          intervalStartSpeed: 0.0,
+          intervalEndSpeed: 80.4672,
+        );
         metrics = engine.updateMetrics(
           metrics,
           1.5,
@@ -648,63 +1218,9 @@ void main() {
           intervalStartSpeed: 0.0,
           intervalEndSpeed: 80.4672,
         );
-      }
-      expect(metrics.isRunning, false);
-    });
-
-    test('getCompletedTimeForCategory calculates custom interval category with mph unit conversion', () {
-      RaceMetrics metrics = RaceMetrics();
-      // Arm, trigger, and complete custom 0-50 mph run
-      metrics = engine.updateMetrics(
-        metrics,
-        0.0,
-        100.0,
-        isArmed: true,
-        runMode: 'interval',
-        targetDistance: null,
-        targetDistanceUnit: null,
-        targetStartSpeed: 0.0,
-        targetEndSpeed: 80.4672,
-        targetSpeedUnit: 'mph',
-        intervalStartSpeed: 0.0,
-        intervalEndSpeed: 80.4672,
-      );
-      metrics = engine.updateMetrics(
-        metrics,
-        3.0,
-        100.0,
-        isArmed: true,
-        runMode: 'interval',
-        targetDistance: null,
-        targetDistanceUnit: null,
-        targetStartSpeed: 0.0,
-        targetEndSpeed: 80.4672,
-        targetSpeedUnit: 'mph',
-        intervalStartSpeed: 0.0,
-        intervalEndSpeed: 80.4672,
-      );
-      metrics = engine.updateMetrics(
-        metrics,
-        5.0,
-        100.0,
-        isArmed: true,
-        runMode: 'interval',
-        targetDistance: null,
-        targetDistanceUnit: null,
-        targetStartSpeed: 0.0,
-        targetEndSpeed: 80.4672,
-        targetSpeedUnit: 'mph',
-        intervalStartSpeed: 0.0,
-        intervalEndSpeed: 80.4672,
-      );
-      expect(metrics.isRunning, true);
-
-      double speed = 5.0;
-      while (metrics.isRunning) {
-        speed += 3.0;
         metrics = engine.updateMetrics(
           metrics,
-          speed,
+          4.0,
           100.0,
           isArmed: true,
           runMode: 'interval',
@@ -716,68 +1232,113 @@ void main() {
           intervalStartSpeed: 0.0,
           intervalEndSpeed: 80.4672,
         );
-      }
-      expect(metrics.isRunning, false);
+        expect(metrics.isRunning, true);
 
-      // Look up via custom category ID (values in user units, e.g. 0 to 50 mph)
-      final time = getCompletedTimeForCategory(metrics, 'custom_0_50_mph');
-      expect(time, isNotNull);
-      expect(time, closeTo(metrics.elapsedTime, 0.01));
-    });
+        // Drops below 3.0 km/h for 20 ticks (2 seconds)
+        for (int i = 0; i < 20; i++) {
+          metrics = engine.updateMetrics(
+            metrics,
+            1.5,
+            100.0,
+            isArmed: true,
+            runMode: 'interval',
+            targetDistance: null,
+            targetDistanceUnit: null,
+            targetStartSpeed: 0.0,
+            targetEndSpeed: 80.4672,
+            targetSpeedUnit: 'mph',
+            intervalStartSpeed: 0.0,
+            intervalEndSpeed: 80.4672,
+          );
+        }
+        expect(metrics.isRunning, false);
+      },
+    );
 
-    test('getCompletedTimeForCategory calculates custom interval category for 0-160 kmh and 0-100 mph', () {
-      RaceMetrics metricsMph = RaceMetrics();
-      // Arm, trigger, and complete custom 0-100 mph run (160.9344 km/h)
-      metricsMph = engine.updateMetrics(
-        metricsMph,
-        0.0,
-        100.0,
-        isArmed: true,
-        runMode: 'interval',
-        targetDistance: null,
-        targetDistanceUnit: null,
-        targetStartSpeed: 0.0,
-        targetEndSpeed: 160.9344,
-        targetSpeedUnit: 'mph',
-        intervalStartSpeed: 0.0,
-        intervalEndSpeed: 160.9344,
-      );
-      metricsMph = engine.updateMetrics(
-        metricsMph,
-        3.0,
-        100.0,
-        isArmed: true,
-        runMode: 'interval',
-        targetDistance: null,
-        targetDistanceUnit: null,
-        targetStartSpeed: 0.0,
-        targetEndSpeed: 160.9344,
-        targetSpeedUnit: 'mph',
-        intervalStartSpeed: 0.0,
-        intervalEndSpeed: 160.9344,
-      );
-      metricsMph = engine.updateMetrics(
-        metricsMph,
-        5.0,
-        100.0,
-        isArmed: true,
-        runMode: 'interval',
-        targetDistance: null,
-        targetDistanceUnit: null,
-        targetStartSpeed: 0.0,
-        targetEndSpeed: 160.9344,
-        targetSpeedUnit: 'mph',
-        intervalStartSpeed: 0.0,
-        intervalEndSpeed: 160.9344,
-      );
-      expect(metricsMph.isRunning, true);
+    test(
+      'getCompletedTimeForCategory calculates custom interval category with mph unit conversion',
+      () {
+        RaceMetrics metrics = RaceMetrics();
+        // Arm, trigger, and complete custom 0-50 mph run
+        metrics = engine.updateMetrics(
+          metrics,
+          0.0,
+          100.0,
+          isArmed: true,
+          runMode: 'interval',
+          targetDistance: null,
+          targetDistanceUnit: null,
+          targetStartSpeed: 0.0,
+          targetEndSpeed: 80.4672,
+          targetSpeedUnit: 'mph',
+          intervalStartSpeed: 0.0,
+          intervalEndSpeed: 80.4672,
+        );
+        metrics = engine.updateMetrics(
+          metrics,
+          3.0,
+          100.0,
+          isArmed: true,
+          runMode: 'interval',
+          targetDistance: null,
+          targetDistanceUnit: null,
+          targetStartSpeed: 0.0,
+          targetEndSpeed: 80.4672,
+          targetSpeedUnit: 'mph',
+          intervalStartSpeed: 0.0,
+          intervalEndSpeed: 80.4672,
+        );
+        metrics = engine.updateMetrics(
+          metrics,
+          5.0,
+          100.0,
+          isArmed: true,
+          runMode: 'interval',
+          targetDistance: null,
+          targetDistanceUnit: null,
+          targetStartSpeed: 0.0,
+          targetEndSpeed: 80.4672,
+          targetSpeedUnit: 'mph',
+          intervalStartSpeed: 0.0,
+          intervalEndSpeed: 80.4672,
+        );
+        expect(metrics.isRunning, true);
 
-      double speedKmhMph = 5.0;
-      while (metricsMph.isRunning) {
-        speedKmhMph += 3.0;
+        double speed = 5.0;
+        while (metrics.isRunning) {
+          speed += 3.0;
+          metrics = engine.updateMetrics(
+            metrics,
+            speed,
+            100.0,
+            isArmed: true,
+            runMode: 'interval',
+            targetDistance: null,
+            targetDistanceUnit: null,
+            targetStartSpeed: 0.0,
+            targetEndSpeed: 80.4672,
+            targetSpeedUnit: 'mph',
+            intervalStartSpeed: 0.0,
+            intervalEndSpeed: 80.4672,
+          );
+        }
+        expect(metrics.isRunning, false);
+
+        // Look up via custom category ID (values in user units, e.g. 0 to 50 mph)
+        final time = getCompletedTimeForCategory(metrics, 'custom_0_50_mph');
+        expect(time, isNotNull);
+        expect(time, closeTo(metrics.elapsedTime, 0.01));
+      },
+    );
+
+    test(
+      'getCompletedTimeForCategory calculates custom interval category for 0-160 kmh and 0-100 mph',
+      () {
+        RaceMetrics metricsMph = RaceMetrics();
+        // Arm, trigger, and complete custom 0-100 mph run (160.9344 km/h)
         metricsMph = engine.updateMetrics(
           metricsMph,
-          speedKmhMph,
+          0.0,
           100.0,
           isArmed: true,
           runMode: 'interval',
@@ -789,64 +1350,67 @@ void main() {
           intervalStartSpeed: 0.0,
           intervalEndSpeed: 160.9344,
         );
-      }
-      expect(metricsMph.isRunning, false);
-      final timeMph = getCompletedTimeForCategory(metricsMph, 'custom_0_100_mph');
-      expect(timeMph, isNotNull);
-      expect(timeMph, closeTo(metricsMph.elapsedTime, 0.01));
+        metricsMph = engine.updateMetrics(
+          metricsMph,
+          3.0,
+          100.0,
+          isArmed: true,
+          runMode: 'interval',
+          targetDistance: null,
+          targetDistanceUnit: null,
+          targetStartSpeed: 0.0,
+          targetEndSpeed: 160.9344,
+          targetSpeedUnit: 'mph',
+          intervalStartSpeed: 0.0,
+          intervalEndSpeed: 160.9344,
+        );
+        metricsMph = engine.updateMetrics(
+          metricsMph,
+          5.0,
+          100.0,
+          isArmed: true,
+          runMode: 'interval',
+          targetDistance: null,
+          targetDistanceUnit: null,
+          targetStartSpeed: 0.0,
+          targetEndSpeed: 160.9344,
+          targetSpeedUnit: 'mph',
+          intervalStartSpeed: 0.0,
+          intervalEndSpeed: 160.9344,
+        );
+        expect(metricsMph.isRunning, true);
 
-      RaceMetrics metricsKmh = RaceMetrics();
-      // Arm, trigger, and complete custom 0-160 km/h run (160.0 km/h)
-      metricsKmh = engine.updateMetrics(
-        metricsKmh,
-        0.0,
-        100.0,
-        isArmed: true,
-        runMode: 'interval',
-        targetDistance: null,
-        targetDistanceUnit: null,
-        targetStartSpeed: 0.0,
-        targetEndSpeed: 160.0,
-        targetSpeedUnit: 'kmh',
-        intervalStartSpeed: 0.0,
-        intervalEndSpeed: 160.0,
-      );
-      metricsKmh = engine.updateMetrics(
-        metricsKmh,
-        3.0,
-        100.0,
-        isArmed: true,
-        runMode: 'interval',
-        targetDistance: null,
-        targetDistanceUnit: null,
-        targetStartSpeed: 0.0,
-        targetEndSpeed: 160.0,
-        targetSpeedUnit: 'kmh',
-        intervalStartSpeed: 0.0,
-        intervalEndSpeed: 160.0,
-      );
-      metricsKmh = engine.updateMetrics(
-        metricsKmh,
-        5.0,
-        100.0,
-        isArmed: true,
-        runMode: 'interval',
-        targetDistance: null,
-        targetDistanceUnit: null,
-        targetStartSpeed: 0.0,
-        targetEndSpeed: 160.0,
-        targetSpeedUnit: 'kmh',
-        intervalStartSpeed: 0.0,
-        intervalEndSpeed: 160.0,
-      );
-      expect(metricsKmh.isRunning, true);
+        double speedKmhMph = 5.0;
+        while (metricsMph.isRunning) {
+          speedKmhMph += 3.0;
+          metricsMph = engine.updateMetrics(
+            metricsMph,
+            speedKmhMph,
+            100.0,
+            isArmed: true,
+            runMode: 'interval',
+            targetDistance: null,
+            targetDistanceUnit: null,
+            targetStartSpeed: 0.0,
+            targetEndSpeed: 160.9344,
+            targetSpeedUnit: 'mph',
+            intervalStartSpeed: 0.0,
+            intervalEndSpeed: 160.9344,
+          );
+        }
+        expect(metricsMph.isRunning, false);
+        final timeMph = getCompletedTimeForCategory(
+          metricsMph,
+          'custom_0_100_mph',
+        );
+        expect(timeMph, isNotNull);
+        expect(timeMph, closeTo(metricsMph.elapsedTime, 0.01));
 
-      double speedKmh = 5.0;
-      while (metricsKmh.isRunning) {
-        speedKmh += 3.0;
+        RaceMetrics metricsKmh = RaceMetrics();
+        // Arm, trigger, and complete custom 0-160 km/h run (160.0 km/h)
         metricsKmh = engine.updateMetrics(
           metricsKmh,
-          speedKmh,
+          0.0,
           100.0,
           isArmed: true,
           runMode: 'interval',
@@ -858,17 +1422,68 @@ void main() {
           intervalStartSpeed: 0.0,
           intervalEndSpeed: 160.0,
         );
-      }
-      expect(metricsKmh.isRunning, false);
-      final timeKmh = getCompletedTimeForCategory(metricsKmh, 'custom_0_160_kmh');
-      expect(timeKmh, isNotNull);
-      expect(timeKmh, closeTo(metricsKmh.elapsedTime, 0.01));
-    });
+        metricsKmh = engine.updateMetrics(
+          metricsKmh,
+          3.0,
+          100.0,
+          isArmed: true,
+          runMode: 'interval',
+          targetDistance: null,
+          targetDistanceUnit: null,
+          targetStartSpeed: 0.0,
+          targetEndSpeed: 160.0,
+          targetSpeedUnit: 'kmh',
+          intervalStartSpeed: 0.0,
+          intervalEndSpeed: 160.0,
+        );
+        metricsKmh = engine.updateMetrics(
+          metricsKmh,
+          5.0,
+          100.0,
+          isArmed: true,
+          runMode: 'interval',
+          targetDistance: null,
+          targetDistanceUnit: null,
+          targetStartSpeed: 0.0,
+          targetEndSpeed: 160.0,
+          targetSpeedUnit: 'kmh',
+          intervalStartSpeed: 0.0,
+          intervalEndSpeed: 160.0,
+        );
+        expect(metricsKmh.isRunning, true);
+
+        double speedKmh = 5.0;
+        while (metricsKmh.isRunning) {
+          speedKmh += 3.0;
+          metricsKmh = engine.updateMetrics(
+            metricsKmh,
+            speedKmh,
+            100.0,
+            isArmed: true,
+            runMode: 'interval',
+            targetDistance: null,
+            targetDistanceUnit: null,
+            targetStartSpeed: 0.0,
+            targetEndSpeed: 160.0,
+            targetSpeedUnit: 'kmh',
+            intervalStartSpeed: 0.0,
+            intervalEndSpeed: 160.0,
+          );
+        }
+        expect(metricsKmh.isRunning, false);
+        final timeKmh = getCompletedTimeForCategory(
+          metricsKmh,
+          'custom_0_160_kmh',
+        );
+        expect(timeKmh, isNotNull);
+        expect(timeKmh, closeTo(metricsKmh.elapsedTime, 0.01));
+      },
+    );
 
     test('uses dynamic dt from GPS timestamps instead of static 0.1s', () {
       RaceMetrics metrics = RaceMetrics();
 
-      // Send gradual samples to populate the speed buffer and avoid outlier rejection
+      // Send gradual samples to populate the pre-run speed buffer.
       metrics = engine.updateMetrics(
         metrics,
         0.0,
@@ -982,7 +1597,7 @@ void main() {
       );
       expect(metrics.isRunning, false);
 
-      // Accelerate slightly below launchCommitThreshold (to avoid outlier rejection)
+      // Accelerate slightly below launchCommitThreshold.
       metrics = engine.updateMetrics(
         metrics,
         2.5,
@@ -1036,7 +1651,12 @@ void main() {
         );
       }
       expect(metrics.isRunning, false);
-      expect(metrics.time0to200kmh, isNotNull, reason: 'time0to200kmh is null! targetStartSpeed: ${metrics.targetStartSpeed}, targetEndSpeed: ${metrics.targetEndSpeed}, targetSpeedUnit: ${metrics.targetSpeedUnit}, elapsedTime: ${metrics.elapsedTime}, speedKmh: ${metrics.speedKmh}, isRunning: ${metrics.isRunning}');
+      expect(
+        metrics.time0to200kmh,
+        isNotNull,
+        reason:
+            'time0to200kmh is null! targetStartSpeed: ${metrics.targetStartSpeed}, targetEndSpeed: ${metrics.targetEndSpeed}, targetSpeedUnit: ${metrics.targetSpeedUnit}, elapsedTime: ${metrics.elapsedTime}, speedKmh: ${metrics.speedKmh}, isRunning: ${metrics.isRunning}',
+      );
       expect(metrics.time0to200kmh, closeTo(metrics.elapsedTime, 0.01));
     });
 
@@ -1051,13 +1671,21 @@ void main() {
 
       // When rollout is enabled, retrieve rollout time
       expect(
-        getCompletedTimeForCategory(metricsWithRollout, '0-60mph', useNhraRules: true),
+        getCompletedTimeForCategory(
+          metricsWithRollout,
+          '0-60mph',
+          useNhraRules: true,
+        ),
         4.2,
       );
 
       // When rollout is disabled, retrieve standard time
       expect(
-        getCompletedTimeForCategory(metricsWithRollout, '0-60mph', useNhraRules: false),
+        getCompletedTimeForCategory(
+          metricsWithRollout,
+          '0-60mph',
+          useNhraRules: false,
+        ),
         4.5,
       );
 
@@ -1070,7 +1698,11 @@ void main() {
       );
 
       expect(
-        getCompletedTimeForCategory(metricsOldRun, '0-60mph', useNhraRules: true),
+        getCompletedTimeForCategory(
+          metricsOldRun,
+          '0-60mph',
+          useNhraRules: true,
+        ),
         4.5,
       );
 
@@ -1090,13 +1722,21 @@ void main() {
 
       // Without rollout
       expect(
-        getCompletedTimeForCategory(customMetrics, 'custom_0_50_mph', useNhraRules: false),
+        getCompletedTimeForCategory(
+          customMetrics,
+          'custom_0_50_mph',
+          useNhraRules: false,
+        ),
         closeTo(1.89, 0.01), // crossing speed is around 1.89s
       );
 
       // With rollout (should subtract rolloutTime1ft)
       expect(
-        getCompletedTimeForCategory(customMetrics, 'custom_0_50_mph', useNhraRules: true),
+        getCompletedTimeForCategory(
+          customMetrics,
+          'custom_0_50_mph',
+          useNhraRules: true,
+        ),
         closeTo(1.89 - 0.3, 0.01),
       );
 
@@ -1115,7 +1755,11 @@ void main() {
       );
 
       expect(
-        getCompletedTimeForCategory(customMetricsOld, 'custom_0_50_mph', useNhraRules: true),
+        getCompletedTimeForCategory(
+          customMetricsOld,
+          'custom_0_50_mph',
+          useNhraRules: true,
+        ),
         closeTo(1.89, 0.01),
       );
     });
@@ -1192,83 +1836,85 @@ void main() {
       expect(metrics.time18Mile, isNull);
     });
 
-    test('standing-start 0-100 uses iTOW zero-crossing with uneven GPS gaps', () {
-      final engine = PhysicsEngine();
-      var metrics = engine.reset();
+    test(
+      'standing-start 0-100 uses iTOW zero-crossing with uneven GPS gaps',
+      () {
+        final engine = PhysicsEngine();
+        var metrics = engine.reset();
 
-      // Speeds / iTOW:
-      // 0.0@0, 0.2@100, 0.4@200, 0.8@500 (300 ms gap), 4.0@600 commit
-      // Zero-cross 0.5 between 0.4@200 and 0.8@500 → t0 = 275 ms
-      const samples = <(double, int)>[
-        (0.0, 0),
-        (0.2, 100),
-        (0.4, 200),
-        (0.8, 500),
-        (4.0, 600),
-      ];
+        // Speeds / iTOW:
+        // 0.0@0, 0.2@100, 0.4@200, 0.8@500 (300 ms gap), 4.0@600 commit
+        // Zero-cross 0.5 between 0.4@200 and 0.8@500 → t0 = 275 ms
+        const samples = <(double, int)>[
+          (0.0, 0),
+          (0.2, 100),
+          (0.4, 200),
+          (0.8, 500),
+          (4.0, 600),
+        ];
 
-      for (final (speed, itow) in samples) {
-        metrics = engine.updateMetrics(
-          metrics,
-          speed,
-          100.0,
-          isArmed: true,
-          runMode: 'drag',
-          targetDistance: 0.25,
-          targetDistanceUnit: 'mile',
-          targetStartSpeed: null,
-          targetEndSpeed: null,
-          targetSpeedUnit: null,
-          intervalStartSpeed: 0.0,
-          intervalEndSpeed: 0.0,
-          gpsTimeMs: 200000 + itow,
+        for (final (speed, itow) in samples) {
+          metrics = engine.updateMetrics(
+            metrics,
+            speed,
+            100.0,
+            isArmed: true,
+            runMode: 'drag',
+            targetDistance: 0.25,
+            targetDistanceUnit: 'mile',
+            targetStartSpeed: null,
+            targetEndSpeed: null,
+            targetSpeedUnit: null,
+            intervalStartSpeed: 0.0,
+            intervalEndSpeed: 0.0,
+            gpsTimeMs: 200000 + itow,
+          );
+        }
+
+        expect(metrics.isRunning, isTrue);
+        // Old uniform-dt would give ~0.175 s; iTOW chain → 0.325 s.
+        expect(metrics.elapsedTime, closeTo(0.325, 0.01));
+
+        final t0Ms = PhysicsEngine.interpolateGpsTimeMs(
+          t0Ms: 200200,
+          v0: 0.4,
+          t1Ms: 200500,
+          v1: 0.8,
+          targetKmh: PhysicsEngine.zeroCrossingThreshold,
         );
-      }
+        expect(t0Ms, closeTo(200275.0, 0.01));
 
-      expect(metrics.isRunning, isTrue);
-      // Old uniform-dt would give ~0.175 s; iTOW chain → 0.325 s.
-      expect(metrics.elapsedTime, closeTo(0.325, 0.01));
+        // Gentle acceleration (+2 km/h / 100 ms).
+        var speed = 4.0;
+        var itow = 600;
+        while (metrics.time0to100kmh == null && speed < 120) {
+          speed += 2.0;
+          itow += 100;
+          metrics = engine.updateMetrics(
+            metrics,
+            speed,
+            100.0,
+            isArmed: true,
+            runMode: 'drag',
+            targetDistance: 0.25,
+            targetDistanceUnit: 'mile',
+            targetStartSpeed: null,
+            targetEndSpeed: null,
+            targetSpeedUnit: null,
+            intervalStartSpeed: 0.0,
+            intervalEndSpeed: 0.0,
+            gpsTimeMs: 200000 + itow,
+          );
+        }
 
-      final t0Ms = PhysicsEngine.interpolateGpsTimeMs(
-        t0Ms: 200200,
-        v0: 0.4,
-        t1Ms: 200500,
-        v1: 0.8,
-        targetKmh: PhysicsEngine.zeroCrossingThreshold,
-      );
-      expect(t0Ms, closeTo(200275.0, 0.01));
+        expect(metrics.time0to100kmh, isNotNull);
 
-      // Gentle accel so IMU outlier gate does not reject (+2 km/h / 100 ms).
-      var speed = 4.0;
-      var itow = 600;
-      while (metrics.time0to100kmh == null && speed < 120) {
-        speed += 2.0;
-        itow += 100;
-        metrics = engine.updateMetrics(
-          metrics,
-          speed,
-          100.0,
-          isArmed: true,
-          runMode: 'drag',
-          targetDistance: 0.25,
-          targetDistanceUnit: 'mile',
-          targetStartSpeed: null,
-          targetEndSpeed: null,
-          targetSpeedUnit: null,
-          intervalStartSpeed: 0.0,
-          intervalEndSpeed: 0.0,
-          gpsTimeMs: 200000 + itow,
-        );
-      }
-
-      expect(metrics.time0to100kmh, isNotNull);
-
-      // Offline iTOW interpolate: last sample below 100 and first at/above.
-      // Speeds after commit: 6@700, 8@800, ... 100@5400, 102@5500
-      // Cross at exactly 100 @ itow 5400 → elapsed = (5400 - 275) / 1000
-      final expected = (5400 - 275) / 1000.0;
-      expect(metrics.time0to100kmh, closeTo(expected, 0.02));
-    });
+        // Offline iTOW interpolate: last sample below 100 and first at/above.
+        // Speeds after commit: 6@700, 8@800, ... 100@5400, 102@5500
+        // Cross at exactly 100 @ itow 5400 → elapsed = (5400 - 275) / 1000
+        final expected = (5400 - 275) / 1000.0;
+        expect(metrics.time0to100kmh, closeTo(expected, 0.02));
+      },
+    );
   });
 }
-

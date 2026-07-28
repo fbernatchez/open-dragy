@@ -13,6 +13,7 @@ import '../models/saved_run.dart';
 import '../models/vehicle.dart';
 import '../services/ble_service.dart';
 import '../services/physics_engine.dart';
+import '../services/gps_fix_policy.dart';
 import '../services/history_service.dart';
 import '../services/garage_service.dart';
 import '../services/settings_service.dart';
@@ -321,8 +322,9 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
       _optionalAudioMilestones.contains(m);
 
   /// Result rows shown in UI (engine still computes all).
-  Set<VisibleResultField> _visibleResultFields =
-      Set<VisibleResultField>.from(VisibleResultField.defaults);
+  Set<VisibleResultField> _visibleResultFields = Set<VisibleResultField>.from(
+    VisibleResultField.defaults,
+  );
   Set<VisibleResultField> get visibleResultFields =>
       Set.unmodifiable(_visibleResultFields);
 
@@ -361,9 +363,9 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   List<String> _rankedLoggerTags = [];
   List<String> get loggerSuggestedTags {
-    final current = parseLoggerTags(_loggerTagsText)
-        .map((t) => t.toLowerCase())
-        .toSet();
+    final current = parseLoggerTags(
+      _loggerTagsText,
+    ).map((t) => t.toLowerCase()).toSet();
     return _rankedLoggerTags
         .where((t) => !current.contains(t.toLowerCase()))
         .take(12)
@@ -605,6 +607,7 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   /// Slow drift correction on longitudinal G while disarmed (pre-ARM fallback).
   double _idleLongitudinalOffset = 0.0;
+
   /// Gravity vector captured during ARM (~0.5 s stationary window).
   GravityVector? _gravityRef;
   bool _armCalibPending = false;
@@ -861,6 +864,7 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
             _rideRecorder.appendGpsRow(
               latitude: _latitude!,
               longitude: _longitude!,
+              valid: q >= 1 && sats >= 4,
               altitudeMeters: _altitude,
               speedKmh: speed,
               hdop: _hdop > 0 ? _hdop : null,
@@ -903,8 +907,7 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
             if (started != null) {
               unawaited(
                 _rideRecorder.appendImuSample(
-                  elapsedMs:
-                      DateTime.now().difference(started).inMilliseconds,
+                  elapsedMs: DateTime.now().difference(started).inMilliseconds,
                   axG: ax,
                   ayG: ay,
                   azG: az,
@@ -939,8 +942,9 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
                 _idleLongitudinalOffset * (1.0 - alpha) + gForce * alpha;
           }
 
-          final longitudinalOffset =
-              _gravityRef != null ? 0.0 : _idleLongitudinalOffset;
+          final longitudinalOffset = _gravityRef != null
+              ? 0.0
+              : _idleLongitudinalOffset;
           double calibratedGForce = gForce - longitudinalOffset;
 
           // Clamp noise to prevent "-0.0" from showing up
@@ -953,7 +957,6 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
           }
 
           _metrics = _metrics.copyWith(gForce: calibratedGForce);
-          _physicsEngine.noteImuG(calibratedGForce);
           _needsUiUpdate = true;
         }
       } catch (e) {
@@ -981,22 +984,23 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
     _usedPvt = fix.usedPvt;
     _hdop = fix.hdopApprox;
     _altitude = fix.altitudeM;
-    _updateFixHold(
-      fix.valid && fix.fixType >= 3 && fix.numSV >= 4,
-    );
+    _updateFixHold(fix.valid && fix.fixType >= 3 && fix.numSV >= 4);
     if (fix.valid) {
       _latitude = fix.latitude;
       _longitude = fix.longitude;
       _rememberAidingFix(fix.latitude, fix.longitude, fix.altitudeM);
     }
 
-    if (fix.valid || fix.speedKmh >= 0) {
-      _captureRawGpsIfArmed(
-        GpsPvtSample.fromOdgp(
-          fix,
-          hdopApprox: _hdop > 0 ? _hdop : null,
-        ),
-      );
+    _captureRawGpsIfArmed(
+      GpsPvtSample.fromOdgp(fix, hdopApprox: _hdop > 0 ? _hdop : null),
+    );
+
+    if (GpsFixPolicy.accepts(
+      valid: fix.valid,
+      fixType: fix.fixType,
+      satellites: fix.numSV,
+      usedPvt: fix.usedPvt,
+    )) {
       _applySpeedSample(
         speedKmh: fix.speedKmh.clamp(0.0, 500.0),
         gpsTimeSeconds: fix.timeSeconds,
@@ -1017,6 +1021,7 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
         _rideRecorder.appendGpsRow(
           latitude: _latitude!,
           longitude: _longitude!,
+          valid: fix.valid,
           altitudeMeters: _altitude,
           speedKmh: fix.speedKmh,
           iTowMs: fix.iTOW,
@@ -1085,8 +1090,7 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
         targetMilestoneId: _runMode == 'drag'
             ? _audioMilestoneIdForDragTarget(_activeDragTarget)
             : null,
-        enabledOptionalIds:
-            _optionalAudioMilestones.map((e) => e.id).toSet(),
+        enabledOptionalIds: _optionalAudioMilestones.map((e) => e.id).toSet(),
       );
     }
 
@@ -1411,10 +1415,7 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
     if (duration >= 1.0 && maxSpeed >= 10.0) {
       final vehicle = activeVehicle;
       final runAt = DateTime.now();
-      final runId = RunId.allocate(
-        runAt,
-        _savedRuns.map((r) => r.id),
-      );
+      final runId = RunId.allocate(runAt, _savedRuns.map((r) => r.id));
 
       final rawGps = List<RawGpsSample>.from(_runRaw.gps);
       final rawImu = List<RawImuSample>.from(_runRaw.imu);
@@ -1595,9 +1596,12 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
     if (isOfficialTestIdVisible('100-200kmh')) {
       add('100–200 km/h', fmt(m.time100to200kmh));
     }
-    add('Vmax', trap(m.history.isEmpty
-        ? null
-        : m.history.map((e) => e.speedKmh).reduce(max)));
+    add(
+      'Vmax',
+      trap(
+        m.history.isEmpty ? null : m.history.map((e) => e.speedKmh).reduce(max),
+      ),
+    );
     if (run.vehicleName != null && run.vehicleName!.trim().isNotEmpty) {
       add('Vehicle', run.vehicleName!.trim());
     }
@@ -1681,9 +1685,7 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
     );
     _savedRuns[index] = updatedRun;
     await _historyService.updateRun(updatedRun);
-    unawaited(
-      _durableStorage.pushSavedRunJson(runId, updatedRun.toJson()),
-    );
+    unawaited(_durableStorage.pushSavedRunJson(runId, updatedRun.toJson()));
     _needsUiUpdate = true;
     notifyListeners();
   }
@@ -1701,9 +1703,7 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
       final updatedRun = _savedRuns[index].copyWith(notes: notes);
       _savedRuns[index] = updatedRun;
       await _historyService.updateRun(updatedRun);
-      unawaited(
-        _durableStorage.pushSavedRunJson(id, updatedRun.toJson()),
-      );
+      unawaited(_durableStorage.pushSavedRunJson(id, updatedRun.toJson()));
       notifyListeners();
     }
   }
@@ -1823,11 +1823,14 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
       } else if (_activeIntervalTarget ==
           RaceIntervalTarget.fiftyToSeventyFiveMph) {
         _activeIntervalTarget = RaceIntervalTarget.eightyToOneTwentyKmh;
-      } else if (_activeIntervalTarget == RaceIntervalTarget.zeroToOneThirtyMph) {
+      } else if (_activeIntervalTarget ==
+          RaceIntervalTarget.zeroToOneThirtyMph) {
         _activeIntervalTarget = RaceIntervalTarget.zeroToTwoHundredKmh;
-      } else if (_activeIntervalTarget == RaceIntervalTarget.sixtyToOneHundredMph) {
+      } else if (_activeIntervalTarget ==
+          RaceIntervalTarget.sixtyToOneHundredMph) {
         _activeIntervalTarget = RaceIntervalTarget.oneHundredToOneSixtyKmh;
-      } else if (_activeIntervalTarget == RaceIntervalTarget.zeroToOneHundredMph) {
+      } else if (_activeIntervalTarget ==
+          RaceIntervalTarget.zeroToOneHundredMph) {
         _activeIntervalTarget = RaceIntervalTarget.zeroToOneSixtyKmh;
       }
     } else {
@@ -1842,11 +1845,14 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
       } else if (_activeIntervalTarget ==
           RaceIntervalTarget.eightyToOneTwentyKmh) {
         _activeIntervalTarget = RaceIntervalTarget.fiftyToSeventyFiveMph;
-      } else if (_activeIntervalTarget == RaceIntervalTarget.zeroToTwoHundredKmh) {
+      } else if (_activeIntervalTarget ==
+          RaceIntervalTarget.zeroToTwoHundredKmh) {
         _activeIntervalTarget = RaceIntervalTarget.zeroToOneThirtyMph;
-      } else if (_activeIntervalTarget == RaceIntervalTarget.oneHundredToOneSixtyKmh) {
+      } else if (_activeIntervalTarget ==
+          RaceIntervalTarget.oneHundredToOneSixtyKmh) {
         _activeIntervalTarget = RaceIntervalTarget.sixtyToOneHundredMph;
-      } else if (_activeIntervalTarget == RaceIntervalTarget.zeroToOneSixtyKmh) {
+      } else if (_activeIntervalTarget ==
+          RaceIntervalTarget.zeroToOneSixtyKmh) {
         _activeIntervalTarget = RaceIntervalTarget.zeroToOneHundredMph;
       }
     }
@@ -1934,7 +1940,8 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
     final now = DateTime.now();
     if (!force &&
         _lastCarStatePush != null &&
-        now.difference(_lastCarStatePush!) < const Duration(milliseconds: 250)) {
+        now.difference(_lastCarStatePush!) <
+            const Duration(milliseconds: 250)) {
       return;
     }
     _lastCarStatePush = now;
@@ -2228,7 +2235,8 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
     final tagLists = <List<String>>[];
     for (final file in manifests) {
       try {
-        final map = jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+        final map =
+            jsonDecode(await file.readAsString()) as Map<String, dynamic>;
         tagLists.add(RideRecorder.tagsFromManifest(map));
       } catch (_) {}
     }
@@ -2325,7 +2333,8 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
       _pocketMode = data['pocketMode'] as bool? ?? _pocketMode;
     }
     if (data.containsKey('voiceCuesEnabled')) {
-      _voiceCuesEnabled = data['voiceCuesEnabled'] as bool? ?? _voiceCuesEnabled;
+      _voiceCuesEnabled =
+          data['voiceCuesEnabled'] as bool? ?? _voiceCuesEnabled;
       _milestoneAudio.setEnabled(_voiceCuesEnabled);
     }
     final audioCueName = data['audioCueMode'] as String?;
@@ -2385,7 +2394,8 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
     if (data.containsKey('loggerTagsText') ||
         data.containsKey('loggerConfiguration')) {
-      _loggerTagsText = data['loggerTagsText'] as String? ??
+      _loggerTagsText =
+          data['loggerTagsText'] as String? ??
           data['loggerConfiguration'] as String? ??
           _loggerTagsText;
     }
@@ -2411,12 +2421,12 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
       );
     }
     if (data['customIntervalStartSpeed'] != null) {
-      _customIntervalStartSpeed =
-          (data['customIntervalStartSpeed'] as num).toDouble();
+      _customIntervalStartSpeed = (data['customIntervalStartSpeed'] as num)
+          .toDouble();
     }
     if (data['customIntervalEndSpeed'] != null) {
-      _customIntervalEndSpeed =
-          (data['customIntervalEndSpeed'] as num).toDouble();
+      _customIntervalEndSpeed = (data['customIntervalEndSpeed'] as num)
+          .toDouble();
     }
     _loadAidingFromMap(data);
     final longAxisName = data['imuLongAxis'] as String?;
@@ -2462,36 +2472,36 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Map<String, dynamic> _settingsMap() => {
-        'isMetric': _isMetric,
-        'tempInCelsius': _tempInCelsius,
-        'useNhraRules': _useNhraRules,
-        'pocketMode': _pocketMode,
-        'voiceCuesEnabled': _voiceCuesEnabled,
-        'audioCueMode': _audioCueMode.name,
-        'cueVolume': _cueVolume,
-        'headsetMediaArmEnabled': _headsetMediaArmEnabled,
-        if (_lastCarResult != null) 'lastCarResult': _lastCarResult,
-        'optionalAudioMilestones':
-            _optionalAudioMilestones.map((e) => e.name).toList(),
-        'visibleResultFields':
-            _visibleResultFields.map((e) => e.name).toList(),
-        'finishCelebration': _finishCelebration.name,
-        'loggerTagsText': _loggerTagsText,
-        'loggerNotes': _loggerNotes,
-        'runMode': _runMode,
-        'activeDragTarget': _activeDragTarget.name,
-        'activeIntervalTarget': _activeIntervalTarget.name,
-        'customIntervalStartSpeed': _customIntervalStartSpeed.round(),
-        'customIntervalEndSpeed': _customIntervalEndSpeed.round(),
-        if (_bleReconnectId != null) 'lastBleDeviceId': _bleReconnectId,
-        if (_aidingLatitude != null) 'aidingLatitude': _aidingLatitude,
-        if (_aidingLongitude != null) 'aidingLongitude': _aidingLongitude,
-        if (_aidingLatitude != null) 'aidingAltitude': _aidingAltitude,
-        if (_aidingSavedAt != null)
-          'aidingSavedAtMs': _aidingSavedAt!.millisecondsSinceEpoch,
-        'imuLongAxis': _imuLongAxis.name,
-        'imuInvertLongitudinal': _imuInvertLongitudinal,
-      };
+    'isMetric': _isMetric,
+    'tempInCelsius': _tempInCelsius,
+    'useNhraRules': _useNhraRules,
+    'pocketMode': _pocketMode,
+    'voiceCuesEnabled': _voiceCuesEnabled,
+    'audioCueMode': _audioCueMode.name,
+    'cueVolume': _cueVolume,
+    'headsetMediaArmEnabled': _headsetMediaArmEnabled,
+    if (_lastCarResult != null) 'lastCarResult': _lastCarResult,
+    'optionalAudioMilestones': _optionalAudioMilestones
+        .map((e) => e.name)
+        .toList(),
+    'visibleResultFields': _visibleResultFields.map((e) => e.name).toList(),
+    'finishCelebration': _finishCelebration.name,
+    'loggerTagsText': _loggerTagsText,
+    'loggerNotes': _loggerNotes,
+    'runMode': _runMode,
+    'activeDragTarget': _activeDragTarget.name,
+    'activeIntervalTarget': _activeIntervalTarget.name,
+    'customIntervalStartSpeed': _customIntervalStartSpeed.round(),
+    'customIntervalEndSpeed': _customIntervalEndSpeed.round(),
+    if (_bleReconnectId != null) 'lastBleDeviceId': _bleReconnectId,
+    if (_aidingLatitude != null) 'aidingLatitude': _aidingLatitude,
+    if (_aidingLongitude != null) 'aidingLongitude': _aidingLongitude,
+    if (_aidingLatitude != null) 'aidingAltitude': _aidingAltitude,
+    if (_aidingSavedAt != null)
+      'aidingSavedAtMs': _aidingSavedAt!.millisecondsSinceEpoch,
+    'imuLongAxis': _imuLongAxis.name,
+    'imuInvertLongitudinal': _imuInvertLongitudinal,
+  };
 
   Future<String?> startRideRecording() async {
     if (_isRideRecording) return null;
@@ -2506,9 +2516,7 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
       tags: parseLoggerTags(_loggerTagsText),
       notes: _loggerNotes,
     );
-    await PocketForegroundService.startLogging(
-      subtitle: 'Logger · 0 pts',
-    );
+    await PocketForegroundService.startLogging(subtitle: 'Logger · 0 pts');
     _isRideRecording = true;
     _applyScreenPolicy();
     _needsUiUpdate = true;
@@ -2657,8 +2665,10 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
       );
       if (device == null || _isConnected || _autoConnectSuppressed) return;
       // ignore: avoid_print
-      print('[BLE] Auto-connect found ${device.platformName} '
-          '${device.remoteId.str}');
+      print(
+        '[BLE] Auto-connect found ${device.platformName} '
+        '${device.remoteId.str}',
+      );
       await connect(device);
     } catch (e) {
       // ignore: avoid_print
@@ -2684,10 +2694,7 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
       }
     });
     try {
-      _bleService.startScan(
-        withNames: [_openDragyBleName],
-        timeout: timeout,
-      );
+      _bleService.startScan(withNames: [_openDragyBleName], timeout: timeout);
       return await completer.future.timeout(
         timeout + const Duration(milliseconds: 800),
         onTimeout: () => null,
@@ -2967,4 +2974,3 @@ class DragyProvider extends ChangeNotifier with WidgetsBindingObserver {
     super.dispose();
   }
 }
-
