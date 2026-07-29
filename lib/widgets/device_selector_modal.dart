@@ -33,7 +33,6 @@ class _DeviceSelectorModalState extends State<DeviceSelectorModal> {
     if (Platform.isIOS) {
       statuses = await [
         Permission.bluetooth,
-        Permission.location,
       ].request();
     } else {
       statuses = await [
