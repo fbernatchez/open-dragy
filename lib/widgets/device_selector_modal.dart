@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:provider/provider.dart';
@@ -27,11 +28,20 @@ class _DeviceSelectorModalState extends State<DeviceSelectorModal> {
   }
 
   Future<void> _checkPermissionsAndScan() async {
-    final statuses = await [
-      Permission.bluetoothScan,
-      Permission.bluetoothConnect,
-      Permission.location,
-    ].request();
+    Map<Permission, PermissionStatus> statuses;
+
+    if (Platform.isIOS) {
+      statuses = await [
+        Permission.bluetooth,
+        Permission.location,
+      ].request();
+    } else {
+      statuses = await [
+        Permission.bluetoothScan,
+        Permission.bluetoothConnect,
+        Permission.location,
+      ].request();
+    }
 
     if (!mounted) return;
 

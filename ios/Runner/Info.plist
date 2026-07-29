@@ -26,6 +26,10 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>OpenDragy needs Bluetooth to connect to external devices.</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>OpenDragy needs Bluetooth to connect to external devices.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
