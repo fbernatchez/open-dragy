@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:open_dragy/models/race_metrics.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../providers/dragy_provider.dart';
 import '../models/saved_run.dart';
 import '../models/race_target.dart';
+import '../models/vehicle.dart';
 import 'run_detail_screen.dart';
 
 class RunHistoryScreen extends StatefulWidget {
@@ -15,6 +17,7 @@ class RunHistoryScreen extends StatefulWidget {
 
 class _RunHistoryScreenState extends State<RunHistoryScreen> {
   String _selectedCategory = 'all';
+  String _selectedVehicleId = 'all';
 
   String _formatDate(DateTime dt) {
     final months = [
@@ -40,14 +43,25 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
     return '$month $day, $year at $hour:$minute $ampm';
   }
 
-  List<HistoryCategory> _getCategories(List<SavedRun> runs, bool isMetric, bool useNhraRules) {
+  List<HistoryCategory> _getCategories(
+    List<SavedRun> runs,
+    bool isMetric,
+    bool useNhraRules,
+  ) {
     final Set<String> seenIds = {};
     final List<HistoryCategory> categories = [
-      const HistoryCategory(id: 'all', displayName: 'All Runs', isOfficial: true)
+      const HistoryCategory(
+        id: 'all',
+        displayName: 'All Runs',
+        isOfficial: true,
+      ),
     ];
 
     for (final run in runs) {
-      final completed = getCompletedTests(run.metrics, useNhraRules: useNhraRules);
+      final completed = getCompletedTests(
+        run.metrics,
+        useNhraRules: useNhraRules,
+      );
       for (final test in completed) {
         if (test.speedUnit != null) {
           final isTestMetric = test.speedUnit == SpeedUnit.kmh;
@@ -55,21 +69,22 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
             continue;
           }
         }
-        
+
         if (!seenIds.contains(test.id)) {
           seenIds.add(test.id);
-          categories.add(HistoryCategory(
-            id: test.id,
-            displayName: test.displayName,
-            isOfficial: true,
-          ));
+          categories.add(
+            HistoryCategory(
+              id: test.id,
+              displayName: test.displayName,
+              isOfficial: true,
+            ),
+          );
         }
       }
 
       if (run.metrics.runMode == 'interval' &&
           run.metrics.targetStartSpeed != null &&
           run.metrics.targetEndSpeed != null) {
-        
         bool matchesAny = false;
         for (final test in officialTests) {
           if (test.startSpeed != null &&
@@ -83,7 +98,8 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
         }
 
         if (!matchesAny) {
-          final unit = run.metrics.targetSpeedUnit ?? (isMetric ? 'kmh' : 'mph');
+          final unit =
+              run.metrics.targetSpeedUnit ?? (isMetric ? 'kmh' : 'mph');
           final start = unit == 'mph'
               ? (run.metrics.targetStartSpeed! * 0.621371).round()
               : run.metrics.targetStartSpeed!.round();
@@ -99,14 +115,18 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
               speedUnit: run.metrics.targetSpeedUnit,
               runMode: 'interval',
             );
-            categories.add(HistoryCategory(
-              id: customId,
-              displayName: label,
-              isOfficial: false,
-              startSpeed: run.metrics.targetStartSpeed,
-              endSpeed: run.metrics.targetEndSpeed,
-              speedUnit: run.metrics.targetSpeedUnit == 'mph' ? SpeedUnit.mph : SpeedUnit.kmh,
-            ));
+            categories.add(
+              HistoryCategory(
+                id: customId,
+                displayName: label,
+                isOfficial: false,
+                startSpeed: run.metrics.targetStartSpeed,
+                endSpeed: run.metrics.targetEndSpeed,
+                speedUnit: run.metrics.targetSpeedUnit == 'mph'
+                    ? SpeedUnit.mph
+                    : SpeedUnit.kmh,
+              ),
+            );
           }
         }
       }
@@ -144,7 +164,11 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
     if (categoryId == 'all') return null;
     double? best;
     for (final run in runs) {
-      final val = getCompletedTimeForCategory(run.metrics, categoryId, useNhraRules: useNhraRules);
+      final val = getCompletedTimeForCategory(
+        run.metrics,
+        categoryId,
+        useNhraRules: useNhraRules,
+      );
       if (val != null) {
         if (best == null || val < best) {
           best = val;
@@ -161,7 +185,11 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
   ) {
     if (categoryId == 'all') return runs;
     return runs.where((run) {
-      final time = getCompletedTimeForCategory(run.metrics, categoryId, useNhraRules: useNhraRules);
+      final time = getCompletedTimeForCategory(
+        run.metrics,
+        categoryId,
+        useNhraRules: useNhraRules,
+      );
       return time != null;
     }).toList();
   }
@@ -183,10 +211,119 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
     }
     return categoryId;
   }
+
+  void _showVehicleFilterModal(BuildContext context, List<MapEntry<String, String>> availableVehicles) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.only(top: 24, bottom: 32, left: 24, right: 24),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade900,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Filter by Vehicle',
+                style: GoogleFonts.comfortaa(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 16),
+              _buildFilterOption(
+                context,
+                id: 'all',
+                title: 'All Vehicles',
+                isSelected: _selectedVehicleId == 'all',
+              ),
+              if (availableVehicles.isNotEmpty) ...[
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8.0),
+                  child: Divider(color: Colors.white10, height: 1),
+                ),
+                ...availableVehicles.map((v) => _buildFilterOption(
+                      context,
+                      id: v.key,
+                      title: v.value,
+                      isSelected: _selectedVehicleId == v.key,
+                    )),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildFilterOption(
+    BuildContext context, {
+    required String id,
+    required String title,
+    required bool isSelected,
+  }) {
+    return InkWell(
+      onTap: () {
+        setState(() {
+          _selectedVehicleId = id;
+        });
+        Navigator.pop(context);
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFFFFBF00).withOpacity(0.1) : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? const Color(0xFFFFBF00).withOpacity(0.5) : Colors.transparent,
+          ),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                title,
+                style: GoogleFonts.roboto(
+                  color: isSelected ? const Color(0xFFFFBF00) : Colors.white,
+                  fontSize: 16,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                ),
+              ),
+            ),
+            if (isSelected)
+              const Icon(Icons.check_circle, color: Color(0xFFFFBF00), size: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final dragy = Provider.of<DragyProvider>(context);
-    final runs = dragy.savedRuns;
+
+    final Map<String, String> uniqueVehicles = {};
+    for (var run in dragy.savedRuns) {
+      if (run.vehicleId != null && run.vehicleName != null) {
+        uniqueVehicles[run.vehicleId!] = run.vehicleName!;
+      }
+    }
+    final availableVehicles = uniqueVehicles.entries.toList();
+    List<SavedRun> baseRuns = dragy.savedRuns;
+
+    if (_selectedVehicleId != 'all') {
+      baseRuns = baseRuns
+          .where((r) => r.vehicleId == _selectedVehicleId)
+          .toList();
+    }
+    final runs = baseRuns;
     final isMetric = dragy.isMetric;
     final useNhraRules = dragy.useNhraRules;
 
@@ -194,7 +331,11 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
     if (!categories.any((c) => c.id == _selectedCategory)) {
       _selectedCategory = 'all';
     }
-    final filteredRuns = _getFilteredRuns(_selectedCategory, runs, useNhraRules);
+    final filteredRuns = _getFilteredRuns(
+      _selectedCategory,
+      runs,
+      useNhraRules,
+    );
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -207,6 +348,20 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
           ),
         ),
         iconTheme: const IconThemeData(color: Colors.white),
+        actions: [
+          IconButton(
+            icon: Icon(
+              _selectedVehicleId == 'all'
+                  ? Icons.filter_alt_outlined
+                  : Icons.filter_alt,
+              color: _selectedVehicleId == 'all'
+                  ? Colors.white
+                  : const Color(0xFFFFBF00),
+            ),
+            tooltip: 'Filter by Vehicle',
+            onPressed: () => _showVehicleFilterModal(context, availableVehicles),
+          ),
+        ],
       ),
       body: runs.isEmpty
           ? Center(
@@ -421,7 +576,8 @@ class RunHistoryCard extends StatelessWidget {
   final String selectedCategory;
   final VoidCallback onDelete;
 
-  const RunHistoryCard({super.key, 
+  const RunHistoryCard({
+    super.key,
     required this.run,
     required this.formattedDate,
     required this.selectedCategory,
@@ -441,17 +597,30 @@ class RunHistoryCard extends StatelessWidget {
     final useNhraRulesSetting = dragy.useNhraRules;
 
     if (selectedCategory != 'all') {
-      primaryLabel = _RunHistoryScreenState.getCategoryDisplayName(selectedCategory);
-      final displayTime = getCompletedTimeForCategory(metrics, selectedCategory, useNhraRules: useNhraRulesSetting);
+      primaryLabel = _RunHistoryScreenState.getCategoryDisplayName(
+        selectedCategory,
+      );
+      final displayTime = getCompletedTimeForCategory(
+        metrics,
+        selectedCategory,
+        useNhraRules: useNhraRulesSetting,
+      );
       if (displayTime != null) {
         primaryTime = "${displayTime.toStringAsFixed(2)}s";
       }
     } else {
-      final completed = getCompletedTests(metrics, useNhraRules: useNhraRulesSetting);
+      final completed = getCompletedTests(
+        metrics,
+        useNhraRules: useNhraRulesSetting,
+      );
       double maxTime = -1.0;
 
       for (final test in completed) {
-        final t = getCompletedTimeForCategory(metrics, test.id, useNhraRules: useNhraRulesSetting);
+        final t = getCompletedTimeForCategory(
+          metrics,
+          test.id,
+          useNhraRules: useNhraRulesSetting,
+        );
         if (t != null && t > maxTime) {
           maxTime = t;
           primaryLabel = test.displayName;
@@ -459,9 +628,10 @@ class RunHistoryCard extends StatelessWidget {
         }
       }
 
-      if (maxTime < 0 && metrics.runMode == 'interval' &&
-                 metrics.targetStartSpeed != null &&
-                 metrics.targetEndSpeed != null) {
+      if (maxTime < 0 &&
+          metrics.runMode == 'interval' &&
+          metrics.targetStartSpeed != null &&
+          metrics.targetEndSpeed != null) {
         primaryLabel = getDisplayLabelForTarget(
           startSpeed: metrics.targetStartSpeed,
           endSpeed: metrics.targetEndSpeed,
@@ -476,8 +646,14 @@ class RunHistoryCard extends StatelessWidget {
             ? (metrics.targetEndSpeed! * 0.621371).round()
             : metrics.targetEndSpeed!.round();
         final customId = 'custom_${start}_${end}_$unit';
-        final compTime = getCompletedTimeForCategory(metrics, customId, useNhraRules: useNhraRulesSetting);
-        primaryTime = compTime != null ? "${compTime.toStringAsFixed(2)}s" : "-.--s";
+        final compTime = getCompletedTimeForCategory(
+          metrics,
+          customId,
+          useNhraRules: useNhraRulesSetting,
+        );
+        primaryTime = compTime != null
+            ? "${compTime.toStringAsFixed(2)}s"
+            : "-.--s";
       }
     }
 
@@ -698,4 +874,3 @@ class RunHistoryCard extends StatelessWidget {
     );
   }
 }
-

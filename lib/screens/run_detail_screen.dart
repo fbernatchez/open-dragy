@@ -29,6 +29,7 @@ class RunDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dragy = Provider.of<DragyProvider>(context);
+    final run = dragy.savedRuns.firstWhere((r) => r.id == this.run.id, orElse: () => this.run);
     final isMetric = dragy.isMetric;
     final useNhraRules = dragy.useNhraRules && run.metrics.rolloutTime1ft != null;
     final metrics = run.metrics;
@@ -237,28 +238,40 @@ class RunDetailScreen extends StatelessWidget {
                 fontSize: 14,
               ),
             ),
-            if (run.vehicleName != null) ...[
-              const SizedBox(height: 6),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(
-                    Icons.directions_car,
-                    color: Color(0xFFFFBF00),
-                    size: 14,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    run.vehicleName!,
-                    style: GoogleFonts.roboto(
-                      color: const Color(0xFFFFBF00),
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
+            const SizedBox(height: 6),
+            InkWell(
+              onTap: () => _showVehicleSelector(context, dragy, run),
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.directions_car,
+                      color: run.vehicleName != null ? const Color(0xFFFFBF00) : Colors.white38,
+                      size: 14,
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 6),
+                    Text(
+                      run.vehicleName ?? 'No Vehicle Assigned',
+                      style: GoogleFonts.roboto(
+                        color: run.vehicleName != null ? const Color(0xFFFFBF00) : Colors.white38,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Icon(
+                      Icons.edit_outlined,
+                      color: run.vehicleName != null ? const Color(0xFFFFBF00) : Colors.white38,
+                      size: 12,
+                    ),
+                  ],
+                ),
               ),
-            ],
+            ),
             const SizedBox(height: 16),
             // Time Display
             Text(
@@ -487,6 +500,68 @@ class RunDetailScreen extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  void _showVehicleSelector(BuildContext context, DragyProvider dragy, SavedRun currentRun) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) {
+        return Container(
+          padding: const EdgeInsets.only(top: 24, bottom: 32, left: 24, right: 24),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade900,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Assign Vehicle',
+                style: GoogleFonts.comfortaa(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 16),
+              if (dragy.vehicles.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 20),
+                  child: Text('Your garage is empty.', style: TextStyle(color: Colors.white54)),
+                )
+              else
+                ...dragy.vehicles.map((v) {
+                  final isSelected = v.id == currentRun.vehicleId;
+                  return ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(
+                      Icons.directions_car,
+                      color: isSelected ? const Color(0xFFFFBF00) : Colors.white54,
+                    ),
+                    title: Text(
+                      v.displayName,
+                      style: TextStyle(
+                        color: isSelected ? const Color(0xFFFFBF00) : Colors.white,
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                      ),
+                    ),
+                    trailing: isSelected
+                        ? const Icon(Icons.check, color: Color(0xFFFFBF00))
+                        : null,
+                    onTap: () {
+                      dragy.updateRunVehicle(currentRun.id, v.id, v.displayName);
+                      Navigator.pop(ctx);
+                    },
+                  );
+                }),
+            ],
+          ),
+        );
+      },
     );
   }
 }

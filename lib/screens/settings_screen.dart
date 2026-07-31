@@ -53,6 +53,15 @@ class SettingsScreen extends StatelessWidget {
             value: dragy.useNhraRules,
             onChanged: (v) => dragy.setUseNhraRules(v),
           ),
+          _SettingsToggle(
+            icon: Icons.record_voice_over_outlined,
+            title: 'Voice Announcements',
+            subtitle: dragy.enableTts
+                ? 'Announces completed milestones'
+                : 'TTS is disabled',
+            value: dragy.enableTts,
+            onChanged: (v) => dragy.setEnableTts(v),
+          ),
 
           _SectionHeader(label: 'About'),
           Container(

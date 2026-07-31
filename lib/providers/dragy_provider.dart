@@ -14,6 +14,8 @@ import '../services/settings_service.dart';
 import '../services/weather_service.dart';
 import '../utils/nmea_parser.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import '../models/race_target.dart';
+import '../services/tts_service.dart';
 
 enum RaceDragTarget {
   sixtyFeet('60ft'),
@@ -54,6 +56,7 @@ class DragyProvider extends ChangeNotifier {
   final GarageService _garageService = GarageService();
   final SettingsService _settingsService = SettingsService();
   final WeatherService _weatherService = WeatherService();
+  final TtsService _ttsService = TtsService();
 
   double? _latitude;
   double? get latitude => _latitude;
@@ -91,6 +94,9 @@ class DragyProvider extends ChangeNotifier {
 
   bool _useNhraRules = true;
   bool get useNhraRules => _useNhraRules;
+
+  bool _enableTts = true;
+  bool get enableTts => _enableTts;
 
   // --- Arming & Run Modes ---
   bool _isArmed = false;
@@ -415,6 +421,9 @@ class DragyProvider extends ChangeNotifier {
           }
 
           final wasRunning = _metrics.isRunning;
+          final oldTests = _enableTts && wasRunning
+              ? getCompletedTests(_metrics, useNhraRules: _useNhraRules)
+              : <OfficialTest>[];
 
           _metrics = _physicsEngine.updateMetrics(
             _metrics,
@@ -432,6 +441,20 @@ class DragyProvider extends ChangeNotifier {
             gpsTimeSeconds: data.timeSeconds,
           );
           final isRunning = _metrics.isRunning;
+
+          if (_enableTts && isRunning) {
+            final newTests = getCompletedTests(_metrics, useNhraRules: _useNhraRules);
+            for (final test in newTests) {
+              if (!oldTests.any((t) => t.id == test.id)) {
+                if (!test.enableTts || test.ttsPhrase == null || test.ttsPhrase!.isEmpty) continue;
+                if (test.speedUnit != null) {
+                  if (_isMetric && test.speedUnit != SpeedUnit.kmh) continue;
+                  if (!_isMetric && test.speedUnit != SpeedUnit.mph) continue;
+                }
+                _ttsService.speak(test.ttsPhrase!);
+              }
+            }
+          }
 
           if (isRunning) {
             _lastGpsUpdateTime = DateTime.now();
@@ -599,6 +622,26 @@ class DragyProvider extends ChangeNotifier {
     }
   }
 
+  Future<void> updateRunVehicle(String id, String? vehicleId, String? vehicleName) async {
+    final index = _savedRuns.indexWhere((r) => r.id == id);
+    if (index != -1) {
+      final old = _savedRuns[index];
+      final updatedRun = SavedRun(
+        id: old.id,
+        dateTime: old.dateTime,
+        metrics: old.metrics,
+        notes: old.notes,
+        temperature: old.temperature,
+        humidity: old.humidity,
+        vehicleId: vehicleId,
+        vehicleName: vehicleName,
+      );
+      _savedRuns[index] = updatedRun;
+      await _historyService.updateRun(updatedRun);
+      notifyListeners();
+    }
+  }
+
   void toggleSpeedUnit() {
     _isMetric = !_isMetric;
     _syncActiveTargetToUnit();
@@ -700,6 +743,14 @@ class DragyProvider extends ChangeNotifier {
     }
   }
 
+  void setEnableTts(bool value) {
+    if (_enableTts != value) {
+      _enableTts = value;
+      _saveSettings();
+      notifyListeners();
+    }
+  }
+
   void toggleArm() {
     if (_metrics.isRunning) {
       _isArmed = false;
@@ -750,9 +801,10 @@ class DragyProvider extends ChangeNotifier {
   Future<void> _loadSettings() async {
     final data = await _settingsService.load();
     _isMetric = data['isMetric'] as bool? ?? false;
-    _tempInCelsius = data['tempInCelsius'] as bool? ?? true;
-    _useNhraRules = data['useNhraRules'] as bool? ?? true;
-    _runMode = data['runMode'] as String? ?? 'drag';
+      _tempInCelsius = data['tempInCelsius'] as bool? ?? true;
+      _useNhraRules = data['useNhraRules'] as bool? ?? true;
+      _enableTts = data['enableTts'] as bool? ?? true;
+      _runMode = data['runMode'] as String? ?? 'drag';
 
     final dragTargetName = data['activeDragTarget'] as String?;
     _activeDragTarget = RaceDragTarget.values.firstWhere(
@@ -777,9 +829,10 @@ class DragyProvider extends ChangeNotifier {
   Future<void> _saveSettings() async {
     await _settingsService.save({
       'isMetric': _isMetric,
-      'tempInCelsius': _tempInCelsius,
-      'useNhraRules': _useNhraRules,
-      'runMode': _runMode,
+        'tempInCelsius': _tempInCelsius,
+        'useNhraRules': _useNhraRules,
+        'enableTts': _enableTts,
+        'runMode': _runMode,
       'activeDragTarget': _activeDragTarget.name,
       'activeIntervalTarget': _activeIntervalTarget.name,
       'customIntervalStartSpeed': _customIntervalStartSpeed.round(),

@@ -21,10 +21,12 @@ enum SpeedUnit {
 class OfficialTest {
   final String id;
   final String displayName;
+  final String? ttsPhrase;
+  final bool enableTts;
 
-  // Criteria
-  final double? distance;
+  final double? distance; // in meters or feet
   final DistanceUnit? distanceUnit;
+
   final double? startSpeed; // in km/h
   final double? endSpeed; // in km/h
   final SpeedUnit? speedUnit;
@@ -32,6 +34,8 @@ class OfficialTest {
   const OfficialTest({
     required this.id,
     required this.displayName,
+    this.ttsPhrase,
+    this.enableTts = true,
     this.distance,
     this.distanceUnit,
     this.startSpeed,
@@ -76,6 +80,7 @@ const List<OfficialTest> officialTests = [
   OfficialTest(
     id: '0-60mph',
     displayName: '0-60 mph',
+    ttsPhrase: 'Sixty',
     startSpeed: 0.0,
     endSpeed: 96.56064, // 60 mph in km/h
     speedUnit: SpeedUnit.mph,
@@ -83,6 +88,7 @@ const List<OfficialTest> officialTests = [
   OfficialTest(
     id: '0-100kmh',
     displayName: '0-100 km/h',
+    ttsPhrase: 'One hundred',
     startSpeed: 0.0,
     endSpeed: 100.0,
     speedUnit: SpeedUnit.kmh,
@@ -90,6 +96,7 @@ const List<OfficialTest> officialTests = [
   OfficialTest(
     id: '1/8mile',
     displayName: '1/8 mile',
+    ttsPhrase: 'Eighth mile',
     distance: 0.125,
     distanceUnit: DistanceUnit.mile,
   ),
@@ -102,18 +109,21 @@ const List<OfficialTest> officialTests = [
   OfficialTest(
     id: '1/4mile',
     displayName: '1/4 mile',
+    ttsPhrase: 'Quarter mile',
     distance: 0.25,
     distanceUnit: DistanceUnit.mile,
   ),
   OfficialTest(
     id: '1/2mile',
     displayName: '1/2 mile',
+    ttsPhrase: 'Half mile',
     distance: 0.5,
     distanceUnit: DistanceUnit.mile,
   ),
   OfficialTest(
     id: '0-130mph',
     displayName: '0-130 mph',
+    ttsPhrase: 'One thirty',
     startSpeed: 0.0,
     endSpeed: 209.21472, // 130 mph in km/h
     speedUnit: SpeedUnit.mph,
@@ -121,6 +131,7 @@ const List<OfficialTest> officialTests = [
   OfficialTest(
     id: '0-200kmh',
     displayName: '0-200 km/h',
+    ttsPhrase: 'Two hundred',
     startSpeed: 0.0,
     endSpeed: 200.0,
     speedUnit: SpeedUnit.kmh,
@@ -143,7 +154,11 @@ const List<OfficialTest> officialTests = [
 ];
 
 // Helper to retrieve precalculated fields from RaceMetrics
-double? _getPrecalculatedTime(RaceMetrics m, String id, {bool useNhraRules = false}) {
+double? _getPrecalculatedTime(
+  RaceMetrics m,
+  String id, {
+  bool useNhraRules = false,
+}) {
   if (useNhraRules) {
     switch (id) {
       case '60ft':
@@ -302,11 +317,18 @@ double? _calculateTimeFromHistory(RaceMetrics metrics, OfficialTest test) {
   return null;
 }
 
-List<OfficialTest> getCompletedTests(RaceMetrics metrics, {bool useNhraRules = false}) {
+List<OfficialTest> getCompletedTests(
+  RaceMetrics metrics, {
+  bool useNhraRules = false,
+}) {
   final List<OfficialTest> completed = [];
 
   for (final test in officialTests) {
-    final time = getCompletedTimeForCategory(metrics, test.id, useNhraRules: useNhraRules);
+    final time = getCompletedTimeForCategory(
+      metrics,
+      test.id,
+      useNhraRules: useNhraRules,
+    );
     if (time != null) {
       completed.add(test);
     }
@@ -315,7 +337,11 @@ List<OfficialTest> getCompletedTests(RaceMetrics metrics, {bool useNhraRules = f
   return completed;
 }
 
-double? getCompletedTimeForCategory(RaceMetrics metrics, String categoryId, {bool useNhraRules = false}) {
+double? getCompletedTimeForCategory(
+  RaceMetrics metrics,
+  String categoryId, {
+  bool useNhraRules = false,
+}) {
   final useRollout = useNhraRules && metrics.rolloutTime1ft != null;
 
   // 1. Check if it matches an official test definition
@@ -330,7 +356,11 @@ double? getCompletedTimeForCategory(RaceMetrics metrics, String categoryId, {boo
       }
 
       // Fast path: Check standard precalculated fields
-      final precalculated = _getPrecalculatedTime(metrics, test.id, useNhraRules: useRollout);
+      final precalculated = _getPrecalculatedTime(
+        metrics,
+        test.id,
+        useNhraRules: useRollout,
+      );
       if (precalculated != null) return precalculated;
 
       // Fallback: Calculate dynamically from history coordinates (always standard non-rollout)
@@ -371,7 +401,9 @@ double? getCompletedTimeForCategory(RaceMetrics metrics, String categoryId, {boo
           );
           if (endTime == null) return null;
           double duration = endTime - startTime;
-          if (useNhraRules && startKmh == 0.0 && metrics.rolloutTime1ft != null) {
+          if (useNhraRules &&
+              startKmh == 0.0 &&
+              metrics.rolloutTime1ft != null) {
             duration -= metrics.rolloutTime1ft!;
           }
           return duration;
@@ -383,22 +415,42 @@ double? getCompletedTimeForCategory(RaceMetrics metrics, String categoryId, {boo
   return null;
 }
 
-double? getTrapSpeedForCategory(RaceMetrics metrics, String categoryId, {bool useNhraRules = false}) {
+double? getTrapSpeedForCategory(
+  RaceMetrics metrics,
+  String categoryId, {
+  bool useNhraRules = false,
+}) {
   if (useNhraRules) {
     double targetMeters = 0.0;
     switch (categoryId) {
-      case '1/8mile': targetMeters = 0.125 * 1609.344; break;
-      case '1000ft': targetMeters = 1000.0 * 0.3048; break;
-      case '1/4mile': targetMeters = 0.25 * 1609.344; break;
-      case '1/2mile': targetMeters = 0.5 * 1609.344; break;
+      case '1/8mile':
+        targetMeters = 0.125 * 1609.344;
+        break;
+      case '1000ft':
+        targetMeters = 1000.0 * 0.3048;
+        break;
+      case '1/4mile':
+        targetMeters = 0.25 * 1609.344;
+        break;
+      case '1/2mile':
+        targetMeters = 0.5 * 1609.344;
+        break;
     }
-    
+
     if (targetMeters > 0) {
       double minus66Meters = targetMeters - 20.1168; // 66 feet in meters
       if (minus66Meters > 0) {
-        double? timeTarget = _findDistanceCrossingTime(metrics.history, targetMeters);
-        double? timeMinus66 = _findDistanceCrossingTime(metrics.history, minus66Meters);
-        if (timeTarget != null && timeMinus66 != null && timeTarget > timeMinus66) {
+        double? timeTarget = _findDistanceCrossingTime(
+          metrics.history,
+          targetMeters,
+        );
+        double? timeMinus66 = _findDistanceCrossingTime(
+          metrics.history,
+          minus66Meters,
+        );
+        if (timeTarget != null &&
+            timeMinus66 != null &&
+            timeTarget > timeMinus66) {
           return (20.1168 / (timeTarget - timeMinus66)) * 3.6;
         }
       }
@@ -407,11 +459,16 @@ double? getTrapSpeedForCategory(RaceMetrics metrics, String categoryId, {bool us
 
   // Fallback to instantaneous trap speed
   switch (categoryId) {
-    case '1/8mile': return metrics.trap18Mile;
-    case '1000ft': return metrics.trap1000ft;
-    case '1/4mile': return metrics.trap14Mile;
-    case '1/2mile': return metrics.trap12Mile;
-    default: return null;
+    case '1/8mile':
+      return metrics.trap18Mile;
+    case '1000ft':
+      return metrics.trap1000ft;
+    case '1/4mile':
+      return metrics.trap14Mile;
+    case '1/2mile':
+      return metrics.trap12Mile;
+    default:
+      return null;
   }
 }
 
@@ -453,4 +510,3 @@ String getDisplayLabelForTarget({
     return 'Interval';
   }
 }
-
