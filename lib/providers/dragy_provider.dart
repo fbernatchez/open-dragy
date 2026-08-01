@@ -442,7 +442,7 @@ class DragyProvider extends ChangeNotifier {
           );
           final isRunning = _metrics.isRunning;
 
-          if (_enableTts && isRunning) {
+          if (_enableTts && wasRunning) {
             final newTests = getCompletedTests(_metrics, useNhraRules: _useNhraRules);
             for (final test in newTests) {
               if (!oldTests.any((t) => t.id == test.id)) {
