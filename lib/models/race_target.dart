@@ -438,20 +438,17 @@ double? getTrapSpeedForCategory(
     }
 
     if (targetMeters > 0) {
-      double minus66Meters = targetMeters - 20.1168; // 66 feet in meters
-      if (minus66Meters > 0) {
-        double? timeTarget = _findDistanceCrossingTime(
-          metrics.history,
-          targetMeters,
-        );
-        double? timeMinus66 = _findDistanceCrossingTime(
-          metrics.history,
-          minus66Meters,
-        );
-        if (timeTarget != null &&
-            timeMinus66 != null &&
-            timeTarget > timeMinus66) {
-          return (20.1168 / (timeTarget - timeMinus66)) * 3.6;
+      // Offset finish line by 1ft if rollout is applied (track starts timer after rollout)
+      final finishLineMeters = targetMeters + (metrics.rolloutTime1ft != null ? 0.3048 : 0.0);
+      final trapStartMeters = finishLineMeters - 20.1168; // 66 feet before finish
+
+      if (trapStartMeters > 0) {
+        final timeFinish = _findDistanceCrossingTime(metrics.history, finishLineMeters);
+        final timeStart = _findDistanceCrossingTime(metrics.history, trapStartMeters);
+
+        if (timeFinish != null && timeStart != null && timeFinish > timeStart) {
+          final elapsedSeconds = timeFinish - timeStart;
+          return (20.1168 / elapsedSeconds) * 3.6; // Speed in km/h
         }
       }
     }
