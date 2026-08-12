@@ -506,7 +506,7 @@ String getDisplayLabelForTarget({
       if (speedUnit == 'mph') {
         final start = UnitConverter.kmhToMph(startSpeed).round();
         final end = UnitConverter.kmhToMph(endSpeed).round();
-        return '${start}-${end}mph';
+        return '$start-$end mph';
       } else {
         final start = startSpeed.round();
         final end = endSpeed.round();

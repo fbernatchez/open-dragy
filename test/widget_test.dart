@@ -46,6 +46,9 @@ class MockDragyProvider extends ChangeNotifier implements DragyProvider {
   double? currentHumidity;
 
   @override
+  int? currentWeatherCode;
+
+  @override
   String appVersion = '1.0.0-mock';
 
   @override
@@ -738,8 +741,8 @@ void main() {
     expect(find.text('Height (ft)'), findsOneWidget);
 
     // Verify Summary stats shown
-    // Max Speed in mph: 150 * 0.621371 = 93.20565 mph -> 93.2
-    expect(find.text('93.2'), findsOneWidget);
+    // Max Speed in mph: 150 / 1.609344 = 93.20567 mph -> 93.21
+    expect(find.text('93.21'), findsOneWidget);
     // Max Accel: 0.80G
     expect(find.text('0.80G'), findsOneWidget);
     // Min Accel: 0.00G
