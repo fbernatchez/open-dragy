@@ -365,7 +365,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      const _LiveWeatherWidget(),
                     ],
                   ),
 
@@ -556,7 +555,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ),
                         ),
                         if (dragy.activeVehicle != null) ...[
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 12),
                           Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 12,
@@ -590,8 +589,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             ),
                           ),
                         ],
+                        const _LiveWeatherWidget(),
                         if (!metrics.isRunning && metrics.history.isEmpty) ...[
-                          const SizedBox(height: 16),
+                          const SizedBox(height: 12),
                           // Mode Selector
                           Container(
                             decoration: BoxDecoration(
@@ -1271,6 +1271,30 @@ void _showCustomRangeDialog(BuildContext context, DragyProvider dragy) {
 class _LiveWeatherWidget extends StatelessWidget {
   const _LiveWeatherWidget();
 
+  static IconData _weatherIcon(int? code) {
+    if (code == null) return Icons.thermostat;
+    if (code == 0) return Icons.wb_sunny;
+    if (code <= 3) return Icons.cloud_outlined;
+    if (code <= 49) return Icons.foggy;
+    if (code <= 59) return Icons.grain; // drizzle
+    if (code <= 69) return Icons.water_drop; // rain
+    if (code <= 79) return Icons.ac_unit; // snow
+    if (code <= 82) return Icons.water_drop; // rain showers
+    if (code <= 86) return Icons.ac_unit; // snow showers
+    return Icons.thunderstorm; // 95+
+  }
+
+  static Color _weatherColor(int? code) {
+    if (code == null) return Colors.white54;
+    if (code == 0) return Colors.amber;
+    if (code <= 3) return Colors.white;
+    if (code <= 49) return Colors.blueGrey;
+    if (code <= 69) return Colors.lightBlue;
+    if (code <= 79) return Colors.white70;
+    if (code <= 86) return Colors.white70;
+    return Colors.deepPurpleAccent;
+  }
+
   @override
   Widget build(BuildContext context) {
     final dragy = context.watch<DragyProvider>();
@@ -1292,16 +1316,32 @@ class _LiveWeatherWidget extends StatelessWidget {
         ? '${daMeters.toStringAsFixed(0)}m'
         : '${UnitConverter.metersToFeet(daMeters).toStringAsFixed(0)}ft';
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+    final humidityStr = dragy.currentHumidity != null
+        ? '${dragy.currentHumidity!.toStringAsFixed(0)}%'
+        : '--%';
+
+    final weatherCode = dragy.currentWeatherCode;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.04),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.white.withOpacity(0.12)),
       ),
-      child: Text(
-        'Temp: $tempStr | DA: $daStr',
-        style: GoogleFonts.robotoMono(color: Colors.white70, fontSize: 11),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(_weatherIcon(weatherCode), color: _weatherColor(weatherCode), size: 14),
+          const SizedBox(width: 6),
+          Text(
+            '$tempStr | $humidityStr | DA: $daStr',
+            style: GoogleFonts.robotoMono(color: Colors.white70, fontSize: 11),
+          ),
+        ],
+      ),
       ),
     );
   }

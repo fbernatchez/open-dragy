@@ -12,7 +12,7 @@ class WeatherService {
   Future<Map<String, double>?> fetchWeather(double lat, double lon) async {
     try {
       final uri = Uri.parse(
-        'https://api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lon&current=temperature_2m,relative_humidity_2m',
+        'https://api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lon&current=temperature_2m,relative_humidity_2m,weather_code',
       );
       final request = await _client
           .getUrl(uri)
@@ -27,8 +27,13 @@ class WeatherService {
         if (current != null) {
           final temp = (current['temperature_2m'] as num?)?.toDouble();
           final humid = (current['relative_humidity_2m'] as num?)?.toDouble();
+          final weatherCode = (current['weather_code'] as num?)?.toInt();
           if (temp != null && humid != null) {
-            return {'temp': temp, 'humid': humid};
+            return {
+              'temp': temp,
+              'humid': humid,
+              if (weatherCode != null) 'weatherCode': weatherCode.toDouble(),
+            };
           }
         }
       } else {

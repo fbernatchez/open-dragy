@@ -71,6 +71,9 @@ class DragyProvider extends ChangeNotifier {
   double? _currentHumidity;
   double? get currentHumidity => _currentHumidity;
 
+  int? _currentWeatherCode;
+  int? get currentWeatherCode => _currentWeatherCode;
+
   Timer? _weatherTimer;
   bool _isFetchingWeather = false;
 
@@ -959,6 +962,7 @@ class DragyProvider extends ChangeNotifier {
         if (weather != null) {
           _currentTemperature = weather['temp'];
           _currentHumidity = weather['humid'];
+          _currentWeatherCode = weather['weatherCode']?.toInt();
           _needsUiUpdate = true;
         }
       } finally {
