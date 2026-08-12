@@ -12,10 +12,14 @@ class WeatherService {
   Future<Map<String, double>?> fetchWeather(double lat, double lon) async {
     try {
       final uri = Uri.parse(
-        'https://api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lon&current=temperature_2m,relative_humidity_2m'
+        'https://api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lon&current=temperature_2m,relative_humidity_2m',
       );
-      final request = await _client.getUrl(uri).timeout(const Duration(seconds: 10));
-      final response = await request.close().timeout(const Duration(seconds: 10));
+      final request = await _client
+          .getUrl(uri)
+          .timeout(const Duration(seconds: 10));
+      final response = await request.close().timeout(
+        const Duration(seconds: 10),
+      );
       if (response.statusCode == 200) {
         final body = await response.transform(utf8.decoder).join();
         final data = json.decode(body);
@@ -29,7 +33,9 @@ class WeatherService {
         }
       } else {
         // ignore: avoid_print
-        print('[WeatherService] Non-200 response from Open-Meteo: ${response.statusCode}');
+        print(
+          '[WeatherService] Non-200 response from Open-Meteo: ${response.statusCode}',
+        );
       }
     } catch (e) {
       // ignore: avoid_print

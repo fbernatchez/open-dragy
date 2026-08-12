@@ -31,9 +31,7 @@ class _DeviceSelectorModalState extends State<DeviceSelectorModal> {
     Map<Permission, PermissionStatus> statuses;
 
     if (Platform.isIOS) {
-      statuses = await [
-        Permission.bluetooth,
-      ].request();
+      statuses = await [Permission.bluetooth].request();
     } else {
       statuses = await [
         Permission.bluetoothScan,
@@ -54,10 +52,13 @@ class _DeviceSelectorModalState extends State<DeviceSelectorModal> {
           }
         });
       });
+
       bleService.startScan();
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Permissions required to scan for devices.')),
+        const SnackBar(
+          content: Text('Permissions required to scan for devices.'),
+        ),
       );
     }
   }
@@ -67,7 +68,11 @@ class _DeviceSelectorModalState extends State<DeviceSelectorModal> {
     final dragyProvider = Provider.of<DragyProvider>(context);
     // Only show named devices, like native Android Bluetooth
     final results = _devicesFound.values
-        .where((r) => r.device.platformName.isNotEmpty)
+        .where(
+          (r) =>
+              r.device.platformName.isNotEmpty ||
+              r.advertisementData.advName.isNotEmpty,
+        )
         .toList();
 
     return Container(
@@ -95,7 +100,7 @@ class _DeviceSelectorModalState extends State<DeviceSelectorModal> {
                       final r = results[index];
                       final deviceName = r.device.platformName.isNotEmpty
                           ? r.device.platformName
-                          : 'Unknown Device';
+                          : r.advertisementData.advName;
                       final isConnectingToThis =
                           _connectingDeviceId == r.device.remoteId.toString();
 
@@ -110,12 +115,13 @@ class _DeviceSelectorModalState extends State<DeviceSelectorModal> {
                               ? null
                               : () async {
                                   setState(() {
-                                    _connectingDeviceId =
-                                        r.device.remoteId.toString();
+                                    _connectingDeviceId = r.device.remoteId
+                                        .toString();
                                   });
                                   final navigator = Navigator.of(context);
-                                  final success =
-                                      await dragyProvider.connect(r.device);
+                                  final success = await dragyProvider.connect(
+                                    r.device,
+                                  );
                                   if (!mounted) return;
                                   if (success) {
                                     navigator.pop();
@@ -123,7 +129,9 @@ class _DeviceSelectorModalState extends State<DeviceSelectorModal> {
                                     setState(() => _connectingDeviceId = null);
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
-                                        content: Text('Failed to connect to device.'),
+                                        content: Text(
+                                          'Failed to connect to device.',
+                                        ),
                                       ),
                                     );
                                   }

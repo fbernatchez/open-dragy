@@ -15,7 +15,9 @@ class HistoryService {
     try {
       final box = await _box;
       final runs = box.values
-          .map((json) => SavedRun.fromJson(Map<String, dynamic>.from(json as Map)))
+          .map(
+            (json) => SavedRun.fromJson(Map<String, dynamic>.from(json as Map)),
+          )
           .toList();
       // Sort descending by date (newest first)
       runs.sort((a, b) => b.dateTime.compareTo(a.dateTime));

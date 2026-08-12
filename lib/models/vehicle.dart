@@ -11,12 +11,7 @@ class Vehicle {
     required this.year,
   });
 
-  Vehicle copyWith({
-    String? id,
-    String? make,
-    String? model,
-    int? year,
-  }) {
+  Vehicle copyWith({String? id, String? make, String? model, int? year}) {
     return Vehicle(
       id: id ?? this.id,
       make: make ?? this.make,
@@ -26,12 +21,7 @@ class Vehicle {
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'make': make,
-      'model': model,
-      'year': year,
-    };
+    return {'id': id, 'make': make, 'model': model, 'year': year};
   }
 
   factory Vehicle.fromJson(Map<String, dynamic> json) {

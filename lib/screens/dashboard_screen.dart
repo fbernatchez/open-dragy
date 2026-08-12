@@ -4,11 +4,11 @@ import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../providers/dragy_provider.dart';
 import '../models/race_target.dart';
-import '../models/race_metrics.dart';
 import '../widgets/device_selector_modal.dart';
 import 'run_history_screen.dart';
 import 'garage_screen.dart';
 import 'settings_screen.dart';
+import '../utils/unit_converter.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -68,11 +68,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
         String intervalId = dragy.activeIntervalTarget.id;
         if (dragy.activeIntervalTarget == RaceIntervalTarget.custom) {
           final unit = isMetric ? 'kmh' : 'mph';
-          intervalId = 'custom_${dragy.customIntervalStartSpeed.round()}_${dragy.customIntervalEndSpeed.round()}_$unit';
+          intervalId =
+              'custom_${dragy.customIntervalStartSpeed.round()}_${dragy.customIntervalEndSpeed.round()}_$unit';
         }
-        completedTime = getCompletedTimeForCategory(metrics, intervalId, useNhraRules: dragy.useNhraRules);
+        completedTime = getCompletedTimeForCategory(
+          metrics,
+          intervalId,
+          useNhraRules: dragy.useNhraRules,
+        );
       } else {
-        final completed = getCompletedTests(metrics, useNhraRules: dragy.useNhraRules);
+        final completed = getCompletedTests(
+          metrics,
+          useNhraRules: dragy.useNhraRules,
+        );
         double maxTime = -1.0;
         for (final test in completed) {
           if (test.speedUnit != null) {
@@ -81,7 +89,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
               continue;
             }
           }
-          final t = getCompletedTimeForCategory(metrics, test.id, useNhraRules: dragy.useNhraRules);
+          final t = getCompletedTimeForCategory(
+            metrics,
+            test.id,
+            useNhraRules: dragy.useNhraRules,
+          );
           if (t != null && t > maxTime) {
             maxTime = t;
             completedTime = t;
@@ -139,7 +151,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final List<_ReachedMilestone> reachedMilestones = [];
 
     if (dragy.runMode == 'drag') {
-      final completed = getCompletedTests(metrics, useNhraRules: dragy.useNhraRules);
+      final completed = getCompletedTests(
+        metrics,
+        useNhraRules: dragy.useNhraRules,
+      );
       for (final test in completed) {
         if (test.speedUnit != null) {
           final isTestMetric = test.speedUnit == SpeedUnit.kmh;
@@ -151,18 +166,37 @@ class _DashboardScreenState extends State<DashboardScreen> {
         reachedMilestones.add(
           _ReachedMilestone(
             label: test.displayName,
-            time: getCompletedTimeForCategory(metrics, test.id, useNhraRules: dragy.useNhraRules)!,
-            sortTime: getCompletedTimeForCategory(metrics, test.id, useNhraRules: dragy.useNhraRules)!,
-            trapSpeed: getTrapSpeedForCategory(metrics, test.id, useNhraRules: dragy.useNhraRules),
+            time: getCompletedTimeForCategory(
+              metrics,
+              test.id,
+              useNhraRules: dragy.useNhraRules,
+            )!,
+            sortTime: getCompletedTimeForCategory(
+              metrics,
+              test.id,
+              useNhraRules: dragy.useNhraRules,
+            )!,
+            trapSpeed: getTrapSpeedForCategory(
+              metrics,
+              test.id,
+              useNhraRules: dragy.useNhraRules,
+            ),
           ),
         );
       }
     } else {
-      final completed = getCompletedTests(metrics, useNhraRules: dragy.useNhraRules);
+      final completed = getCompletedTests(
+        metrics,
+        useNhraRules: dragy.useNhraRules,
+      );
       if (completed.isNotEmpty) {
         final test = completed.first;
         final time =
-            getCompletedTimeForCategory(metrics, test.id, useNhraRules: dragy.useNhraRules) ??
+            getCompletedTimeForCategory(
+              metrics,
+              test.id,
+              useNhraRules: dragy.useNhraRules,
+            ) ??
             metrics.elapsedTime;
         reachedMilestones.add(
           _ReachedMilestone(
@@ -206,13 +240,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
           );
         }
       });
-    } else if (currentMilestoneCount < _previousMilestoneCount || (!metrics.isRunning && metrics.history.isEmpty)) {
+    } else if (currentMilestoneCount < _previousMilestoneCount ||
+        (!metrics.isRunning && metrics.history.isEmpty)) {
       _previousMilestoneCount = currentMilestoneCount;
     }
 
     final displaySpeed = isMetric
         ? metrics.speedKmh
-        : metrics.speedKmh * 0.621371;
+        : UnitConverter.kmhToMph(metrics.speedKmh);
 
     double maxSpeed = isMetric ? 100.0 : 60.0;
     double speedRatio = (displaySpeed / maxSpeed).clamp(0.0, 1.0);
@@ -265,65 +300,73 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // Signal Confidence (Top Left)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: isConnected
-                          ? Colors.amberAccent.withOpacity(0.1)
-                          : Colors.white.withOpacity(0.04),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: isConnected
-                            ? Colors.amberAccent.withOpacity(0.5)
-                            : Colors.white.withOpacity(0.12),
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Row(
+                  // Signal Confidence (Top Left) & Weather
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isConnected
+                              ? Colors.amberAccent.withOpacity(0.1)
+                              : Colors.white.withOpacity(0.04),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: isConnected
+                                ? Colors.amberAccent.withOpacity(0.5)
+                                : Colors.white.withOpacity(0.12),
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(
-                              Icons.satellite_alt,
-                              color: isConnected
-                                  ? Colors.amberAccent
-                                  : Colors.white30,
-                              size: 16,
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.satellite_alt,
+                                  color: isConnected
+                                      ? Colors.amberAccent
+                                      : Colors.white30,
+                                  size: 16,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  isConnected
+                                      ? '${dragy.satellites} SAT'
+                                      : 'NO GPS',
+                                  style: GoogleFonts.robotoMono(
+                                    color: isConnected
+                                        ? Colors.amberAccent
+                                        : Colors.white30,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
                             ),
-                            const SizedBox(width: 8),
+                            const SizedBox(height: 4),
                             Text(
                               isConnected
-                                  ? '${dragy.satellites} SAT'
-                                  : 'NO GPS',
+                                  ? 'HDOP: ${dragy.hdop.toStringAsFixed(1)}'
+                                  : 'Offline',
                               style: GoogleFonts.robotoMono(
                                 color: isConnected
-                                    ? Colors.amberAccent
-                                    : Colors.white30,
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
+                                    ? Colors.amberAccent.withOpacity(0.8)
+                                    : Colors.white24,
+                                fontSize: 12,
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          isConnected
-                              ? 'HDOP: ${dragy.hdop.toStringAsFixed(1)}'
-                              : 'Offline',
-                          style: GoogleFonts.robotoMono(
-                            color: isConnected
-                                ? Colors.amberAccent.withOpacity(0.8)
-                                : Colors.white24,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(height: 8),
+                      const _LiveWeatherWidget(),
+                    ],
                   ),
 
                   // Action buttons (Garage, History, Settings & Connection)
@@ -504,414 +547,325 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         const SizedBox(height: 72), // Clearance for top icons
                         const SizedBox(height: 12),
                         // Dragy Logo Text
-                          Text(
-                            'OpenDragy',
-                            style: GoogleFonts.comfortaa(
-                              color: Colors.white,
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                            ),
+                        Text(
+                          'OpenDragy',
+                          style: GoogleFonts.comfortaa(
+                            color: Colors.white,
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
                           ),
-                          if (dragy.activeVehicle != null) ...[
-                            const SizedBox(height: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color: const Color(
-                                  0xFFFFBF00,
-                                ).withOpacity(0.08),
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(
-                                  color: const Color(
-                                    0xFFFFBF00,
-                                  ).withOpacity(0.3),
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(
-                                    Icons.directions_car,
-                                    color: Color(0xFFFFBF00),
-                                    size: 14,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    dragy.activeVehicle!.displayName,
-                                    style: GoogleFonts.roboto(
-                                      color: const Color(0xFFFFBF00),
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
+                        ),
+                        if (dragy.activeVehicle != null) ...[
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFBF00).withOpacity(0.08),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: const Color(0xFFFFBF00).withOpacity(0.3),
                               ),
                             ),
-                          ],
-                          if (!metrics.isRunning &&
-                              metrics.history.isEmpty) ...[
-                            const SizedBox(height: 16),
-                            // Mode Selector
-                            Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.05),
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(color: Colors.white12),
-                              ),
-                              padding: const EdgeInsets.all(4),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  _ModeButton(
-                                    label: 'DRAG',
-                                    isActive: dragy.runMode == 'drag',
-                                    onTap: () => dragy.setRunMode('drag'),
-                                  ),
-                                  _ModeButton(
-                                    label: 'INTERVAL',
-                                    isActive: dragy.runMode == 'interval',
-                                    onTap: () => dragy.setRunMode('interval'),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            // Target Selector
-                            if (dragy.runMode == 'drag')
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.03),
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: Colors.white.withOpacity(0.06),
-                                  ),
-                                ),
-                                child: DropdownButtonHideUnderline(
-                                  child: DropdownButton<RaceDragTarget>(
-                                    value: dragy.activeDragTarget,
-                                    dropdownColor: Colors.grey.shade900,
-                                    icon: const Icon(
-                                      Icons.arrow_drop_down,
-                                      color: Colors.white54,
-                                    ),
-                                    style: GoogleFonts.roboto(
-                                      color: Colors.white,
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                    onChanged: (val) {
-                                      if (val != null) {
-                                        dragy.setActiveDragTarget(val);
-                                      }
-                                    },
-                                    items: const [
-                                      DropdownMenuItem(
-                                        value: RaceDragTarget.sixtyFeet,
-                                        child: Text('60 ft'),
-                                      ),
-                                      DropdownMenuItem(
-                                        value: RaceDragTarget.threeHundredThirtyFeet,
-                                        child: Text('330 ft'),
-                                      ),
-                                      DropdownMenuItem(
-                                        value: RaceDragTarget.eighthMile,
-                                        child: Text('1/8 mile'),
-                                      ),
-                                      DropdownMenuItem(
-                                        value: RaceDragTarget.thousandFeet,
-                                        child: Text('1000ft'),
-                                      ),
-                                      DropdownMenuItem(
-                                        value: RaceDragTarget.quarterMile,
-                                        child: Text('1/4 mile'),
-                                      ),
-                                      DropdownMenuItem(
-                                        value: RaceDragTarget.halfMile,
-                                        child: Text('1/2 mile'),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              )
-                            else
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.03),
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(
-                                        color: Colors.white.withOpacity(0.06),
-                                      ),
-                                    ),
-                                    child: DropdownButtonHideUnderline(
-                                      child: DropdownButton<RaceIntervalTarget>(
-                                        value: dragy.activeIntervalTarget,
-                                        dropdownColor: Colors.grey.shade900,
-                                        icon: const Icon(
-                                          Icons.arrow_drop_down,
-                                          color: Colors.white54,
-                                        ),
-                                        style: GoogleFonts.roboto(
-                                          color: Colors.white,
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                        onChanged: (val) {
-                                          if (val != null) {
-                                            dragy.setActiveIntervalTarget(val);
-                                          }
-                                        },
-                                        items: dragy.isMetric
-                                            ? const [
-                                                DropdownMenuItem(
-                                                  value: RaceIntervalTarget
-                                                      .zeroToOneHundredKmh,
-                                                  child: Text('0-100 km/h'),
-                                                ),
-                                                DropdownMenuItem(
-                                                  value: RaceIntervalTarget
-                                                      .zeroToOneSixtyKmh,
-                                                  child: Text('0-160 km/h'),
-                                                ),
-                                                DropdownMenuItem(
-                                                  value: RaceIntervalTarget
-                                                      .zeroToTwoHundredKmh,
-                                                  child: Text('0-200 km/h'),
-                                                ),
-                                                DropdownMenuItem(
-                                                  value: RaceIntervalTarget
-                                                      .eightyToOneTwentyKmh,
-                                                  child: Text('80-120 km/h'),
-                                                ),
-                                                DropdownMenuItem(
-                                                  value: RaceIntervalTarget
-                                                      .oneHundredToOneSixtyKmh,
-                                                  child: Text('100-160 km/h'),
-                                                ),
-                                                DropdownMenuItem(
-                                                  value: RaceIntervalTarget
-                                                      .oneHundredToTwoHundredKmh,
-                                                  child: Text('100-200 km/h'),
-                                                ),
-                                                DropdownMenuItem(
-                                                  value:
-                                                      RaceIntervalTarget.custom,
-                                                  child: Text(
-                                                    'Custom Range...',
-                                                  ),
-                                                ),
-                                              ]
-                                            : const [
-                                                DropdownMenuItem(
-                                                  value: RaceIntervalTarget
-                                                      .zeroToSixtyMph,
-                                                  child: Text('0-60 mph'),
-                                                ),
-                                                DropdownMenuItem(
-                                                  value: RaceIntervalTarget
-                                                      .zeroToOneHundredMph,
-                                                  child: Text('0-100 mph'),
-                                                ),
-                                                DropdownMenuItem(
-                                                  value: RaceIntervalTarget
-                                                      .zeroToOneThirtyMph,
-                                                  child: Text('0-130 mph'),
-                                                ),
-                                                DropdownMenuItem(
-                                                  value: RaceIntervalTarget
-                                                      .fiftyToSeventyFiveMph,
-                                                  child: Text('50-75 mph'),
-                                                ),
-                                                DropdownMenuItem(
-                                                  value: RaceIntervalTarget
-                                                      .sixtyToOneHundredMph,
-                                                  child: Text('60-100 mph'),
-                                                ),
-                                                DropdownMenuItem(
-                                                  value: RaceIntervalTarget
-                                                      .sixtyToOneThirtyMph,
-                                                  child: Text('60-130 mph'),
-                                                ),
-                                                DropdownMenuItem(
-                                                  value:
-                                                      RaceIntervalTarget.custom,
-                                                  child: Text(
-                                                    'Custom Range...',
-                                                  ),
-                                                ),
-                                              ],
-                                      ),
-                                    ),
-                                  ),
-                                  if (dragy.activeIntervalTarget ==
-                                      RaceIntervalTarget.custom) ...[
-                                    const SizedBox(width: 8),
-                                    IconButton(
-                                      onPressed: () => _showCustomRangeDialog(
-                                        context,
-                                        dragy,
-                                      ),
-                                      icon: const Icon(
-                                        Icons.edit_road,
-                                        color: Color(0xFF42A5F5),
-                                      ),
-                                      tooltip: 'Edit Custom Range',
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            const SizedBox(height: 24),
-                          ],
-                          // Large Time/Status Display
-                          SizedBox(
-                            height: 110,
-                            width: double.infinity,
-                            child: Center(
-                              child: AnimatedSwitcher(
-                                duration: const Duration(milliseconds: 150),
-                                transitionBuilder:
-                                    (
-                                      Widget child,
-                                      Animation<double> animation,
-                                    ) {
-                                      return FadeTransition(
-                                        opacity: animation,
-                                        child: ScaleTransition(
-                                          scale: Tween<double>(
-                                            begin: 0.95,
-                                            end: 1.0,
-                                          ).animate(animation),
-                                          child: child,
-                                        ),
-                                      );
-                                    },
-                                child: Text(
-                                  mainTime,
-                                  key: ValueKey<String>(statusKey),
-                                  style: GoogleFonts.robotoMono(
-                                    color: textColor,
-                                    fontSize: fontSize,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                          if (isConnected &&
-                              !(metrics.history.isNotEmpty &&
-                                  !metrics.isRunning)) ...[
-                            const SizedBox(height: 16),
-                            ElevatedButton(
-                              onPressed: dragy.toggleArm,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: dragy.isArmed
-                                    ? Colors.redAccent
-                                    : const Color(0xFF1565C0),
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 40,
-                                  vertical: 16,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(30),
-                                ),
-                                elevation: 8,
-                                shadowColor: dragy.isArmed
-                                    ? Colors.redAccent.withOpacity(0.5)
-                                    : const Color(0xFF1565C0).withOpacity(0.5),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    dragy.isArmed
-                                        ? Icons.stop
-                                        : Icons.play_arrow,
-                                    size: 20,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    dragy.isArmed ? 'DISARM' : 'ARM',
-                                    style: GoogleFonts.roboto(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      letterSpacing: 1.2,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                          if (metrics.history.isNotEmpty &&
-                              !metrics.isRunning) ...[
-                            const SizedBox(height: 6),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(
-                                  isSlopeValid
-                                      ? Icons.check_circle_outline
-                                      : Icons.warning_amber_outlined,
+                                const Icon(
+                                  Icons.directions_car,
+                                  color: Color(0xFFFFBF00),
                                   size: 14,
-                                  color: isSlopeValid
-                                      ? const Color(0xFF39FF14)
-                                      : Colors.redAccent,
                                 ),
                                 const SizedBox(width: 6),
                                 Text(
-                                  'Overall Slope: ${avgSlope >= 0 ? '+' : ''}${avgSlope.toStringAsFixed(2)}% (${isSlopeValid ? "Valid" : "Invalid"})',
+                                  dragy.activeVehicle!.displayName,
                                   style: GoogleFonts.roboto(
-                                    color: isSlopeValid
-                                        ? Colors.white70
-                                        : Colors.redAccent,
+                                    color: const Color(0xFFFFBF00),
                                     fontSize: 13,
-                                    fontWeight: FontWeight.w500,
+                                    fontWeight: FontWeight.bold,
                                   ),
                                 ),
                               ],
                             ),
-                          ],
-                          if (reachedMilestones.isNotEmpty) ...[
-                            const SizedBox(height: 24),
-                            const Divider(color: Colors.white24, height: 1),
-                            const SizedBox(height: 16),
-                            Flexible(
-                              child: SingleChildScrollView(
-                                controller: _scrollController,
-                                child: Column(
-                                  children: reachedMilestones.map((m) {
-                                    return Padding(
-                                      padding: const EdgeInsets.only(bottom: 12.0),
-                                      child: _ResultRow(
-                                        label: m.label,
-                                        time: m.time,
-                                        trapSpeed: m.trapSpeed != null
-                                            ? (isMetric
-                                                  ? m.trapSpeed!
-                                                  : m.trapSpeed! * 0.621371)
-                                            : null,
-                                        isMetric: isMetric,
+                          ),
+                        ],
+                        if (!metrics.isRunning && metrics.history.isEmpty) ...[
+                          const SizedBox(height: 16),
+                          // Mode Selector
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.05),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: Colors.white12),
+                            ),
+                            padding: const EdgeInsets.all(4),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                _ModeButton(
+                                  label: 'DRAG',
+                                  isActive: dragy.runMode == 'drag',
+                                  onTap: () => dragy.setRunMode('drag'),
+                                ),
+                                _ModeButton(
+                                  label: 'INTERVAL',
+                                  isActive: dragy.runMode == 'interval',
+                                  onTap: () => dragy.setRunMode('interval'),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          // Target Selector
+                          if (dragy.runMode == 'drag')
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.03),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: Colors.white.withOpacity(0.06),
+                                ),
+                              ),
+                              child: DropdownButtonHideUnderline(
+                                child: DropdownButton<RaceDragTarget>(
+                                  value: dragy.activeDragTarget,
+                                  dropdownColor: Colors.grey.shade900,
+                                  icon: const Icon(
+                                    Icons.arrow_drop_down,
+                                    color: Colors.white54,
+                                  ),
+                                  style: GoogleFonts.roboto(
+                                    color: Colors.white,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  onChanged: (val) {
+                                    if (val != null) {
+                                      dragy.setActiveDragTarget(val);
+                                    }
+                                  },
+                                  items: RaceDragTarget.values
+                                      .map(
+                                        (t) => DropdownMenuItem(
+                                          value: t,
+                                          child: Text(t.label),
+                                        ),
+                                      )
+                                      .toList(),
+                                ),
+                              ),
+                            )
+                          else
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.03),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: Colors.white.withOpacity(0.06),
+                                    ),
+                                  ),
+                                  child: DropdownButtonHideUnderline(
+                                    child: DropdownButton<RaceIntervalTarget>(
+                                      value: dragy.activeIntervalTarget,
+                                      dropdownColor: Colors.grey.shade900,
+                                      icon: const Icon(
+                                        Icons.arrow_drop_down,
+                                        color: Colors.white54,
+                                      ),
+                                      style: GoogleFonts.roboto(
+                                        color: Colors.white,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                      onChanged: (val) {
+                                        if (val != null) {
+                                          dragy.setActiveIntervalTarget(val);
+                                        }
+                                      },
+                                      items: RaceIntervalTarget.values
+                                          .where(
+                                            (t) =>
+                                                t ==
+                                                    RaceIntervalTarget.custom ||
+                                                (dragy.isMetric
+                                                    ? t.id.contains('kmh')
+                                                    : t.id.contains('mph')),
+                                          )
+                                          .map(
+                                            (t) => DropdownMenuItem(
+                                              value: t,
+                                              child: Text(t.label),
+                                            ),
+                                          )
+                                          .toList(),
+                                    ),
+                                  ),
+                                ),
+                                if (dragy.activeIntervalTarget ==
+                                    RaceIntervalTarget.custom) ...[
+                                  const SizedBox(width: 8),
+                                  IconButton(
+                                    onPressed: () =>
+                                        _showCustomRangeDialog(context, dragy),
+                                    icon: const Icon(
+                                      Icons.edit_road,
+                                      color: Color(0xFF42A5F5),
+                                    ),
+                                    tooltip: 'Edit Custom Range',
+                                  ),
+                                ],
+                              ],
+                            ),
+                          const SizedBox(height: 24),
+                        ],
+                        // Large Time/Status Display
+                        SizedBox(
+                          height: 110,
+                          width: double.infinity,
+                          child: Center(
+                            child: AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 150),
+                              transitionBuilder:
+                                  (Widget child, Animation<double> animation) {
+                                    return FadeTransition(
+                                      opacity: animation,
+                                      child: ScaleTransition(
+                                        scale: Tween<double>(
+                                          begin: 0.95,
+                                          end: 1.0,
+                                        ).animate(animation),
+                                        child: child,
                                       ),
                                     );
-                                  }).toList(),
+                                  },
+                              child: Text(
+                                mainTime,
+                                key: ValueKey<String>(statusKey),
+                                style: GoogleFonts.robotoMono(
+                                  color: textColor,
+                                  fontSize: fontSize,
+                                  fontWeight: FontWeight.bold,
                                 ),
                               ),
                             ),
-                          ],
+                          ),
+                        ),
+                        if (isConnected &&
+                            !(metrics.history.isNotEmpty &&
+                                !metrics.isRunning)) ...[
+                          const SizedBox(height: 16),
+                          ElevatedButton(
+                            onPressed: dragy.toggleArm,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: dragy.isArmed
+                                  ? Colors.redAccent
+                                  : const Color(0xFF1565C0),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 40,
+                                vertical: 16,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(30),
+                              ),
+                              elevation: 8,
+                              shadowColor: dragy.isArmed
+                                  ? Colors.redAccent.withOpacity(0.5)
+                                  : const Color(0xFF1565C0).withOpacity(0.5),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  dragy.isArmed ? Icons.stop : Icons.play_arrow,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  dragy.isArmed ? 'DISARM' : 'ARM',
+                                  style: GoogleFonts.roboto(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 1.2,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ],
-                      ),
+                        if (metrics.history.isNotEmpty &&
+                            !metrics.isRunning) ...[
+                          const SizedBox(height: 6),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                isSlopeValid
+                                    ? Icons.check_circle_outline
+                                    : Icons.warning_amber_outlined,
+                                size: 14,
+                                color: isSlopeValid
+                                    ? const Color(0xFF39FF14)
+                                    : Colors.redAccent,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Overall Slope: ${avgSlope >= 0 ? '+' : ''}${avgSlope.toStringAsFixed(2)}% (${isSlopeValid ? "Valid" : "Invalid"})',
+                                style: GoogleFonts.roboto(
+                                  color: isSlopeValid
+                                      ? Colors.white70
+                                      : Colors.redAccent,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                        if (reachedMilestones.isNotEmpty) ...[
+                          const SizedBox(height: 24),
+                          const Divider(color: Colors.white24, height: 1),
+                          const SizedBox(height: 16),
+                          Flexible(
+                            child: SingleChildScrollView(
+                              controller: _scrollController,
+                              child: Column(
+                                children: reachedMilestones.map((m) {
+                                  return Padding(
+                                    padding: const EdgeInsets.only(
+                                      bottom: 12.0,
+                                    ),
+                                    child: _ResultRow(
+                                      label: m.label,
+                                      time: m.time,
+                                      trapSpeed: m.trapSpeed != null
+                                          ? (isMetric
+                                                ? m.trapSpeed!
+                                                : UnitConverter.kmhToMph(
+                                                    m.trapSpeed!,
+                                                  ))
+                                          : null,
+                                      isMetric: isMetric,
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
+                  ),
                 ),
 
                 // Bottom Elements
@@ -1314,3 +1268,41 @@ void _showCustomRangeDialog(BuildContext context, DragyProvider dragy) {
   );
 }
 
+class _LiveWeatherWidget extends StatelessWidget {
+  const _LiveWeatherWidget();
+
+  @override
+  Widget build(BuildContext context) {
+    final dragy = context.watch<DragyProvider>();
+    final tempC = dragy.currentTemperature;
+
+    if (tempC == null) {
+      return const SizedBox.shrink();
+    }
+
+    final temp = dragy.tempInCelsius
+        ? tempC
+        : UnitConverter.celsiusToFahrenheit(tempC);
+    final unit = dragy.tempInCelsius ? '°C' : '°F';
+    final tempStr = '${temp.toStringAsFixed(1)}$unit';
+
+    final isaTemp = 15.0 - 0.0065 * dragy.altitude;
+    final daMeters = dragy.altitude + 120.0 * (tempC - isaTemp);
+    final daStr = dragy.isMetric
+        ? '${daMeters.toStringAsFixed(0)}m'
+        : '${UnitConverter.metersToFeet(daMeters).toStringAsFixed(0)}ft';
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.04),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white.withOpacity(0.12)),
+      ),
+      child: Text(
+        'Temp: $tempStr | DA: $daStr',
+        style: GoogleFonts.robotoMono(color: Colors.white70, fontSize: 11),
+      ),
+    );
+  }
+}

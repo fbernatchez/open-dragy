@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:open_dragy/models/race_metrics.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../providers/dragy_provider.dart';
 import '../models/saved_run.dart';
 import '../models/race_target.dart';
-import '../models/vehicle.dart';
+import '../utils/unit_converter.dart';
 import 'run_detail_screen.dart';
 
 class RunHistoryScreen extends StatefulWidget {
@@ -100,11 +99,11 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
         if (!matchesAny) {
           final unit =
               run.metrics.targetSpeedUnit ?? (isMetric ? 'kmh' : 'mph');
-          final start = unit == 'mph'
-              ? (run.metrics.targetStartSpeed! * 0.621371).round()
+          final start = !isMetric
+              ? UnitConverter.kmhToMph(run.metrics.targetStartSpeed!).round()
               : run.metrics.targetStartSpeed!.round();
-          final end = unit == 'mph'
-              ? (run.metrics.targetEndSpeed! * 0.621371).round()
+          final end = !isMetric
+              ? UnitConverter.kmhToMph(run.metrics.targetEndSpeed!).round()
               : run.metrics.targetEndSpeed!.round();
           final customId = 'custom_${start}_${end}_$unit';
           if (!seenIds.contains(customId)) {
@@ -212,14 +211,22 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
     return categoryId;
   }
 
-  void _showVehicleFilterModal(BuildContext context, List<MapEntry<String, String>> availableVehicles) {
+  void _showVehicleFilterModal(
+    BuildContext context,
+    List<MapEntry<String, String>> availableVehicles,
+  ) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (context) {
         return Container(
-          padding: const EdgeInsets.only(top: 24, bottom: 32, left: 24, right: 24),
+          padding: const EdgeInsets.only(
+            top: 24,
+            bottom: 32,
+            left: 24,
+            right: 24,
+          ),
           decoration: BoxDecoration(
             color: Colors.grey.shade900,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
@@ -248,12 +255,14 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                   padding: EdgeInsets.symmetric(vertical: 8.0),
                   child: Divider(color: Colors.white10, height: 1),
                 ),
-                ...availableVehicles.map((v) => _buildFilterOption(
-                      context,
-                      id: v.key,
-                      title: v.value,
-                      isSelected: _selectedVehicleId == v.key,
-                    )),
+                ...availableVehicles.map(
+                  (v) => _buildFilterOption(
+                    context,
+                    id: v.key,
+                    title: v.value,
+                    isSelected: _selectedVehicleId == v.key,
+                  ),
+                ),
               ],
             ],
           ),
@@ -279,10 +288,14 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFFFBF00).withOpacity(0.1) : Colors.transparent,
+          color: isSelected
+              ? const Color(0xFFFFBF00).withOpacity(0.1)
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected ? const Color(0xFFFFBF00).withOpacity(0.5) : Colors.transparent,
+            color: isSelected
+                ? const Color(0xFFFFBF00).withOpacity(0.5)
+                : Colors.transparent,
           ),
         ),
         child: Row(
@@ -298,7 +311,11 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
               ),
             ),
             if (isSelected)
-              const Icon(Icons.check_circle, color: Color(0xFFFFBF00), size: 20),
+              const Icon(
+                Icons.check_circle,
+                color: Color(0xFFFFBF00),
+                size: 20,
+              ),
           ],
         ),
       ),
@@ -359,7 +376,8 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                   : const Color(0xFFFFBF00),
             ),
             tooltip: 'Filter by Vehicle',
-            onPressed: () => _showVehicleFilterModal(context, availableVehicles),
+            onPressed: () =>
+                _showVehicleFilterModal(context, availableVehicles),
           ),
         ],
       ),
@@ -639,11 +657,11 @@ class RunHistoryCard extends StatelessWidget {
           runMode: 'interval',
         );
         final unit = metrics.targetSpeedUnit ?? (isMetric ? 'kmh' : 'mph');
-        final start = unit == 'mph'
-            ? (metrics.targetStartSpeed! * 0.621371).round()
+        final start = !isMetric
+            ? UnitConverter.kmhToMph(metrics.targetStartSpeed!).round()
             : metrics.targetStartSpeed!.round();
-        final end = unit == 'mph'
-            ? (metrics.targetEndSpeed! * 0.621371).round()
+        final end = !isMetric
+            ? UnitConverter.kmhToMph(metrics.targetEndSpeed!).round()
             : metrics.targetEndSpeed!.round();
         final customId = 'custom_${start}_${end}_$unit';
         final compTime = getCompletedTimeForCategory(

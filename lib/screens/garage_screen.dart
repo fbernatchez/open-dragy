@@ -54,13 +54,18 @@ class GarageScreen extends StatelessWidget {
   }
 
   void _confirmDelete(
-      BuildContext context, DragyProvider dragy, Vehicle vehicle) {
+    BuildContext context,
+    DragyProvider dragy,
+    Vehicle vehicle,
+  ) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: Colors.grey.shade900,
-        title: const Text('Delete Vehicle',
-            style: TextStyle(color: Colors.white)),
+        title: const Text(
+          'Delete Vehicle',
+          style: TextStyle(color: Colors.white),
+        ),
         content: Text(
           'Remove ${vehicle.displayName} from your garage?',
           style: const TextStyle(color: Colors.white70),
@@ -68,16 +73,20 @@ class GarageScreen extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child:
-                const Text('Cancel', style: TextStyle(color: Colors.white54)),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: Colors.white54),
+            ),
           ),
           TextButton(
             onPressed: () {
               dragy.deleteVehicle(vehicle.id);
               Navigator.pop(ctx);
             },
-            child:
-                const Text('Delete', style: TextStyle(color: Colors.redAccent)),
+            child: const Text(
+              'Delete',
+              style: TextStyle(color: Colors.redAccent),
+            ),
           ),
         ],
       ),
@@ -104,8 +113,11 @@ class _EmptyGarageView extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.directions_car_outlined,
-              size: 80, color: Colors.grey.shade800),
+          Icon(
+            Icons.directions_car_outlined,
+            size: 80,
+            color: Colors.grey.shade800,
+          ),
           const SizedBox(height: 16),
           Text(
             'Your garage is empty.',
@@ -125,7 +137,8 @@ class _EmptyGarageView extends StatelessWidget {
               backgroundColor: const Color(0xFFFFBF00),
               foregroundColor: Colors.black,
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20)),
+                borderRadius: BorderRadius.circular(20),
+              ),
             ),
           ),
         ],
@@ -172,7 +185,7 @@ class _VehicleCard extends StatelessWidget {
                     color: const Color(0xFFFFBF00).withOpacity(0.1),
                     blurRadius: 12,
                     spreadRadius: 1,
-                  )
+                  ),
                 ]
               : null,
         ),
@@ -192,8 +205,7 @@ class _VehicleCard extends StatelessWidget {
                 ),
                 child: Icon(
                   Icons.directions_car,
-                  color:
-                      isActive ? const Color(0xFFFFBF00) : Colors.white54,
+                  color: isActive ? const Color(0xFFFFBF00) : Colors.white54,
                   size: 26,
                 ),
               ),
@@ -218,13 +230,14 @@ class _VehicleCard extends StatelessWidget {
                         if (isActive)
                           Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 3),
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
                             decoration: BoxDecoration(
                               color: const Color(0xFFFFBF00).withOpacity(0.2),
                               borderRadius: BorderRadius.circular(20),
                               border: Border.all(
-                                color:
-                                    const Color(0xFFFFBF00).withOpacity(0.5),
+                                color: const Color(0xFFFFBF00).withOpacity(0.5),
                               ),
                             ),
                             child: const Text(
@@ -248,7 +261,8 @@ class _VehicleCard extends StatelessWidget {
                 icon: const Icon(Icons.more_vert, color: Colors.white38),
                 color: Colors.grey.shade900,
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
+                  borderRadius: BorderRadius.circular(12),
+                ),
                 onSelected: (value) {
                   if (value == 'edit') onEdit();
                   if (value == 'delete') onDelete();
@@ -258,11 +272,13 @@ class _VehicleCard extends StatelessWidget {
                     value: 'edit',
                     child: Row(
                       children: [
-                        Icon(Icons.edit_outlined,
-                            color: Colors.white54, size: 18),
+                        Icon(
+                          Icons.edit_outlined,
+                          color: Colors.white54,
+                          size: 18,
+                        ),
                         SizedBox(width: 10),
-                        Text('Edit',
-                            style: TextStyle(color: Colors.white)),
+                        Text('Edit', style: TextStyle(color: Colors.white)),
                       ],
                     ),
                   ),
@@ -270,12 +286,16 @@ class _VehicleCard extends StatelessWidget {
                     value: 'delete',
                     child: Row(
                       children: [
-                        Icon(Icons.delete_outline,
-                            color: Colors.redAccent, size: 18),
+                        Icon(
+                          Icons.delete_outline,
+                          color: Colors.redAccent,
+                          size: 18,
+                        ),
                         SizedBox(width: 10),
-                        Text('Delete',
-                            style:
-                                TextStyle(color: Colors.redAccent)),
+                        Text(
+                          'Delete',
+                          style: TextStyle(color: Colors.redAccent),
+                        ),
                       ],
                     ),
                   ),
@@ -346,7 +366,8 @@ class _VehicleFormSheetState extends State<_VehicleFormSheet> {
     final existingMake = widget.existing?.make ?? '';
     _modelCtrl = TextEditingController(text: widget.existing?.model ?? '');
     _yearCtrl = TextEditingController(
-        text: widget.existing?.year.toString() ?? '');
+      text: widget.existing?.year.toString() ?? '',
+    );
 
     if (existingMake.isEmpty) {
       _selectedBrand = null;
@@ -373,24 +394,29 @@ class _VehicleFormSheetState extends State<_VehicleFormSheet> {
 
   void _save() {
     if (!_formKey.currentState!.validate()) return;
-    final dragy =
-        Provider.of<DragyProvider>(context, listen: false);
+    final dragy = Provider.of<DragyProvider>(context, listen: false);
     final year = int.tryParse(_yearCtrl.text.trim()) ?? DateTime.now().year;
-    final brand = _isCustomBrand ? _makeCtrl.text.trim() : (_selectedBrand ?? '');
+    final brand = _isCustomBrand
+        ? _makeCtrl.text.trim()
+        : (_selectedBrand ?? '');
 
     if (widget.existing != null) {
-      dragy.updateVehicle(widget.existing!.copyWith(
-        make: brand,
-        model: _modelCtrl.text.trim(),
-        year: year,
-      ));
+      dragy.updateVehicle(
+        widget.existing!.copyWith(
+          make: brand,
+          model: _modelCtrl.text.trim(),
+          year: year,
+        ),
+      );
     } else {
-      dragy.addVehicle(Vehicle(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        make: brand,
-        model: _modelCtrl.text.trim(),
-        year: year,
-      ));
+      dragy.addVehicle(
+        Vehicle(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          make: brand,
+          model: _modelCtrl.text.trim(),
+          year: year,
+        ),
+      );
     }
     Navigator.pop(context);
   }
@@ -400,16 +426,15 @@ class _VehicleFormSheetState extends State<_VehicleFormSheet> {
     final isEdit = widget.existing != null;
     return Padding(
       padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom),
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
       child: Container(
         decoration: BoxDecoration(
           color: const Color(0xFF111111),
-          borderRadius:
-              const BorderRadius.vertical(top: Radius.circular(24)),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           border: Border.all(color: Colors.white.withOpacity(0.08)),
         ),
-        padding:
-            const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
         child: Form(
           key: _formKey,
           child: SingleChildScrollView(
@@ -442,39 +467,64 @@ class _VehicleFormSheetState extends State<_VehicleFormSheet> {
                 DropdownButtonFormField<String>(
                   initialValue: _selectedBrand,
                   dropdownColor: const Color(0xFF1F1F1F),
-                  icon: const Icon(Icons.arrow_drop_down, color: Color(0xFFFFBF00)),
+                  icon: const Icon(
+                    Icons.arrow_drop_down,
+                    color: Color(0xFFFFBF00),
+                  ),
                   style: const TextStyle(color: Colors.white, fontSize: 15),
                   decoration: InputDecoration(
                     labelText: 'Brand',
-                    labelStyle: const TextStyle(color: Colors.white38, fontSize: 13),
+                    labelStyle: const TextStyle(
+                      color: Colors.white38,
+                      fontSize: 13,
+                    ),
                     filled: true,
                     fillColor: Colors.white.withOpacity(0.05),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                      borderSide: BorderSide(
+                        color: Colors.white.withOpacity(0.1),
+                      ),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                      borderSide: BorderSide(
+                        color: Colors.white.withOpacity(0.1),
+                      ),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: Color(0xFFFFBF00), width: 1.5),
+                      borderSide: const BorderSide(
+                        color: Color(0xFFFFBF00),
+                        width: 1.5,
+                      ),
                     ),
                     errorBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: Colors.redAccent, width: 1.0),
+                      borderSide: const BorderSide(
+                        color: Colors.redAccent,
+                        width: 1.0,
+                      ),
                     ),
                     focusedErrorBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
+                      borderSide: const BorderSide(
+                        color: Colors.redAccent,
+                        width: 1.5,
+                      ),
                     ),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 12,
+                    ),
                   ),
                   items: _popularBrands.map((brand) {
                     return DropdownMenuItem<String>(
                       value: brand,
-                      child: Text(brand, style: const TextStyle(color: Colors.white)),
+                      child: Text(
+                        brand,
+                        style: const TextStyle(color: Colors.white),
+                      ),
                     );
                   }).toList(),
                   onChanged: (val) {
@@ -538,7 +588,8 @@ class _VehicleFormSheetState extends State<_VehicleFormSheet> {
                       foregroundColor: Colors.black,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                     child: Text(
                       isEdit ? 'Save Changes' : 'Add to Garage',
@@ -602,21 +653,20 @@ class _StyledField extends StatelessWidget {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(
-              color: Color(0xFFFFBF00), width: 1.5),
+          borderSide: const BorderSide(color: Color(0xFFFFBF00), width: 1.5),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide:
-              const BorderSide(color: Colors.redAccent, width: 1.0),
+          borderSide: const BorderSide(color: Colors.redAccent, width: 1.0),
         ),
         focusedErrorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide:
-              const BorderSide(color: Colors.redAccent, width: 1.5),
+          borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
         ),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 10,
+          vertical: 12,
+        ),
       ),
     );
   }

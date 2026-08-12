@@ -1,21 +1,39 @@
 import 'dart:async';
 import 'dart:math';
+import 'dart:io';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:path_provider/path_provider.dart';
 import '../providers/dragy_provider.dart';
 import '../models/saved_run.dart';
 import '../models/race_target.dart';
+import '../utils/unit_converter.dart';
+import 'package:share_plus/share_plus.dart';
+import '../widgets/share_slip_widget.dart';
 
 class RunDetailScreen extends StatelessWidget {
   final SavedRun run;
+  final GlobalKey _boundaryKey = GlobalKey();
 
-  const RunDetailScreen({super.key, required this.run});
+  RunDetailScreen({super.key, required this.run});
 
   String _formatDate(DateTime dt) {
     final months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     final month = months[dt.month - 1];
     final day = dt.day;
@@ -29,16 +47,24 @@ class RunDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dragy = Provider.of<DragyProvider>(context);
-    final run = dragy.savedRuns.firstWhere((r) => r.id == this.run.id, orElse: () => this.run);
+    final run = dragy.savedRuns.firstWhere(
+      (r) => r.id == this.run.id,
+      orElse: () => this.run,
+    );
     final isMetric = dragy.isMetric;
-    final useNhraRules = dragy.useNhraRules && run.metrics.rolloutTime1ft != null;
+    final tempInCelsius = dragy.tempInCelsius;
+    final useNhraRules =
+        dragy.useNhraRules && run.metrics.rolloutTime1ft != null;
     final metrics = run.metrics;
 
     // Collect reached milestones sorted by completion time ascending
     final List<_ReachedMilestone> reachedMilestones = [];
 
     // 1. Official completed tests
-    final completedTests = getCompletedTests(metrics, useNhraRules: useNhraRules);
+    final completedTests = getCompletedTests(
+      metrics,
+      useNhraRules: useNhraRules,
+    );
     for (final test in completedTests) {
       // Filter out speed targets of the opposite unit system to match user's preference
       if (test.speedUnit != null) {
@@ -48,7 +74,11 @@ class RunDetailScreen extends StatelessWidget {
         }
       }
 
-      final time = getCompletedTimeForCategory(metrics, test.id, useNhraRules: useNhraRules);
+      final time = getCompletedTimeForCategory(
+        metrics,
+        test.id,
+        useNhraRules: useNhraRules,
+      );
       if (time != null) {
         double sortTime = time;
         if (test.startSpeed != null && test.startSpeed! > 0.0) {
@@ -59,12 +89,18 @@ class RunDetailScreen extends StatelessWidget {
           }
         }
 
-        reachedMilestones.add(_ReachedMilestone(
-          label: test.displayName,
-          time: time,
-          sortTime: sortTime,
-          trapSpeed: getTrapSpeedForCategory(metrics, test.id, useNhraRules: useNhraRules),
-        ));
+        reachedMilestones.add(
+          _ReachedMilestone(
+            label: test.displayName,
+            time: time,
+            sortTime: sortTime,
+            trapSpeed: getTrapSpeedForCategory(
+              metrics,
+              test.id,
+              useNhraRules: useNhraRules,
+            ),
+          ),
+        );
       }
     }
 
@@ -85,14 +121,18 @@ class RunDetailScreen extends StatelessWidget {
       }
       if (!matchesAny) {
         final unit = metrics.targetSpeedUnit ?? (isMetric ? 'kmh' : 'mph');
-        final start = unit == 'mph'
-            ? (metrics.targetStartSpeed! * 0.621371).round()
+        final startSpeed = !isMetric
+            ? UnitConverter.kmhToMph(metrics.targetStartSpeed!).round()
             : metrics.targetStartSpeed!.round();
-        final end = unit == 'mph'
-            ? (metrics.targetEndSpeed! * 0.621371).round()
+        final endSpeed = !isMetric
+            ? UnitConverter.kmhToMph(metrics.targetEndSpeed!).round()
             : metrics.targetEndSpeed!.round();
-        final customId = 'custom_${start}_${end}_$unit';
-        final compTime = getCompletedTimeForCategory(metrics, customId, useNhraRules: useNhraRules);
+        final customId = 'custom_${startSpeed}_${endSpeed}_$unit';
+        final compTime = getCompletedTimeForCategory(
+          metrics,
+          customId,
+          useNhraRules: useNhraRules,
+        );
         if (compTime != null) {
           final label = getDisplayLabelForTarget(
             startSpeed: metrics.targetStartSpeed,
@@ -100,11 +140,9 @@ class RunDetailScreen extends StatelessWidget {
             speedUnit: metrics.targetSpeedUnit,
             runMode: 'interval',
           );
-          reachedMilestones.add(_ReachedMilestone(
-            label: label,
-            time: compTime,
-            sortTime: compTime,
-          ));
+          reachedMilestones.add(
+            _ReachedMilestone(label: label, time: compTime, sortTime: compTime),
+          );
         }
       }
     }
@@ -145,7 +183,11 @@ class RunDetailScreen extends StatelessWidget {
 
     double? completedTime;
     if (targetTest != null) {
-      completedTime = getCompletedTimeForCategory(metrics, targetTest.id, useNhraRules: useNhraRules);
+      completedTime = getCompletedTimeForCategory(
+        metrics,
+        targetTest.id,
+        useNhraRules: useNhraRules,
+      );
       if (completedTime != null) {
         primaryLabel = "${targetTest.displayName} Time";
       }
@@ -161,14 +203,18 @@ class RunDetailScreen extends StatelessWidget {
       );
       primaryLabel = "$label Time";
       final unit = metrics.targetSpeedUnit ?? (isMetric ? 'kmh' : 'mph');
-      final start = unit == 'mph'
-          ? (metrics.targetStartSpeed! * 0.621371).round()
+      final startSpeed = !isMetric
+          ? UnitConverter.kmhToMph(metrics.targetStartSpeed!).round()
           : metrics.targetStartSpeed!.round();
-      final end = unit == 'mph'
-          ? (metrics.targetEndSpeed! * 0.621371).round()
+      final endSpeed = !isMetric
+          ? UnitConverter.kmhToMph(metrics.targetEndSpeed!).round()
           : metrics.targetEndSpeed!.round();
-      final customId = 'custom_${start}_${end}_$unit';
-      completedTime = getCompletedTimeForCategory(metrics, customId, useNhraRules: useNhraRules);
+      final customId = 'custom_${startSpeed}_${endSpeed}_$unit';
+      completedTime = getCompletedTimeForCategory(
+        metrics,
+        customId,
+        useNhraRules: useNhraRules,
+      );
     }
 
     // Fallback if target is not completed or none was set
@@ -180,7 +226,11 @@ class RunDetailScreen extends StatelessWidget {
           final isTestMetric = test.speedUnit == SpeedUnit.kmh;
           if (isTestMetric != isMetric) continue;
         }
-        final t = getCompletedTimeForCategory(metrics, test.id, useNhraRules: useNhraRules);
+        final t = getCompletedTimeForCategory(
+          metrics,
+          test.id,
+          useNhraRules: useNhraRules,
+        );
         if (t != null && t > maxTime) {
           maxTime = t;
           completedTime = t;
@@ -203,9 +253,15 @@ class RunDetailScreen extends StatelessWidget {
         : 0.0;
     final bool isSlopeValid = avgSlope >= -1.0;
 
-    final double displayStartAlt = isMetric ? startAlt : startAlt * 3.28084;
-    final double displayEndAlt = isMetric ? endAlt : endAlt * 3.28084;
-    final double displayElevationDiff = isMetric ? elevationDiff : elevationDiff * 3.28084;
+    final double displayStartAlt = isMetric
+        ? startAlt
+        : UnitConverter.metersToFeet(startAlt);
+    final double displayEndAlt = isMetric
+        ? endAlt
+        : UnitConverter.metersToFeet(endAlt);
+    final double displayElevationDiff = isMetric
+        ? elevationDiff
+        : UnitConverter.metersToFeet(elevationDiff);
     final String altUnit = isMetric ? 'm' : 'ft';
 
     return Scaffold(
@@ -221,249 +277,341 @@ class RunDetailScreen extends StatelessWidget {
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
           IconButton(
+            icon: const Icon(Icons.share, color: Colors.blueAccent),
+            onPressed: () => _shareRun(context, primaryLabel, primaryTime),
+          ),
+          IconButton(
             icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
             onPressed: () => _confirmDelete(context),
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Text(
-              _formatDate(run.dateTime),
-              style: GoogleFonts.roboto(
-                color: Colors.white38,
-                fontSize: 14,
-              ),
-            ),
-            const SizedBox(height: 6),
-            InkWell(
-              onTap: () => _showVehicleSelector(context, dragy, run),
-              borderRadius: BorderRadius.circular(8),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.directions_car,
-                      color: run.vehicleName != null ? const Color(0xFFFFBF00) : Colors.white38,
-                      size: 14,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      run.vehicleName ?? 'No Vehicle Assigned',
-                      style: GoogleFonts.roboto(
-                        color: run.vehicleName != null ? const Color(0xFFFFBF00) : Colors.white38,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    Icon(
-                      Icons.edit_outlined,
-                      color: run.vehicleName != null ? const Color(0xFFFFBF00) : Colors.white38,
-                      size: 12,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            // Time Display
-            Text(
-              primaryTime,
-              style: GoogleFonts.robotoMono(
-                color: Colors.white,
-                fontSize: 64,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            Text(
-              (useNhraRules && (metrics.runMode == 'drag' || metrics.targetStartSpeed == 0.0))
-                  ? "$primaryLabel (NHRA rules)"
-                  : primaryLabel,
-              style: GoogleFonts.roboto(
-                color: const Color(0xFFFFBF00), // Neon Amber
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1.2,
-              ),
-            ),
-            const SizedBox(height: 32),
-            // Speed Box
-            if (speedMilestones.isNotEmpty) ...[
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF111111),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: Colors.white.withOpacity(0.05),
+      body: Stack(
+        children: [
+          SingleChildScrollView(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Text(
+                  _formatDate(run.dateTime),
+                  style: GoogleFonts.roboto(
+                    color: Colors.white38,
+                    fontSize: 14,
                   ),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
+                const SizedBox(height: 6),
+                InkWell(
+                  onTap: () => _showVehicleSelector(context, dragy, run),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(
-                          Icons.speed,
-                          color: Color(0xFFFFBF00),
-                          size: 18,
+                        Icon(
+                          Icons.directions_car,
+                          color: run.vehicleName != null
+                              ? const Color(0xFFFFBF00)
+                              : Colors.white38,
+                          size: 14,
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 6),
                         Text(
-                          'SPEED',
+                          run.vehicleName ?? 'No Vehicle Assigned',
                           style: GoogleFonts.roboto(
-                            color: Colors.white70,
-                            fontWeight: FontWeight.bold,
+                            color: run.vehicleName != null
+                                ? const Color(0xFFFFBF00)
+                                : Colors.white38,
                             fontSize: 13,
-                            letterSpacing: 1.2,
+                            fontWeight: FontWeight.w500,
                           ),
+                        ),
+                        const SizedBox(width: 4),
+                        Icon(
+                          Icons.edit_outlined,
+                          color: run.vehicleName != null
+                              ? const Color(0xFFFFBF00)
+                              : Colors.white38,
+                          size: 12,
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
-                    Column(
-                      children: speedMilestones.map((m) {
-                        return _DetailSlipRow(
-                          label: m.label,
-                          time: m.time,
-                          trapSpeed: m.trapSpeed,
-                        );
-                      }).toList(),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-            ],
-            // Distance Box
-            if (distanceMilestones.isNotEmpty) ...[
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF111111),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: Colors.white.withOpacity(0.05),
                   ),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
+                const SizedBox(height: 16),
+                // Time Display
+                Text(
+                  primaryTime,
+                  style: GoogleFonts.robotoMono(
+                    color: Colors.white,
+                    fontSize: 64,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  (useNhraRules &&
+                          (metrics.runMode == 'drag' ||
+                              metrics.targetStartSpeed == 0.0))
+                      ? "$primaryLabel (NHRA rules)"
+                      : primaryLabel,
+                  style: GoogleFonts.roboto(
+                    color: const Color(0xFFFFBF00), // Neon Amber
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+                const SizedBox(height: 32),
+                // Speed Box
+                if (speedMilestones.isNotEmpty) ...[
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF111111),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.white.withOpacity(0.05)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(
-                          Icons.flag_outlined,
-                          color: Color(0xFFFFBF00),
-                          size: 18,
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.speed,
+                              color: Color(0xFFFFBF00),
+                              size: 18,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'SPEED',
+                              style: GoogleFonts.roboto(
+                                color: Colors.white70,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                                letterSpacing: 1.2,
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'DISTANCE',
-                          style: GoogleFonts.roboto(
-                            color: Colors.white70,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                            letterSpacing: 1.2,
-                          ),
+                        const SizedBox(height: 12),
+                        Column(
+                          children: speedMilestones.map((m) {
+                            return _DetailSlipRow(
+                              label: m.label,
+                              time: m.time,
+                              trapSpeed: m.trapSpeed,
+                            );
+                          }).toList(),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
-                    Column(
-                      children: distanceMilestones.map((m) {
-                        return _DetailSlipRow(
-                          label: m.label,
-                          time: m.time,
-                          trapSpeed: m.trapSpeed,
-                        );
-                      }).toList(),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                // Distance Box
+                if (distanceMilestones.isNotEmpty) ...[
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF111111),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.white.withOpacity(0.05)),
                     ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-            ],
-            TelemetryChart(run: run, isMetric: isMetric),
-            const SizedBox(height: 24),
-            // Run elevation summary
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFF111111),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: Colors.white.withOpacity(0.05),
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.flag_outlined,
+                              color: Color(0xFFFFBF00),
+                              size: 18,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'DISTANCE',
+                              style: GoogleFonts.roboto(
+                                color: Colors.white70,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                                letterSpacing: 1.2,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Column(
+                          children: distanceMilestones.map((m) {
+                            return _DetailSlipRow(
+                              label: m.label,
+                              time: m.time,
+                              trapSpeed: m.trapSpeed,
+                            );
+                          }).toList(),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                ],
+                TelemetryChart(run: run, isMetric: isMetric),
+                const SizedBox(height: 24),
+                // Run elevation summary
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF111111),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.white.withOpacity(0.05)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(
-                        Icons.terrain_outlined,
-                        color: Color(0xFFFFBF00),
-                        size: 18,
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.terrain_outlined,
+                            color: Color(0xFFFFBF00),
+                            size: 18,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Elevation & Slope Profile',
+                            style: GoogleFonts.roboto(
+                              color: Colors.white70,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Elevation & Slope Profile',
-                        style: GoogleFonts.roboto(
-                          color: Colors.white70,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
-                        ),
+                      const SizedBox(height: 16),
+                      _ProfileStatRow(
+                        label: 'Start Altitude',
+                        value: '${displayStartAlt.toStringAsFixed(1)} $altUnit',
+                      ),
+                      _ProfileStatRow(
+                        label: 'End Altitude',
+                        value: '${displayEndAlt.toStringAsFixed(1)} $altUnit',
+                      ),
+                      _ProfileStatRow(
+                        label: 'Elevation Change',
+                        value:
+                            '${displayElevationDiff >= 0 ? '+' : ''}${displayElevationDiff.toStringAsFixed(1)} $altUnit',
+                        valueColor: displayElevationDiff >= 0
+                            ? const Color(0xFF39FF14)
+                            : Colors.redAccent,
+                      ),
+                      _ProfileStatRow(
+                        label: 'Average Slope',
+                        value:
+                            '${avgSlope >= 0 ? '+' : ''}${avgSlope.toStringAsFixed(2)}%',
+                        valueColor: isSlopeValid
+                            ? const Color(0xFF39FF14)
+                            : Colors.redAccent,
+                        trailing: isSlopeValid
+                            ? const Icon(
+                                Icons.check_circle_outline,
+                                color: Color(0xFF39FF14),
+                                size: 16,
+                              )
+                            : const Icon(
+                                Icons.warning_amber_outlined,
+                                color: Colors.redAccent,
+                                size: 16,
+                              ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
-                  _ProfileStatRow(
-                    label: 'Start Altitude',
-                    value: '${displayStartAlt.toStringAsFixed(1)} $altUnit',
-                  ),
-                  _ProfileStatRow(
-                    label: 'End Altitude',
-                    value: '${displayEndAlt.toStringAsFixed(1)} $altUnit',
-                  ),
-                  _ProfileStatRow(
-                    label: 'Elevation Change',
-                    value: '${displayElevationDiff >= 0 ? '+' : ''}${displayElevationDiff.toStringAsFixed(1)} $altUnit',
-                    valueColor: displayElevationDiff >= 0 ? const Color(0xFF39FF14) : Colors.redAccent,
-                  ),
-                  _ProfileStatRow(
-                    label: 'Average Slope',
-                    value: '${avgSlope >= 0 ? '+' : ''}${avgSlope.toStringAsFixed(2)}%',
-                    valueColor: isSlopeValid ? const Color(0xFF39FF14) : Colors.redAccent,
-                    trailing: isSlopeValid
-                        ? const Icon(Icons.check_circle_outline, color: Color(0xFF39FF14), size: 16)
-                        : const Icon(Icons.warning_amber_outlined, color: Colors.redAccent, size: 16),
+                ),
+                if (run.temperature != null && run.humidity != null) ...[
+                  const SizedBox(height: 24),
+                  _EnvironmentCard(
+                    run: run,
+                    tempInCelsius: tempInCelsius,
+                    isMetric: isMetric,
                   ),
                 ],
+                const SizedBox(height: 24),
+                _NoteBox(run: run),
+              ],
+            ),
+          ),
+
+          // Hidden off-screen share slip widget
+          Positioned(
+            left: -10000,
+            top: -10000,
+            child: RepaintBoundary(
+              key: _boundaryKey,
+              child: ShareSlipWidget(
+                run: run,
+                primaryLabel: primaryLabel,
+                primaryTime: primaryTime,
+                isMetric: isMetric,
+                tempInCelsius: tempInCelsius,
+                useNhraRules: useNhraRules,
+                speedMilestones: speedMilestones
+                    .map(
+                      (m) => ReachedMilestone(
+                        label: m.label,
+                        time: m.time,
+                        trapSpeed: m.trapSpeed,
+                      ),
+                    )
+                    .toList(),
+                distanceMilestones: distanceMilestones
+                    .map(
+                      (m) => ReachedMilestone(
+                        label: m.label,
+                        time: m.time,
+                        trapSpeed: m.trapSpeed,
+                      ),
+                    )
+                    .toList(),
               ),
             ),
-            if (run.temperature != null && run.humidity != null) ...[
-              const SizedBox(height: 24),
-              _EnvironmentCard(
-                run: run,
-                tempInCelsius: dragy.tempInCelsius,
-                isMetric: dragy.isMetric,
-              ),
-            ],
-            const SizedBox(height: 24),
-            _NoteBox(run: run),
-          ],
-        ),
+          ),
+        ],
       ),
     );
+  }
+
+  Future<void> _shareRun(
+    BuildContext context,
+    String primaryLabel,
+    String primaryTime,
+  ) async {
+    try {
+      final boundary =
+          _boundaryKey.currentContext?.findRenderObject()
+              as RenderRepaintBoundary?;
+      if (boundary == null) return;
+
+      final image = await boundary.toImage(pixelRatio: 3.0);
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      if (byteData == null) return;
+
+      final pngBytes = byteData.buffer.asUint8List();
+      final tempDir = await getTemporaryDirectory();
+      final file = File('${tempDir.path}/opendragy_run_${run.id}.png');
+      await file.writeAsBytes(pngBytes);
+
+      final vehicle = run.vehicleName ?? 'Unknown Vehicle';
+      final text =
+          'OpenDragy Run\n$primaryLabel: $primaryTime\nVehicle: $vehicle\n\nGenerated by OpenDragy';
+
+      await Share.shareXFiles([XFile(file.path)], text: text);
+    } catch (e) {
+      debugPrint('Error sharing image: $e');
+    }
   }
 
   void _confirmDelete(BuildContext context) {
@@ -471,10 +619,7 @@ class RunDetailScreen extends StatelessWidget {
       context: context,
       builder: (diagContext) => AlertDialog(
         backgroundColor: Colors.grey.shade900,
-        title: const Text(
-          'Delete Run',
-          style: TextStyle(color: Colors.white),
-        ),
+        title: const Text('Delete Run', style: TextStyle(color: Colors.white)),
         content: const Text(
           'Are you sure you want to permanently delete this run from your history?',
           style: TextStyle(color: Colors.white70),
@@ -489,7 +634,10 @@ class RunDetailScreen extends StatelessWidget {
           ),
           TextButton(
             onPressed: () {
-              Provider.of<DragyProvider>(context, listen: false).deleteRun(run.id);
+              Provider.of<DragyProvider>(
+                context,
+                listen: false,
+              ).deleteRun(run.id);
               Navigator.pop(diagContext); // Pop dialog
               Navigator.pop(context); // Pop detail screen
             },
@@ -503,14 +651,23 @@ class RunDetailScreen extends StatelessWidget {
     );
   }
 
-  void _showVehicleSelector(BuildContext context, DragyProvider dragy, SavedRun currentRun) {
+  void _showVehicleSelector(
+    BuildContext context,
+    DragyProvider dragy,
+    SavedRun currentRun,
+  ) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (ctx) {
         return Container(
-          padding: const EdgeInsets.only(top: 24, bottom: 32, left: 24, right: 24),
+          padding: const EdgeInsets.only(
+            top: 24,
+            bottom: 32,
+            left: 24,
+            right: 24,
+          ),
           decoration: BoxDecoration(
             color: Colors.grey.shade900,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
@@ -531,7 +688,10 @@ class RunDetailScreen extends StatelessWidget {
               if (dragy.vehicles.isEmpty)
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 20),
-                  child: Text('Your garage is empty.', style: TextStyle(color: Colors.white54)),
+                  child: Text(
+                    'Your garage is empty.',
+                    style: TextStyle(color: Colors.white54),
+                  ),
                 )
               else
                 ...dragy.vehicles.map((v) {
@@ -540,20 +700,30 @@ class RunDetailScreen extends StatelessWidget {
                     contentPadding: EdgeInsets.zero,
                     leading: Icon(
                       Icons.directions_car,
-                      color: isSelected ? const Color(0xFFFFBF00) : Colors.white54,
+                      color: isSelected
+                          ? const Color(0xFFFFBF00)
+                          : Colors.white54,
                     ),
                     title: Text(
                       v.displayName,
                       style: TextStyle(
-                        color: isSelected ? const Color(0xFFFFBF00) : Colors.white,
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                        color: isSelected
+                            ? const Color(0xFFFFBF00)
+                            : Colors.white,
+                        fontWeight: isSelected
+                            ? FontWeight.bold
+                            : FontWeight.normal,
                       ),
                     ),
                     trailing: isSelected
                         ? const Icon(Icons.check, color: Color(0xFFFFBF00))
                         : null,
                     onTap: () {
-                      dragy.updateRunVehicle(currentRun.id, v.id, v.displayName);
+                      dragy.updateRunVehicle(
+                        currentRun.id,
+                        v.id,
+                        v.displayName,
+                      );
                       Navigator.pop(ctx);
                     },
                   );
@@ -571,11 +741,7 @@ class _DetailSlipRow extends StatelessWidget {
   final double? time;
   final double? trapSpeed;
 
-  const _DetailSlipRow({
-    required this.label,
-    this.time,
-    this.trapSpeed,
-  });
+  const _DetailSlipRow({required this.label, this.time, this.trapSpeed});
 
   @override
   Widget build(BuildContext context) {
@@ -587,10 +753,12 @@ class _DetailSlipRow extends StatelessWidget {
     String speedDisplay = '';
     if (trapSpeed != null) {
       if (!isMetric) {
-        final speedMph = trapSpeed! * 0.621371;
-        speedDisplay = '${time!.toStringAsFixed(2)}s@${speedMph.toStringAsFixed(2)} mph';
+        final speedMph = UnitConverter.kmhToMph(trapSpeed!);
+        speedDisplay =
+            '${time!.toStringAsFixed(2)}s@${speedMph.toStringAsFixed(2)} mph';
       } else {
-        speedDisplay = '${time!.toStringAsFixed(2)}s@${trapSpeed!.toStringAsFixed(2)} km/h';
+        speedDisplay =
+            '${time!.toStringAsFixed(2)}s@${trapSpeed!.toStringAsFixed(2)} km/h';
       }
     } else {
       speedDisplay = '${time!.toStringAsFixed(2)}s';
@@ -657,10 +825,7 @@ class _ProfileStatRow extends StatelessWidget {
         children: [
           Text(
             label,
-            style: GoogleFonts.roboto(
-              color: Colors.white54,
-              fontSize: 14,
-            ),
+            style: GoogleFonts.roboto(color: Colors.white54, fontSize: 14),
           ),
           const Spacer(),
           Text(
@@ -671,10 +836,7 @@ class _ProfileStatRow extends StatelessWidget {
               fontSize: 14,
             ),
           ),
-          if (trailing != null) ...[
-            const SizedBox(width: 6),
-            trailing!,
-          ],
+          if (trailing != null) ...[const SizedBox(width: 6), trailing!],
         ],
       ),
     );
@@ -715,8 +877,10 @@ class _NoteBoxState extends State<_NoteBox> {
     });
     _debounce = Timer(const Duration(milliseconds: 600), () async {
       if (mounted) {
-        await Provider.of<DragyProvider>(context, listen: false)
-            .updateRunNotes(widget.run.id, text);
+        await Provider.of<DragyProvider>(
+          context,
+          listen: false,
+        ).updateRunNotes(widget.run.id, text);
         if (mounted) {
           setState(() {
             _isSaving = false;
@@ -733,9 +897,7 @@ class _NoteBoxState extends State<_NoteBox> {
       decoration: BoxDecoration(
         color: const Color(0xFF111111),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Colors.white.withOpacity(0.05),
-        ),
+        border: Border.all(color: Colors.white.withOpacity(0.05)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -795,13 +957,11 @@ class _NoteBoxState extends State<_NoteBox> {
             onChanged: _onNotesChanged,
             maxLines: null,
             keyboardType: TextInputType.multiline,
-            style: GoogleFonts.roboto(
-              color: Colors.white,
-              fontSize: 14,
-            ),
+            style: GoogleFonts.roboto(color: Colors.white, fontSize: 14),
             cursorColor: const Color(0xFFFFBF00),
             decoration: InputDecoration(
-              hintText: 'Add notes (e.g., tire pressure, launch RPM, track prep)...',
+              hintText:
+                  'Add notes (e.g., tire pressure, launch RPM, track prep)...',
               hintStyle: GoogleFonts.roboto(
                 color: Colors.white38,
                 fontSize: 14,
@@ -831,20 +991,17 @@ class _EnvironmentCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final startAlt = run.metrics.startAltitude ?? 0.0;
-    final tempC = run.temperature ?? 0.0;
+    final tempC = run.temperature ?? 15.0;
     final humidity = run.humidity ?? 0.0;
 
-    final isaTemp = 15.0 - 0.0065 * startAlt;
-    final daMeters = startAlt + 120.0 * (tempC - isaTemp);
+    final daMeters = UnitConverter.calculateDensityAltitude(startAlt, tempC);
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: const Color(0xFF111111),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Colors.white.withOpacity(0.05),
-        ),
+        border: Border.all(color: Colors.white.withOpacity(0.05)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -872,7 +1029,7 @@ class _EnvironmentCard extends StatelessWidget {
             label: 'Temperature',
             value: tempInCelsius
                 ? '${tempC.toStringAsFixed(1)}°C'
-                : '${((tempC * 9 / 5) + 32).toStringAsFixed(0)}°F',
+                : '${UnitConverter.celsiusToFahrenheit(tempC).toStringAsFixed(0)}°F',
           ),
           _ProfileStatRow(
             label: 'Humidity',
@@ -881,8 +1038,8 @@ class _EnvironmentCard extends StatelessWidget {
           _ProfileStatRow(
             label: 'Density Altitude',
             value: isMetric
-                ? '${daMeters.toStringAsFixed(0)} m'
-                : '${(daMeters * 3.28084).toStringAsFixed(0)} ft',
+                ? '${daMeters.toStringAsFixed(0)}m'
+                : '${UnitConverter.metersToFeet(daMeters).toStringAsFixed(0)}ft',
           ),
         ],
       ),
@@ -934,8 +1091,6 @@ class _TelemetryChartState extends State<TelemetryChart> {
     return output;
   }
 
-
-
   void _handleTouch(Offset localPosition, double width) {
     final history = widget.run.metrics.history;
     if (history.isEmpty) return;
@@ -982,8 +1137,12 @@ class _TelemetryChartState extends State<TelemetryChart> {
 
     final isMetric = widget.isMetric;
     final times = history.map((p) => p.elapsedTime).toList();
-    final speeds = history.map((p) => isMetric ? p.speedKmh : p.speedKmh * 0.621371).toList();
-    
+    final speeds = history
+        .map(
+          (p) => isMetric ? p.speedKmh : UnitConverter.kmhToMph(p.speedKmh),
+        )
+        .toList();
+
     // The physics engine natively shifts the G-force to align with GPS latency.
     final rawGForces = history.map((p) => p.gForce).toList();
     final gForces = _smoothList(rawGForces, 7);
@@ -992,12 +1151,14 @@ class _TelemetryChartState extends State<TelemetryChart> {
     final rawElevations = history.map((p) {
       final double currentAlt = p.altitude ?? startAltitude;
       final double diff = currentAlt - startAltitude;
-      return isMetric ? diff : diff * 3.28084;
+      return isMetric ? diff : UnitConverter.metersToFeet(diff);
     }).toList();
     final elevations = _smoothList(rawElevations, 9);
 
     // Check if elevation data is present (non-null and not all zero)
-    final bool hasElevation = history.any((p) => p.altitude != null && p.altitude != 0.0);
+    final bool hasElevation = history.any(
+      (p) => p.altitude != null && p.altitude != 0.0,
+    );
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -1021,11 +1182,14 @@ class _TelemetryChartState extends State<TelemetryChart> {
               const SizedBox(height: 16),
               // Chart Area
               GestureDetector(
-                onPanStart: (details) => _handleTouch(details.localPosition, width),
-                onPanUpdate: (details) => _handleTouch(details.localPosition, width),
+                onPanStart: (details) =>
+                    _handleTouch(details.localPosition, width),
+                onPanUpdate: (details) =>
+                    _handleTouch(details.localPosition, width),
                 onPanEnd: (_) => setState(() => _selectedIndex = null),
                 onPanCancel: () => setState(() => _selectedIndex = null),
-                onTapDown: (details) => _handleTouch(details.localPosition, width),
+                onTapDown: (details) =>
+                    _handleTouch(details.localPosition, width),
                 onTapUp: (_) => setState(() => _selectedIndex = null),
                 child: CustomPaint(
                   size: const Size(double.infinity, 180),
@@ -1047,7 +1211,13 @@ class _TelemetryChartState extends State<TelemetryChart> {
     );
   }
 
-  Widget _buildHud(List<double> times, List<double> speeds, List<double> gForces, List<double> elevations, bool hasElevation) {
+  Widget _buildHud(
+    List<double> times,
+    List<double> speeds,
+    List<double> gForces,
+    List<double> elevations,
+    bool hasElevation,
+  ) {
     if (_selectedIndex != null && _selectedIndex! < times.length) {
       final int idx = _selectedIndex!;
       return Column(
@@ -1103,7 +1273,8 @@ class _TelemetryChartState extends State<TelemetryChart> {
               if (hasElevation)
                 _HudStat(
                   label: 'Height',
-                  value: '${elevations[idx] >= 0 ? '+' : ''}${elevations[idx].toStringAsFixed(1)}',
+                  value:
+                      '${elevations[idx] >= 0 ? '+' : ''}${elevations[idx].toStringAsFixed(1)}',
                   valueColor: const Color(0xFF66BB6A), // Green
                 ),
             ],
@@ -1116,7 +1287,9 @@ class _TelemetryChartState extends State<TelemetryChart> {
     final double maxSpeed = speeds.isNotEmpty ? speeds.reduce(max) : 0.0;
     final double maxG = gForces.isNotEmpty ? gForces.reduce(max) : 0.0;
     final double minG = gForces.isNotEmpty ? gForces.reduce(min) : 0.0;
-    final double elevDiff = elevations.isNotEmpty ? (elevations.last - elevations.first) : 0.0;
+    final double elevDiff = elevations.isNotEmpty
+        ? (elevations.last - elevations.first)
+        : 0.0;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1152,7 +1325,8 @@ class _TelemetryChartState extends State<TelemetryChart> {
             if (hasElevation)
               _HudStat(
                 label: 'Elev Change',
-                value: '${elevDiff >= 0 ? '+' : ''}${elevDiff.toStringAsFixed(1)}',
+                value:
+                    '${elevDiff >= 0 ? '+' : ''}${elevDiff.toStringAsFixed(1)}',
                 valueColor: const Color(0xFF66BB6A),
               ),
           ],
@@ -1166,12 +1340,18 @@ class _TelemetryChartState extends State<TelemetryChart> {
     final heightUnit = widget.isMetric ? 'm' : 'ft';
     return Row(
       children: [
-        _LegendItem(color: const Color(0xFF29B6F6), label: 'Speed ($speedUnit)'),
+        _LegendItem(
+          color: const Color(0xFF29B6F6),
+          label: 'Speed ($speedUnit)',
+        ),
         const SizedBox(width: 16),
         _LegendItem(color: const Color(0xFFFF9100), label: 'Accel (G)'),
         if (hasElevation) ...[
           const SizedBox(width: 16),
-          _LegendItem(color: const Color(0xFF66BB6A), label: 'Height ($heightUnit)'),
+          _LegendItem(
+            color: const Color(0xFF66BB6A),
+            label: 'Height ($heightUnit)',
+          ),
         ],
       ],
     );
@@ -1389,7 +1569,8 @@ class TelemetryChartPainter extends CustomPainter {
 
     // 2. Draw Speed Line
     final Paint speedPaint = Paint()
-      ..color = const Color(0xFF29B6F6) // Cyan
+      ..color =
+          const Color(0xFF29B6F6) // Cyan
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.5
       ..isAntiAlias = true;
@@ -1398,7 +1579,8 @@ class TelemetryChartPainter extends CustomPainter {
     // 3. Draw Height / Elevation Line
     if (hasElevation) {
       final Paint elevationPaint = Paint()
-        ..color = const Color(0xFF66BB6A) // Green
+        ..color =
+            const Color(0xFF66BB6A) // Green
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.5
         ..isAntiAlias = true;
@@ -1407,7 +1589,8 @@ class TelemetryChartPainter extends CustomPainter {
 
     // 4. Draw G-Force Line
     final Paint gForcePaint = Paint()
-      ..color = const Color(0xFFFF9100) // Orange
+      ..color =
+          const Color(0xFFFF9100) // Orange
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.5
       ..isAntiAlias = true;
@@ -1461,4 +1644,3 @@ class TelemetryChartPainter extends CustomPainter {
         oldDelegate.elevations != elevations;
   }
 }
-

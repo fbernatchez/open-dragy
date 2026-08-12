@@ -40,6 +40,12 @@ class MockDragyProvider extends ChangeNotifier implements DragyProvider {
   double? longitude;
 
   @override
+  double? currentTemperature;
+
+  @override
+  double? currentHumidity;
+
+  @override
   String appVersion = '1.0.0-mock';
 
   @override
@@ -61,6 +67,8 @@ class MockDragyProvider extends ChangeNotifier implements DragyProvider {
 
   @override
   double altitude = 0.0;
+
+
 
   @override
   List<SavedRun> savedRuns = [];
@@ -226,6 +234,15 @@ class MockDragyProvider extends ChangeNotifier implements DragyProvider {
     useNhraRules = value;
     notifyListeners();
   }
+
+  @override
+  bool enableTts = true;
+
+  @override
+  void setEnableTts(bool value) {}
+
+  @override
+  Future<void> updateRunVehicle(String runId, String? vehicleId, String? vehicleName) async {}
 
   // --- Garage ---
   @override

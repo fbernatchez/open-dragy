@@ -161,13 +161,22 @@ class BleService {
   Stream<List<ScanResult>> get scanResults => FlutterBluePlus.scanResults;
   Stream<bool> get isScanning => FlutterBluePlus.isScanning;
 
-  void startScan() {
-    FlutterBluePlus.stopScan().then((_) {
-      Future.delayed(const Duration(milliseconds: 300), () {
-        // No timeout = continuous scan, like native Android behavior
-        FlutterBluePlus.startScan().catchError((_) {});
-      });
-    });
+  Future<void> startScan() async {
+    try {
+      if (await FlutterBluePlus.isSupported == false) return;
+
+      // Wait for Bluetooth to be ON
+      await FlutterBluePlus.adapterState
+          .where((s) => s == BluetoothAdapterState.on)
+          .first;
+
+      // Stop any existing scan and start a new one
+      await FlutterBluePlus.stopScan();
+      await FlutterBluePlus.startScan();
+    } catch (e) {
+      // ignore: avoid_print
+      print('[BLE] startScan error: $e');
+    }
   }
 
   Future<void> stopScan() async {

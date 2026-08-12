@@ -1,4 +1,5 @@
 import 'race_metrics.dart';
+import '../utils/unit_converter.dart';
 
 enum DistanceUnit {
   feet,
@@ -380,8 +381,8 @@ double? getCompletedTimeForCategory(
         double startKmh = start;
         double endKmh = end;
         if (unit == 'mph') {
-          startKmh = start / 0.621371;
-          endKmh = end / 0.621371;
+          startKmh = UnitConverter.mphToKmh(start);
+          endKmh = UnitConverter.mphToKmh(end);
         }
 
         if (metrics.runMode == 'interval' &&
@@ -439,12 +440,20 @@ double? getTrapSpeedForCategory(
 
     if (targetMeters > 0) {
       // Offset finish line by 1ft if rollout is applied (track starts timer after rollout)
-      final finishLineMeters = targetMeters + (metrics.rolloutTime1ft != null ? 0.3048 : 0.0);
-      final trapStartMeters = finishLineMeters - 20.1168; // 66 feet before finish
+      final finishLineMeters =
+          targetMeters + (metrics.rolloutTime1ft != null ? 0.3048 : 0.0);
+      final trapStartMeters =
+          finishLineMeters - 20.1168; // 66 feet before finish
 
       if (trapStartMeters > 0) {
-        final timeFinish = _findDistanceCrossingTime(metrics.history, finishLineMeters);
-        final timeStart = _findDistanceCrossingTime(metrics.history, trapStartMeters);
+        final timeFinish = _findDistanceCrossingTime(
+          metrics.history,
+          finishLineMeters,
+        );
+        final timeStart = _findDistanceCrossingTime(
+          metrics.history,
+          trapStartMeters,
+        );
 
         if (timeFinish != null && timeStart != null && timeFinish > timeStart) {
           final elapsedSeconds = timeFinish - timeStart;
@@ -495,9 +504,9 @@ String getDisplayLabelForTarget({
   } else {
     if (startSpeed != null && endSpeed != null) {
       if (speedUnit == 'mph') {
-        final start = (startSpeed / 1.609344).round();
-        final end = (endSpeed / 1.609344).round();
-        return '$start-$end mph';
+        final start = UnitConverter.kmhToMph(startSpeed).round();
+        final end = UnitConverter.kmhToMph(endSpeed).round();
+        return '${start}-${end}mph';
       } else {
         final start = startSpeed.round();
         final end = endSpeed.round();

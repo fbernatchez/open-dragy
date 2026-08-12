@@ -11,9 +11,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Hive.initFlutter();
   FlutterBluePlus.setLogLevel(LogLevel.error);
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-  ]);
+  await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   runApp(const OpenDragyApp());
 }
 
@@ -23,9 +21,7 @@ class OpenDragyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => DragyProvider()),
-      ],
+      providers: [ChangeNotifierProvider(create: (_) => DragyProvider())],
       child: MaterialApp(
         title: 'OpenDragy',
         debugShowCheckedModeBanner: false,
@@ -38,10 +34,9 @@ class OpenDragyApp extends StatelessWidget {
             secondary: Color(0xFF39FF14), // Neon Green
             surface: Color(0xFF111111),
           ),
-          textTheme: GoogleFonts.interTextTheme(Theme.of(context).textTheme).apply(
-            bodyColor: Colors.white,
-            displayColor: Colors.white,
-          ),
+          textTheme: GoogleFonts.interTextTheme(
+            Theme.of(context).textTheme,
+          ).apply(bodyColor: Colors.white, displayColor: Colors.white),
           appBarTheme: const AppBarTheme(
             backgroundColor: Colors.black,
             elevation: 0,

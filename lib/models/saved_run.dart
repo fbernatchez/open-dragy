@@ -60,7 +60,9 @@ class SavedRun {
     return SavedRun(
       id: json['id'] as String,
       dateTime: DateTime.parse(json['dateTime'] as String),
-      metrics: RaceMetrics.fromJson(Map<String, dynamic>.from(json['metrics'] as Map)),
+      metrics: RaceMetrics.fromJson(
+        Map<String, dynamic>.from(json['metrics'] as Map),
+      ),
       notes: json['notes'] as String?,
       temperature: json['temperature'] != null
           ? (json['temperature'] as num).toDouble()

@@ -39,8 +39,10 @@ class NmeaParser {
       calculatedChecksum ^= dataToCalculate.codeUnitAt(i);
     }
 
-    final calculatedChecksumStr =
-        calculatedChecksum.toRadixString(16).toUpperCase().padLeft(2, '0');
+    final calculatedChecksumStr = calculatedChecksum
+        .toRadixString(16)
+        .toUpperCase()
+        .padLeft(2, '0');
     return checksumStr.toUpperCase() == calculatedChecksumStr;
   }
 
@@ -144,10 +146,14 @@ class NmeaParser {
       try {
         if (parts[7].isNotEmpty) satellites = int.parse(parts[7]);
         // parts[8] may end with checksum e.g. "0.9*47" — strip it
-        final hdopStr = parts[8].contains('*') ? parts[8].split('*')[0] : parts[8];
+        final hdopStr = parts[8].contains('*')
+            ? parts[8].split('*')[0]
+            : parts[8];
         if (hdopStr.isNotEmpty) hdop = double.parse(hdopStr);
         if (parts.length > 9 && parts[9].isNotEmpty) {
-          final altitudeStr = parts[9].contains('*') ? parts[9].split('*')[0] : parts[9];
+          final altitudeStr = parts[9].contains('*')
+              ? parts[9].split('*')[0]
+              : parts[9];
           altitude = double.tryParse(altitudeStr);
         }
         lat = _parseLatitude(parts[2], parts[3]);
@@ -156,7 +162,11 @@ class NmeaParser {
         return null;
       }
 
-      if (satellites != null || hdop != null || altitude != null || lat != null || lon != null) {
+      if (satellites != null ||
+          hdop != null ||
+          altitude != null ||
+          lat != null ||
+          lon != null) {
         return NmeaData(
           satellites: satellites,
           hdop: hdop,
@@ -180,7 +190,9 @@ class NmeaParser {
       // HDOP is parts[16], strip checksum
       double? hdop;
       try {
-        final hdopStr = parts[16].contains('*') ? parts[16].split('*')[0] : parts[16];
+        final hdopStr = parts[16].contains('*')
+            ? parts[16].split('*')[0]
+            : parts[16];
         if (hdopStr.isNotEmpty) hdop = double.parse(hdopStr);
       } catch (_) {}
 

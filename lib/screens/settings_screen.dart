@@ -120,14 +120,10 @@ class SettingsScreen extends StatelessWidget {
           const SizedBox(height: 32),
           // App info
           Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8),
             child: Text(
               'OpenDragy',
-              style: GoogleFonts.comfortaa(
-                color: Colors.white24,
-                fontSize: 13,
-              ),
+              style: GoogleFonts.comfortaa(color: Colors.white24, fontSize: 13),
               textAlign: TextAlign.center,
             ),
           ),
@@ -208,10 +204,7 @@ class _SettingsToggle extends StatelessWidget {
         ),
         subtitle: Text(
           subtitle,
-          style: GoogleFonts.roboto(
-            color: Colors.white38,
-            fontSize: 12,
-          ),
+          style: GoogleFonts.roboto(color: Colors.white38, fontSize: 12),
         ),
         value: value,
         onChanged: onChanged,
@@ -219,11 +212,9 @@ class _SettingsToggle extends StatelessWidget {
         activeTrackColor: const Color(0xFF1565C0),
         inactiveThumbColor: Colors.white38,
         inactiveTrackColor: Colors.white12,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
     );
   }
 }
-

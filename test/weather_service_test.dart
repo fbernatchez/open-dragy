@@ -92,10 +92,6 @@ void main() {
     });
 
     test('returns null gracefully on network exception/timeout', () async {
-      final mockClient = MockHttpClient(MockHttpClientRequest(MockHttpClientResponse(200, '')));
-      // Force getUrl to throw SocketException
-      final service = WeatherService(client: mockClient);
-      
       // We can trigger an exception by passing bad inputs or since mock can be configured
       // but let's test a mock client that throws directly in getUrl
       final throwingClient = MockHttpClientThrowing();

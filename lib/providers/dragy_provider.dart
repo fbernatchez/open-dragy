@@ -13,6 +13,7 @@ import '../services/garage_service.dart';
 import '../services/settings_service.dart';
 import '../services/weather_service.dart';
 import '../utils/nmea_parser.dart';
+import '../utils/unit_converter.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import '../models/race_target.dart';
 import '../services/tts_service.dart';
@@ -63,6 +64,15 @@ class DragyProvider extends ChangeNotifier {
 
   double? _longitude;
   double? get longitude => _longitude;
+
+  double? _currentTemperature;
+  double? get currentTemperature => _currentTemperature;
+
+  double? _currentHumidity;
+  double? get currentHumidity => _currentHumidity;
+
+  Timer? _weatherTimer;
+  bool _isFetchingWeather = false;
 
   RaceMetrics _metrics = RaceMetrics();
   RaceMetrics get metrics => _metrics;
@@ -144,7 +154,7 @@ class DragyProvider extends ChangeNotifier {
       case RaceIntervalTarget.custom:
         return _isMetric
             ? _customIntervalStartSpeed
-            : _customIntervalStartSpeed / 0.621371;
+            : UnitConverter.mphToKmh(_customIntervalStartSpeed);
     }
   }
 
@@ -177,7 +187,7 @@ class DragyProvider extends ChangeNotifier {
       case RaceIntervalTarget.custom:
         return _isMetric
             ? _customIntervalEndSpeed
-            : _customIntervalEndSpeed / 0.621371;
+            : UnitConverter.mphToKmh(_customIntervalEndSpeed);
     }
   }
 
@@ -359,6 +369,7 @@ class DragyProvider extends ChangeNotifier {
     _loadGarage();
     _loadSettings();
     _loadAppVersion();
+    _startWeatherTimer();
 
     _uiTimer = Timer.periodic(const Duration(milliseconds: 16), (_) {
       if (_needsUiUpdate || _metrics.isRunning) {
@@ -412,6 +423,7 @@ class DragyProvider extends ChangeNotifier {
         if (data.longitude != null) {
           _longitude = data.longitude;
           updated = true;
+          _triggerWeatherFetchIfNull();
         }
 
         if (data.speedKmh != null) {
@@ -443,10 +455,16 @@ class DragyProvider extends ChangeNotifier {
           final isRunning = _metrics.isRunning;
 
           if (_enableTts && wasRunning) {
-            final newTests = getCompletedTests(_metrics, useNhraRules: _useNhraRules);
+            final newTests = getCompletedTests(
+              _metrics,
+              useNhraRules: _useNhraRules,
+            );
             for (final test in newTests) {
               if (!oldTests.any((t) => t.id == test.id)) {
-                if (!test.enableTts || test.ttsPhrase == null || test.ttsPhrase!.isEmpty) continue;
+                if (!test.enableTts ||
+                    test.ttsPhrase == null ||
+                    test.ttsPhrase!.isEmpty)
+                  continue;
                 if (test.speedUnit != null) {
                   if (_isMetric && test.speedUnit != SpeedUnit.kmh) continue;
                   if (!_isMetric && test.speedUnit != SpeedUnit.mph) continue;
@@ -560,8 +578,8 @@ class DragyProvider extends ChangeNotifier {
         id: runId,
         dateTime: DateTime.now(),
         metrics: runMetrics,
-        temperature: null,
-        humidity: null,
+        temperature: _currentTemperature,
+        humidity: _currentHumidity,
         vehicleId: vehicle?.id,
         vehicleName: vehicle?.displayName,
       );
@@ -622,7 +640,11 @@ class DragyProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> updateRunVehicle(String id, String? vehicleId, String? vehicleName) async {
+  Future<void> updateRunVehicle(
+    String id,
+    String? vehicleId,
+    String? vehicleName,
+  ) async {
     final index = _savedRuns.indexWhere((r) => r.id == id);
     if (index != -1) {
       final old = _savedRuns[index];
@@ -646,15 +668,19 @@ class DragyProvider extends ChangeNotifier {
     _isMetric = !_isMetric;
     _syncActiveTargetToUnit();
     if (_isMetric) {
-      _customIntervalStartSpeed = (_customIntervalStartSpeed / 0.621371)
-          .roundToDouble();
-      _customIntervalEndSpeed = (_customIntervalEndSpeed / 0.621371)
-          .roundToDouble();
+      _customIntervalStartSpeed = UnitConverter.mphToKmh(
+        _customIntervalStartSpeed,
+      ).roundToDouble();
+      _customIntervalEndSpeed = UnitConverter.mphToKmh(
+        _customIntervalEndSpeed,
+      ).roundToDouble();
     } else {
-      _customIntervalStartSpeed = (_customIntervalStartSpeed * 0.621371)
-          .roundToDouble();
-      _customIntervalEndSpeed = (_customIntervalEndSpeed * 0.621371)
-          .roundToDouble();
+      _customIntervalStartSpeed = UnitConverter.kmhToMph(
+        _customIntervalStartSpeed,
+      ).roundToDouble();
+      _customIntervalEndSpeed = UnitConverter.kmhToMph(
+        _customIntervalEndSpeed,
+      ).roundToDouble();
     }
     _saveSettings();
     notifyListeners();
@@ -678,15 +704,19 @@ class DragyProvider extends ChangeNotifier {
       _isMetric = isMetric;
       _syncActiveTargetToUnit();
       if (_isMetric) {
-        _customIntervalStartSpeed = (_customIntervalStartSpeed / 0.621371)
-            .roundToDouble();
-        _customIntervalEndSpeed = (_customIntervalEndSpeed / 0.621371)
-            .roundToDouble();
+        _customIntervalStartSpeed = UnitConverter.mphToKmh(
+          _customIntervalStartSpeed,
+        ).roundToDouble();
+        _customIntervalEndSpeed = UnitConverter.mphToKmh(
+          _customIntervalEndSpeed,
+        ).roundToDouble();
       } else {
-        _customIntervalStartSpeed = (_customIntervalStartSpeed * 0.621371)
-            .roundToDouble();
-        _customIntervalEndSpeed = (_customIntervalEndSpeed * 0.621371)
-            .roundToDouble();
+        _customIntervalStartSpeed = UnitConverter.kmhToMph(
+          _customIntervalStartSpeed,
+        ).roundToDouble();
+        _customIntervalEndSpeed = UnitConverter.kmhToMph(
+          _customIntervalEndSpeed,
+        ).roundToDouble();
       }
       _saveSettings();
       notifyListeners();
@@ -702,11 +732,14 @@ class DragyProvider extends ChangeNotifier {
       } else if (_activeIntervalTarget ==
           RaceIntervalTarget.fiftyToSeventyFiveMph) {
         _activeIntervalTarget = RaceIntervalTarget.eightyToOneTwentyKmh;
-      } else if (_activeIntervalTarget == RaceIntervalTarget.zeroToOneThirtyMph) {
+      } else if (_activeIntervalTarget ==
+          RaceIntervalTarget.zeroToOneThirtyMph) {
         _activeIntervalTarget = RaceIntervalTarget.zeroToTwoHundredKmh;
-      } else if (_activeIntervalTarget == RaceIntervalTarget.sixtyToOneHundredMph) {
+      } else if (_activeIntervalTarget ==
+          RaceIntervalTarget.sixtyToOneHundredMph) {
         _activeIntervalTarget = RaceIntervalTarget.oneHundredToOneSixtyKmh;
-      } else if (_activeIntervalTarget == RaceIntervalTarget.zeroToOneHundredMph) {
+      } else if (_activeIntervalTarget ==
+          RaceIntervalTarget.zeroToOneHundredMph) {
         _activeIntervalTarget = RaceIntervalTarget.zeroToOneSixtyKmh;
       }
     } else {
@@ -719,11 +752,14 @@ class DragyProvider extends ChangeNotifier {
       } else if (_activeIntervalTarget ==
           RaceIntervalTarget.eightyToOneTwentyKmh) {
         _activeIntervalTarget = RaceIntervalTarget.fiftyToSeventyFiveMph;
-      } else if (_activeIntervalTarget == RaceIntervalTarget.zeroToTwoHundredKmh) {
+      } else if (_activeIntervalTarget ==
+          RaceIntervalTarget.zeroToTwoHundredKmh) {
         _activeIntervalTarget = RaceIntervalTarget.zeroToOneThirtyMph;
-      } else if (_activeIntervalTarget == RaceIntervalTarget.oneHundredToOneSixtyKmh) {
+      } else if (_activeIntervalTarget ==
+          RaceIntervalTarget.oneHundredToOneSixtyKmh) {
         _activeIntervalTarget = RaceIntervalTarget.sixtyToOneHundredMph;
-      } else if (_activeIntervalTarget == RaceIntervalTarget.zeroToOneSixtyKmh) {
+      } else if (_activeIntervalTarget ==
+          RaceIntervalTarget.zeroToOneSixtyKmh) {
         _activeIntervalTarget = RaceIntervalTarget.zeroToOneHundredMph;
       }
     }
@@ -801,10 +837,10 @@ class DragyProvider extends ChangeNotifier {
   Future<void> _loadSettings() async {
     final data = await _settingsService.load();
     _isMetric = data['isMetric'] as bool? ?? false;
-      _tempInCelsius = data['tempInCelsius'] as bool? ?? true;
-      _useNhraRules = data['useNhraRules'] as bool? ?? true;
-      _enableTts = data['enableTts'] as bool? ?? true;
-      _runMode = data['runMode'] as String? ?? 'drag';
+    _tempInCelsius = data['tempInCelsius'] as bool? ?? true;
+    _useNhraRules = data['useNhraRules'] as bool? ?? true;
+    _enableTts = data['enableTts'] as bool? ?? true;
+    _runMode = data['runMode'] as String? ?? 'drag';
 
     final dragTargetName = data['activeDragTarget'] as String?;
     _activeDragTarget = RaceDragTarget.values.firstWhere(
@@ -829,10 +865,10 @@ class DragyProvider extends ChangeNotifier {
   Future<void> _saveSettings() async {
     await _settingsService.save({
       'isMetric': _isMetric,
-        'tempInCelsius': _tempInCelsius,
-        'useNhraRules': _useNhraRules,
-        'enableTts': _enableTts,
-        'runMode': _runMode,
+      'tempInCelsius': _tempInCelsius,
+      'useNhraRules': _useNhraRules,
+      'enableTts': _enableTts,
+      'runMode': _runMode,
       'activeDragTarget': _activeDragTarget.name,
       'activeIntervalTarget': _activeIntervalTarget.name,
       'customIntervalStartSpeed': _customIntervalStartSpeed.round(),
@@ -893,7 +929,41 @@ class DragyProvider extends ChangeNotifier {
     _imuSubscription?.cancel();
     _connectionSubscription?.cancel();
     WakelockPlus.disable();
+    _weatherTimer?.cancel();
     super.dispose();
   }
-}
 
+  void _startWeatherTimer() {
+    _weatherTimer?.cancel();
+    _weatherTimer = Timer.periodic(const Duration(minutes: 5), (_) {
+      _fetchCurrentWeather();
+    });
+    // Trigger immediately
+    _triggerWeatherFetchIfNull();
+  }
+
+  void _triggerWeatherFetchIfNull() {
+    if (_currentTemperature == null && !_isFetchingWeather) {
+      _fetchCurrentWeather();
+    }
+  }
+
+  Future<void> _fetchCurrentWeather() async {
+    final lat = _latitude;
+    final lon = _longitude;
+    if (lat != null && lon != null && (lat != 0.0 || lon != 0.0)) {
+      if (_isFetchingWeather) return;
+      _isFetchingWeather = true;
+      try {
+        final weather = await _weatherService.fetchWeather(lat, lon);
+        if (weather != null) {
+          _currentTemperature = weather['temp'];
+          _currentHumidity = weather['humid'];
+          _needsUiUpdate = true;
+        }
+      } finally {
+        _isFetchingWeather = false;
+      }
+    }
+  }
+}
