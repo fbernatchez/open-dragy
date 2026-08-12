@@ -264,6 +264,11 @@ class RunDetailScreen extends StatelessWidget {
         : UnitConverter.metersToFeet(elevationDiff);
     final String altUnit = isMetric ? 'm' : 'ft';
 
+    final String fullLabel = (useNhraRules &&
+            (metrics.runMode == 'drag' || metrics.targetStartSpeed == 0.0))
+        ? "$primaryLabel (NHRA rules)"
+        : primaryLabel;
+
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
@@ -278,7 +283,7 @@ class RunDetailScreen extends StatelessWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.share, color: Colors.blueAccent),
-            onPressed: () => _shareRun(context, primaryLabel, primaryTime),
+            onPressed: () => _shareRun(context, fullLabel, primaryTime),
           ),
           IconButton(
             icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
@@ -354,11 +359,7 @@ class RunDetailScreen extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  (useNhraRules &&
-                          (metrics.runMode == 'drag' ||
-                              metrics.targetStartSpeed == 0.0))
-                      ? "$primaryLabel (NHRA rules)"
-                      : primaryLabel,
+                  fullLabel,
                   style: GoogleFonts.roboto(
                     color: const Color(0xFFFFBF00), // Neon Amber
                     fontSize: 16,
@@ -553,7 +554,7 @@ class RunDetailScreen extends StatelessWidget {
               key: _boundaryKey,
               child: ShareSlipWidget(
                 run: run,
-                primaryLabel: primaryLabel,
+                primaryLabel: fullLabel,
                 primaryTime: primaryTime,
                 isMetric: isMetric,
                 tempInCelsius: tempInCelsius,
