@@ -1,4 +1,4 @@
-﻿import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:open_dragy/services/physics_engine.dart';
 import 'package:open_dragy/models/race_metrics.dart';
 import 'package:open_dragy/models/race_target.dart';
@@ -92,6 +92,26 @@ void main() {
         intervalStartSpeed: 96.5606,
         intervalEndSpeed: 209.2147,
       );
+      metrics = _update(engine,
+        metrics,
+        15.0,
+        100.0,
+        isArmed: false,
+        runMode: 'drag',
+        targetLabel: '1/4 mile',
+        intervalStartSpeed: 96.5606,
+        intervalEndSpeed: 209.2147,
+      );
+      metrics = _update(engine,
+        metrics,
+        15.0,
+        100.0,
+        isArmed: false,
+        runMode: 'drag',
+        targetLabel: '1/4 mile',
+        intervalStartSpeed: 96.5606,
+        intervalEndSpeed: 209.2147,
+      ); // 3rd time to bypass outlier filter
 
       expect(metrics.isRunning, false);
       expect(metrics.speedKmh, 15.0);
@@ -257,11 +277,8 @@ void main() {
       metrics = _update(engine,metrics, 10.0, 100.0, isArmed: true, runMode: 'drag', targetLabel: '1/4 mile', intervalStartSpeed: 96.5606, intervalEndSpeed: 209.2147); // 1st outlier
       expect(metrics.speedKmh, beforeOutlier.speedKmh); // Should be unchanged
 
-      metrics = _update(engine,metrics, 10.0, 100.0, isArmed: true, runMode: 'drag', targetLabel: '1/4 mile', intervalStartSpeed: 96.5606, intervalEndSpeed: 209.2147); // 2nd outlier
-      expect(metrics.speedKmh, beforeOutlier.speedKmh); // Should be unchanged
-
-      metrics = _update(engine,metrics, 10.0, 100.0, isArmed: true, runMode: 'drag', targetLabel: '1/4 mile', intervalStartSpeed: 96.5606, intervalEndSpeed: 209.2147); // 3rd outlier (> 2) -> resets counter, clears buffer
-      expect(metrics.speedKmh, 10.0); // Accepts new speed, displays it
+      metrics = _update(engine,metrics, 10.0, 100.0, isArmed: true, runMode: 'drag', targetLabel: '1/4 mile', intervalStartSpeed: 96.5606, intervalEndSpeed: 209.2147); // 2nd outlier (accepted because delta=0)
+      expect(metrics.speedKmh, 10.0); // Accepts new speed because it stabilized
     });
 
     test('does not launch if reset while moving', () {
@@ -278,7 +295,9 @@ void main() {
       expect(metrics.isRunning, false);
       expect(metrics.speedKmh, 0.0);
 
-      // Next GPS sample is still 30.0 km/h
+      // Next GPS sample is still 30.0 km/h (need 3 to bypass filter)
+      metrics = _update(engine,metrics, 30.0, 100.0, isArmed: true, runMode: 'drag', targetLabel: '1/4 mile', intervalStartSpeed: 96.5606, intervalEndSpeed: 209.2147);
+      metrics = _update(engine,metrics, 30.0, 100.0, isArmed: true, runMode: 'drag', targetLabel: '1/4 mile', intervalStartSpeed: 96.5606, intervalEndSpeed: 209.2147);
       metrics = _update(engine,metrics, 30.0, 100.0, isArmed: true, runMode: 'drag', targetLabel: '1/4 mile', intervalStartSpeed: 96.5606, intervalEndSpeed: 209.2147);
       
       expect(metrics.isRunning, false);
