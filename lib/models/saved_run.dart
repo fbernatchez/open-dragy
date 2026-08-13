@@ -9,6 +9,8 @@ class SavedRun {
   final double? humidity; // in %
   final String? vehicleId;
   final String? vehicleName; // snapshot of display name at run time
+  final String? audioFilePath;
+  final double? audioStartOffset;
 
   SavedRun({
     required this.id,
@@ -19,6 +21,8 @@ class SavedRun {
     this.humidity,
     this.vehicleId,
     this.vehicleName,
+    this.audioFilePath,
+    this.audioStartOffset,
   });
 
   SavedRun copyWith({
@@ -30,6 +34,8 @@ class SavedRun {
     double? humidity,
     String? vehicleId,
     String? vehicleName,
+    String? audioFilePath,
+    double? audioStartOffset,
   }) {
     return SavedRun(
       id: id ?? this.id,
@@ -40,6 +46,8 @@ class SavedRun {
       humidity: humidity ?? this.humidity,
       vehicleId: vehicleId ?? this.vehicleId,
       vehicleName: vehicleName ?? this.vehicleName,
+      audioFilePath: audioFilePath ?? this.audioFilePath,
+      audioStartOffset: audioStartOffset ?? this.audioStartOffset,
     );
   }
 
@@ -53,6 +61,8 @@ class SavedRun {
       'humidity': humidity,
       'vehicleId': vehicleId,
       'vehicleName': vehicleName,
+      'audioFilePath': audioFilePath,
+      'audioStartOffset': audioStartOffset,
     };
   }
 
@@ -72,6 +82,10 @@ class SavedRun {
           : null,
       vehicleId: json['vehicleId'] as String?,
       vehicleName: json['vehicleName'] as String?,
+      audioFilePath: json['audioFilePath'] as String?,
+      audioStartOffset: json['audioStartOffset'] != null
+          ? (json['audioStartOffset'] as num).toDouble()
+          : null,
     );
   }
 }

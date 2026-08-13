@@ -110,7 +110,7 @@ const List<OfficialTest> officialTests = [
   OfficialTest(
     id: '1/4mile',
     displayName: '1/4 mile',
-    ttsPhrase: 'Quarter mile',
+    ttsPhrase: 'A, quarter mile',
     distance: 0.25,
     distanceUnit: DistanceUnit.mile,
   ),

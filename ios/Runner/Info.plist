@@ -30,6 +30,8 @@
 	<string>OpenDragy needs Bluetooth to connect to external devices.</string>
 	<key>NSBluetoothPeripheralUsageDescription</key>
 	<string>OpenDragy needs Bluetooth to connect to external devices.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>OpenDragy needs the microphone to record audio during your runs.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

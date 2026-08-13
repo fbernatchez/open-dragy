@@ -224,7 +224,7 @@ class PhysicsEngine {
                   ((intervalStartSpeed / 3.6) + (newSpeedKmh / 3.6)) / 2;
               double initialDistance = avgSpeedMs * elapsedOffset;
 
-              RaceMetrics simulated = current.copyWith(
+              RaceMetrics simulated = RaceMetrics(
                 isRunning: true,
                 elapsedTime: elapsedOffset,
                 distanceMeters: initialDistance,
@@ -881,7 +881,7 @@ class PhysicsEngine {
           );
         }
 
-        RaceMetrics simulated = current.copyWith(
+        RaceMetrics simulated = RaceMetrics(
           isRunning: true,
           elapsedTime: elapsedOffset,
           distanceMeters: initialDistance,

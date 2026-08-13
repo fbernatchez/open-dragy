@@ -17,6 +17,8 @@ import '../utils/unit_converter.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import '../models/race_target.dart';
 import '../services/tts_service.dart';
+import '../services/audio_recording_service.dart';
+import 'dart:io';
 
 enum RaceDragTarget {
   sixtyFeet('60ft'),
@@ -58,6 +60,7 @@ class DragyProvider extends ChangeNotifier {
   final SettingsService _settingsService = SettingsService();
   final WeatherService _weatherService = WeatherService();
   final TtsService _ttsService = TtsService();
+  final AudioRecordingService _audioService = AudioRecordingService();
 
   double? _latitude;
   double? get latitude => _latitude;
@@ -111,12 +114,17 @@ class DragyProvider extends ChangeNotifier {
   bool _enableTts = true;
   bool get enableTts => _enableTts;
 
+  bool _enableAudioRecording = true;
+  bool get enableAudioRecording => _enableAudioRecording;
+
   // --- Arming & Run Modes ---
   bool _isArmed = false;
   bool get isArmed => _isArmed;
 
   String _runMode = 'drag';
   String get runMode => _runMode;
+
+  double _launchChartOffset = 0.0;
 
   RaceIntervalTarget _activeIntervalTarget =
       RaceIntervalTarget.sixtyToOneThirtyMph;
@@ -391,6 +399,7 @@ class DragyProvider extends ChangeNotifier {
         _metrics = _physicsEngine.reset();
         _lastGpsUpdateTime = null;
         _recentSpeeds.clear();
+        _audioService.abort();
         WakelockPlus.disable();
       } else {
         WakelockPlus.enable();
@@ -457,6 +466,18 @@ class DragyProvider extends ChangeNotifier {
           );
           final isRunning = _metrics.isRunning;
 
+          if (!wasRunning && isRunning) {
+            if (_enableAudioRecording) {
+              _launchChartOffset = _metrics.elapsedTime;
+              _audioService.commitLaunch();
+            }
+            if (_enableTts) {
+              // Silently wake up the TTS engine at launch so it loads the voice models
+              // into RAM. This eliminates the ~1s latency for the first actual milestone.
+              _ttsService.speak(" ");
+            }
+          }
+
           if (_enableTts && wasRunning) {
             final newTests = getCompletedTests(
               _metrics,
@@ -488,7 +509,21 @@ class DragyProvider extends ChangeNotifier {
 
           // Check if run just finished
           if (wasRunning && !isRunning && _metrics.history.isNotEmpty) {
-            _saveRunToHistory(_metrics);
+            final metricsToSave = _metrics;
+            
+            if (_enableAudioRecording) {
+              _audioService.stopAndSaveRun().then((audioData) {
+                _saveRunToHistory(
+                  metricsToSave,
+                  audioFilePath: audioData?['path'] as String?,
+                  audioStartOffset: (audioData?['offset'] as double?) != null
+                      ? (audioData!['offset'] as double) - _launchChartOffset
+                      : null,
+                );
+              });
+            } else {
+              _saveRunToHistory(metricsToSave);
+            }
           }
 
           updated = true;
@@ -566,14 +601,13 @@ class DragyProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> _saveRunToHistory(RaceMetrics runMetrics) async {
-    final duration = runMetrics.elapsedTime;
-    final maxSpeed = runMetrics.history.isNotEmpty
-        ? runMetrics.history.map((e) => e.speedKmh).reduce(max)
-        : 0.0;
-
+  Future<void> _saveRunToHistory(
+    RaceMetrics runMetrics, {
+    String? audioFilePath,
+    double? audioStartOffset,
+  }) async {
     // Filter out creeping / GPS wander blips
-    if (duration >= 1.0 && maxSpeed >= 10.0) {
+    if (runMetrics.isValidRun) {
       final vehicle = activeVehicle;
       final runId = DateTime.now().millisecondsSinceEpoch.toString();
 
@@ -585,6 +619,8 @@ class DragyProvider extends ChangeNotifier {
         humidity: _currentHumidity,
         vehicleId: vehicle?.id,
         vehicleName: vehicle?.displayName,
+        audioFilePath: audioFilePath,
+        audioStartOffset: audioStartOffset,
       );
 
       // Save run locally and show in UI immediately
@@ -598,6 +634,13 @@ class DragyProvider extends ChangeNotifier {
       final lon = _longitude;
       if (lat != null && lon != null && (lat != 0.0 || lon != 0.0)) {
         _fetchAndApplyWeather(runId, lat, lon);
+      }
+    } else {
+      // Run was rejected. Discard the audio file if it was created.
+      if (audioFilePath != null) {
+        try {
+          File(audioFilePath).deleteSync();
+        } catch (_) {}
       }
     }
   }
@@ -628,6 +671,18 @@ class DragyProvider extends ChangeNotifier {
   }
 
   Future<void> deleteRun(String id) async {
+    final index = _savedRuns.indexWhere((r) => r.id == id);
+    if (index != -1) {
+      final run = _savedRuns[index];
+      if (run.audioFilePath != null) {
+        try {
+          final file = File(run.audioFilePath!);
+          if (await file.exists()) {
+            await file.delete();
+          }
+        } catch (_) {}
+      }
+    }
     await _historyService.deleteRun(id);
     _savedRuns.removeWhere((r) => r.id == id);
     notifyListeners();
@@ -693,6 +748,7 @@ class DragyProvider extends ChangeNotifier {
     if (_activeDragTarget != target) {
       _activeDragTarget = target;
       _isArmed = false; // Disarm on target change
+      _audioService.abort();
       _metrics = _physicsEngine.reset();
       _lastGpsUpdateTime = null;
       _saveSettings();
@@ -790,9 +846,23 @@ class DragyProvider extends ChangeNotifier {
     }
   }
 
+  void setEnableAudioRecording(bool value) {
+    if (_enableAudioRecording != value) {
+      _enableAudioRecording = value;
+      if (!_enableAudioRecording) {
+        _audioService.abort();
+      } else if (_isArmed && !_metrics.isRunning) {
+        _audioService.startArmedBuffer();
+      }
+      _saveSettings();
+      notifyListeners();
+    }
+  }
+
   void toggleArm() {
     if (_metrics.isRunning) {
       _isArmed = false;
+      _audioService.abort();
       _metrics = _physicsEngine.reset();
       _lastGpsUpdateTime = null;
     } else {
@@ -800,6 +870,11 @@ class DragyProvider extends ChangeNotifier {
       if (_isArmed) {
         _metrics = _physicsEngine.reset();
         _lastGpsUpdateTime = null;
+        if (_enableAudioRecording) {
+          _audioService.startArmedBuffer();
+        }
+      } else {
+        _audioService.abort();
       }
     }
     notifyListeners();
@@ -809,6 +884,7 @@ class DragyProvider extends ChangeNotifier {
     if (_runMode != mode) {
       _runMode = mode;
       _isArmed = false; // Disarm on mode change
+      _audioService.abort();
       _metrics = _physicsEngine.reset();
       _lastGpsUpdateTime = null;
       _saveSettings();
@@ -820,6 +896,7 @@ class DragyProvider extends ChangeNotifier {
     if (_activeIntervalTarget != target) {
       _activeIntervalTarget = target;
       _isArmed = false; // Disarm on target change
+      _audioService.abort();
       _metrics = _physicsEngine.reset();
       _lastGpsUpdateTime = null;
       _saveSettings();
@@ -831,6 +908,7 @@ class DragyProvider extends ChangeNotifier {
     _customIntervalStartSpeed = start.roundToDouble();
     _customIntervalEndSpeed = end.roundToDouble();
     _isArmed = false; // Disarm on range change
+    _audioService.abort();
     _metrics = _physicsEngine.reset();
     _lastGpsUpdateTime = null;
     _saveSettings();
@@ -843,6 +921,7 @@ class DragyProvider extends ChangeNotifier {
     _tempInCelsius = data['tempInCelsius'] as bool? ?? true;
     _useNhraRules = data['useNhraRules'] as bool? ?? true;
     _enableTts = data['enableTts'] as bool? ?? true;
+    _enableAudioRecording = data['enableAudioRecording'] as bool? ?? true;
     _runMode = data['runMode'] as String? ?? 'drag';
 
     final dragTargetName = data['activeDragTarget'] as String?;
@@ -871,6 +950,7 @@ class DragyProvider extends ChangeNotifier {
       'tempInCelsius': _tempInCelsius,
       'useNhraRules': _useNhraRules,
       'enableTts': _enableTts,
+      'enableAudioRecording': _enableAudioRecording,
       'runMode': _runMode,
       'activeDragTarget': _activeDragTarget.name,
       'activeIntervalTarget': _activeIntervalTarget.name,

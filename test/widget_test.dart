@@ -22,6 +22,15 @@ class MockDragyProvider extends ChangeNotifier implements DragyProvider {
   bool isConnected = false;
 
   @override
+  bool enableAudioRecording = false;
+
+  @override
+  void setEnableAudioRecording(bool value) {
+    enableAudioRecording = value;
+    notifyListeners();
+  }
+
+  @override
   RaceMetrics metrics = RaceMetrics();
 
   @override

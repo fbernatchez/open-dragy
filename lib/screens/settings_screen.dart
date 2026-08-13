@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../providers/dragy_provider.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -61,6 +62,15 @@ class SettingsScreen extends StatelessWidget {
                 : 'TTS is disabled',
             value: dragy.enableTts,
             onChanged: (v) => dragy.setEnableTts(v),
+          ),
+          _SettingsToggle(
+            icon: Icons.mic_none,
+            title: 'Audio Recording',
+            subtitle: dragy.enableAudioRecording
+                ? 'Records audio during runs'
+                : 'Microphone recording is disabled',
+            value: dragy.enableAudioRecording,
+            onChanged: (v) => dragy.setEnableAudioRecording(v),
           ),
 
           _SectionHeader(label: 'About'),

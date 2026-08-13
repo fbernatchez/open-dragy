@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 class DataPoint {
   final double elapsedTime;
   final double speedKmh;
@@ -82,6 +84,12 @@ class RaceMetrics {
 
   final bool isRunning;
   final List<DataPoint> history;
+
+  bool get isValidRun {
+    if (history.isEmpty) return false;
+    final maxSpeed = history.map((e) => e.speedKmh).reduce(math.max);
+    return elapsedTime >= 1.0 && maxSpeed >= 10.0;
+  }
 
   RaceMetrics({
     this.speedKmh = 0.0,
