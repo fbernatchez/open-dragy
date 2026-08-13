@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:audioplayers/audioplayers.dart';
 import 'package:path_provider/path_provider.dart';
 import '../providers/dragy_provider.dart';
 import '../models/saved_run.dart';
@@ -264,7 +265,8 @@ class RunDetailScreen extends StatelessWidget {
         : UnitConverter.metersToFeet(elevationDiff);
     final String altUnit = isMetric ? 'm' : 'ft';
 
-    final String fullLabel = (useNhraRules &&
+    final String fullLabel =
+        (useNhraRules &&
             (metrics.runMode == 'drag' || metrics.targetStartSpeed == 0.0))
         ? "$primaryLabel (NHRA rules)"
         : primaryLabel;
@@ -1075,6 +1077,97 @@ class TelemetryChart extends StatefulWidget {
 class _TelemetryChartState extends State<TelemetryChart> {
   int? _selectedIndex;
 
+  final AudioPlayer _audioPlayer = AudioPlayer();
+  bool _isPlayingAudio = false;
+  PlayerState _playerState = PlayerState.stopped;
+  StreamSubscription? _positionSubscription;
+  StreamSubscription? _stateSubscription;
+  Timer? _uiTimer;
+  double _interpolatedChartSec = 0.0;
+  DateTime? _lastUpdate;
+
+  @override
+  void initState() {
+    super.initState();
+    _setupAudio();
+    _uiTimer = Timer.periodic(const Duration(milliseconds: 16), (_) {
+      if (_isPlayingAudio && _lastUpdate != null) {
+        final now = DateTime.now();
+        final delta = now.difference(_lastUpdate!).inMilliseconds / 1000.0;
+        _lastUpdate = now;
+        _interpolatedChartSec += delta;
+        _updateChartSelection(_interpolatedChartSec);
+      }
+    });
+  }
+
+  void _updateChartSelection(double chartSec) {
+    if (chartSec >= 0) {
+      final history = widget.run.metrics.history;
+      if (history.isNotEmpty && mounted) {
+        int bestIdx = 0;
+        double minDiff = double.infinity;
+        for (int i = 0; i < history.length; i++) {
+          final diff = (history[i].elapsedTime - chartSec).abs();
+          if (diff < minDiff) {
+            minDiff = diff;
+            bestIdx = i;
+          }
+        }
+        if (_selectedIndex != bestIdx) {
+          setState(() {
+            _selectedIndex = bestIdx;
+          });
+        }
+      }
+    }
+  }
+
+  void _setupAudio() {
+    if (widget.run.audioFilePath != null) {
+      final file = File(widget.run.audioFilePath!);
+      if (file.existsSync()) {
+        _audioPlayer.setSourceDeviceFile(widget.run.audioFilePath!);
+
+        _positionSubscription = _audioPlayer.onPositionChanged.listen((
+          position,
+        ) {
+          final offset = widget.run.audioStartOffset ?? 0.0;
+          final audioSec = position.inMilliseconds / 1000.0;
+          _interpolatedChartSec = audioSec - offset;
+          _lastUpdate = DateTime.now();
+          _updateChartSelection(_interpolatedChartSec);
+        });
+
+        _stateSubscription = _audioPlayer.onPlayerStateChanged.listen((state) {
+          if (mounted) {
+            setState(() {
+              _playerState = state;
+              _isPlayingAudio = state == PlayerState.playing;
+              if (_isPlayingAudio) {
+                _lastUpdate = DateTime.now();
+              } else {
+                _lastUpdate = null;
+                if (state == PlayerState.completed) {
+                  _selectedIndex = null;
+                }
+              }
+            });
+          }
+        });
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _uiTimer?.cancel();
+    _positionSubscription?.cancel();
+    _stateSubscription?.cancel();
+    _audioPlayer.dispose();
+    super.dispose();
+  }
+
   List<double> _smoothList(List<double> input, int windowSize) {
     if (input.length < windowSize) return List.from(input);
     final List<double> output = [];
@@ -1108,6 +1201,15 @@ class _TelemetryChartState extends State<TelemetryChart> {
     setState(() {
       _selectedIndex = index;
     });
+
+    if (widget.run.audioFilePath != null) {
+      final chartSec = history[index].elapsedTime;
+      final offset = widget.run.audioStartOffset ?? 0.0;
+      final audioSec = chartSec + offset;
+      if (audioSec >= 0) {
+        _audioPlayer.seek(Duration(milliseconds: (audioSec * 1000).round()));
+      }
+    }
   }
 
   @override
@@ -1139,9 +1241,7 @@ class _TelemetryChartState extends State<TelemetryChart> {
     final isMetric = widget.isMetric;
     final times = history.map((p) => p.elapsedTime).toList();
     final speeds = history
-        .map(
-          (p) => isMetric ? p.speedKmh : UnitConverter.kmhToMph(p.speedKmh),
-        )
+        .map((p) => isMetric ? p.speedKmh : UnitConverter.kmhToMph(p.speedKmh))
         .toList();
 
     // The physics engine natively shifts the G-force to align with GPS latency.
@@ -1250,6 +1350,8 @@ class _TelemetryChartState extends State<TelemetryChart> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
+              const Spacer(),
+              _buildAudioButton(),
             ],
           ),
           const SizedBox(height: 12),
@@ -1295,14 +1397,20 @@ class _TelemetryChartState extends State<TelemetryChart> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'TELEMETRY GRAPH',
-          style: GoogleFonts.roboto(
-            color: Colors.white70,
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1.2,
-          ),
+        Row(
+          children: [
+            Text(
+              'TELEMETRY GRAPH',
+              style: GoogleFonts.roboto(
+                color: Colors.white70,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.2,
+              ),
+            ),
+            const Spacer(),
+            _buildAudioButton(),
+          ],
         ),
         const SizedBox(height: 12),
         Row(
@@ -1333,6 +1441,98 @@ class _TelemetryChartState extends State<TelemetryChart> {
           ],
         ),
       ],
+    );
+  }
+
+  Widget _buildAudioButton() {
+    if (widget.run.audioFilePath == null) return const SizedBox.shrink();
+
+    return GestureDetector(
+      onTap: () async {
+        if (_isPlayingAudio) {
+          _audioPlayer.pause();
+        } else {
+          if (_playerState == PlayerState.completed) {
+            await _audioPlayer.stop();
+            await _audioPlayer.setSourceDeviceFile(widget.run.audioFilePath!);
+          }
+
+          if (_selectedIndex != null) {
+            final history = widget.run.metrics.history;
+            final chartSec = _selectedIndex! < history.length
+                ? history[_selectedIndex!].elapsedTime
+                : 0.0;
+            final offset = widget.run.audioStartOffset ?? 0.0;
+            await _audioPlayer.seek(
+              Duration(milliseconds: ((chartSec + offset) * 1000).round()),
+            );
+            if (mounted) {
+              setState(() {
+                _interpolatedChartSec = chartSec;
+                _lastUpdate = DateTime.now();
+              });
+            }
+          } else {
+            final history = widget.run.metrics.history;
+            final isAtEnd =
+                history.isNotEmpty &&
+                _interpolatedChartSec >= history.last.elapsedTime;
+            final isCompleted = _playerState == PlayerState.completed;
+            final currentPos = await _audioPlayer.getCurrentPosition();
+
+            if (isAtEnd ||
+                isCompleted ||
+                currentPos == null ||
+                currentPos.inMilliseconds < 100) {
+              final offset = widget.run.audioStartOffset ?? 0.0;
+              await _audioPlayer.seek(
+                Duration(milliseconds: (offset * 1000).round()),
+              );
+              if (mounted) {
+                setState(() {
+                  _selectedIndex = 0;
+                  _interpolatedChartSec = 0.0;
+                  _lastUpdate = DateTime.now();
+                });
+              }
+            } else {
+              if (mounted) {
+                setState(() {
+                  _lastUpdate = DateTime.now();
+                });
+              }
+            }
+          }
+          await _audioPlayer.resume();
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: _isPlayingAudio
+              ? const Color(0xFF1565C0).withOpacity(0.5)
+              : const Color(0xFF1565C0),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              _isPlayingAudio ? Icons.pause : Icons.play_arrow,
+              color: Colors.white,
+              size: 16,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              _isPlayingAudio ? 'PAUSE' : 'PLAY',
+              style: GoogleFonts.roboto(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
