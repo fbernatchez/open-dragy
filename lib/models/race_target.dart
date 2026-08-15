@@ -421,7 +421,16 @@ double? getTrapSpeedForCategory(
   String categoryId, {
   bool useNhraRules = false,
 }) {
-  if (useNhraRules) {
+  final shouldApply66ftRule = useNhraRules &&
+      metrics.runMode == 'drag' &&
+      metrics.targetDistance != null &&
+      officialTests.any((t) =>
+          t.id == categoryId &&
+          t.distance != null &&
+          (t.distance! - metrics.targetDistance!).abs() < 0.001 &&
+          t.distanceUnit?.name == metrics.targetDistanceUnit);
+
+  if (shouldApply66ftRule) {
     double targetMeters = 0.0;
     switch (categoryId) {
       case '1/8mile':
