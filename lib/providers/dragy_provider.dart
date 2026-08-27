@@ -418,7 +418,8 @@ class DragyProvider extends ChangeNotifier {
     _ubxSubscription = _bleService.ubxStream.listen((pvt) {
       bool updated = false;
 
-      if (pvt.fixType >= 2) { // 2 = 2D fix, 3 = 3D fix
+      if (pvt.fixType >= 2) {
+        // 2 = 2D fix, 3 = 3D fix
         _satellites = pvt.numSV;
         _hdop = pvt.pDOP;
         _altitude = pvt.hMSL;
@@ -460,11 +461,6 @@ class DragyProvider extends ChangeNotifier {
             _launchChartOffset = _metrics.elapsedTime;
             _audioService.commitLaunch();
           }
-          if (_enableTts) {
-            // Silently wake up the TTS engine at launch so it loads the voice models
-            // into RAM. This eliminates the ~1s latency for the first actual milestone.
-            _ttsService.speak(" ");
-          }
         }
 
         if (_enableTts && wasRunning) {
@@ -499,7 +495,7 @@ class DragyProvider extends ChangeNotifier {
         // Check if run just finished
         if (wasRunning && !isRunning && _metrics.history.isNotEmpty) {
           final metricsToSave = _metrics;
-          
+
           if (_enableAudioRecording) {
             _audioService.stopAndSaveRun().then((audioData) {
               _saveRunToHistory(

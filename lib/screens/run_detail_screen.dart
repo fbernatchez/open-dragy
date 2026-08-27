@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:math';
-import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
@@ -284,11 +283,6 @@ class RunDetailScreen extends StatelessWidget {
         ),
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.data_object, color: Colors.greenAccent),
-            tooltip: 'Export JSON Data',
-            onPressed: () => _exportJson(context),
-          ),
           IconButton(
             icon: const Icon(Icons.share, color: Colors.blueAccent),
             onPressed: () => _shareRun(context, fullLabel, primaryTime),
@@ -621,31 +615,9 @@ class RunDetailScreen extends StatelessWidget {
     } catch (e) {
       debugPrint('Error sharing image: $e');
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error sharing: $e')),
-        );
-      }
-    }
-  }
-
-  Future<void> _exportJson(BuildContext context) async {
-    try {
-      final jsonStr = jsonEncode(run.toJson());
-      final tempDir = await getTemporaryDirectory();
-      final file = File('${tempDir.path}/run_data_${run.id}.json');
-      await file.writeAsString(jsonStr);
-
-      if (context.mounted) {
-        await Share.shareXFiles(
-          [XFile(file.path)],
-          text: 'Raw run data for debug',
-        );
-      }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error exporting JSON: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error sharing: $e')));
       }
     }
   }
@@ -1230,7 +1202,7 @@ class _TelemetryChartState extends State<TelemetryChart> {
     final double relativeX = localPosition.dx - 16;
     final double pct = (relativeX / width).clamp(0.0, 1.0);
     final int index = (pct * (history.length - 1)).round();
-    
+
     if (_selectedIndex != index) {
       setState(() {
         _selectedIndex = index;
