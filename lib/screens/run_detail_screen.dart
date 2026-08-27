@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
@@ -283,6 +284,11 @@ class RunDetailScreen extends StatelessWidget {
         ),
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.data_object, color: Colors.greenAccent),
+            tooltip: 'Export JSON Data',
+            onPressed: () => _exportJson(context),
+          ),
           IconButton(
             icon: const Icon(Icons.share, color: Colors.blueAccent),
             onPressed: () => _shareRun(context, fullLabel, primaryTime),
@@ -614,10 +620,37 @@ class RunDetailScreen extends StatelessWidget {
       await Share.shareXFiles([XFile(file.path)], text: text);
     } catch (e) {
       debugPrint('Error sharing image: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error sharing: $e')),
+        );
+      }
     }
   }
 
-  void _confirmDelete(BuildContext context) {
+  Future<void> _exportJson(BuildContext context) async {
+    try {
+      final jsonStr = jsonEncode(run.toJson());
+      final tempDir = await getTemporaryDirectory();
+      final file = File('${tempDir.path}/run_data_${run.id}.json');
+      await file.writeAsString(jsonStr);
+
+      if (context.mounted) {
+        await Share.shareXFiles(
+          [XFile(file.path)],
+          text: 'Raw run data for debug',
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error exporting JSON: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _confirmDelete(BuildContext context) async {
     showDialog(
       context: context,
       builder: (diagContext) => AlertDialog(
@@ -1079,6 +1112,7 @@ class _TelemetryChartState extends State<TelemetryChart> {
 
   final AudioPlayer _audioPlayer = AudioPlayer();
   bool _isPlayingAudio = false;
+  bool _isScrubbing = false;
   PlayerState _playerState = PlayerState.stopped;
   StreamSubscription? _positionSubscription;
   StreamSubscription? _stateSubscription;
@@ -1132,6 +1166,7 @@ class _TelemetryChartState extends State<TelemetryChart> {
         _positionSubscription = _audioPlayer.onPositionChanged.listen((
           position,
         ) {
+          if (_isScrubbing) return;
           final offset = widget.run.audioStartOffset ?? 0.0;
           final audioSec = position.inMilliseconds / 1000.0;
           _interpolatedChartSec = audioSec - offset;
@@ -1186,30 +1221,43 @@ class _TelemetryChartState extends State<TelemetryChart> {
   }
 
   void _handleTouch(Offset localPosition, double width) {
+    if (!_isScrubbing) {
+      _isScrubbing = true;
+    }
     final history = widget.run.metrics.history;
     if (history.isEmpty) return;
 
-    final double leftPadding = 16.0;
-    final double rightPadding = 16.0;
-    final double chartWidth = width - leftPadding - rightPadding;
-    if (chartWidth <= 0) return;
-
-    final double relativeX = localPosition.dx - leftPadding;
-    final double pct = (relativeX / chartWidth).clamp(0.0, 1.0);
-
+    final double relativeX = localPosition.dx - 16;
+    final double pct = (relativeX / width).clamp(0.0, 1.0);
     final int index = (pct * (history.length - 1)).round();
-    setState(() {
-      _selectedIndex = index;
-    });
+    
+    if (_selectedIndex != index) {
+      setState(() {
+        _selectedIndex = index;
+      });
+    }
+  }
 
-    if (widget.run.audioFilePath != null) {
-      final chartSec = history[index].elapsedTime;
-      final offset = widget.run.audioStartOffset ?? 0.0;
-      final audioSec = chartSec + offset;
-      if (audioSec >= 0) {
-        _audioPlayer.seek(Duration(milliseconds: (audioSec * 1000).round()));
+  void _endScrub() {
+    _isScrubbing = false;
+    if (_selectedIndex != null && widget.run.audioFilePath != null) {
+      final history = widget.run.metrics.history;
+      if (_selectedIndex! < history.length) {
+        final chartSec = history[_selectedIndex!].elapsedTime;
+        final offset = widget.run.audioStartOffset ?? 0.0;
+        final audioSec = chartSec + offset;
+        if (audioSec >= 0) {
+          _audioPlayer.seek(Duration(milliseconds: (audioSec * 1000).round()));
+          setState(() {
+            _interpolatedChartSec = chartSec;
+            _lastUpdate = DateTime.now();
+          });
+        }
       }
     }
+    setState(() {
+      _selectedIndex = null;
+    });
   }
 
   @override
@@ -1287,11 +1335,11 @@ class _TelemetryChartState extends State<TelemetryChart> {
                     _handleTouch(details.localPosition, width),
                 onPanUpdate: (details) =>
                     _handleTouch(details.localPosition, width),
-                onPanEnd: (_) => setState(() => _selectedIndex = null),
-                onPanCancel: () => setState(() => _selectedIndex = null),
+                onPanEnd: (_) => _endScrub(),
+                onPanCancel: () => _endScrub(),
                 onTapDown: (details) =>
                     _handleTouch(details.localPosition, width),
-                onTapUp: (_) => setState(() => _selectedIndex = null),
+                onTapUp: (_) => _endScrub(),
                 child: CustomPaint(
                   size: const Size(double.infinity, 180),
                   painter: TelemetryChartPainter(
