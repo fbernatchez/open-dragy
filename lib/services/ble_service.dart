@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+import '../models/ubx_nav_pvt.dart';
 
 class BleService {
   final String uartServiceUuid = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
@@ -14,9 +15,9 @@ class BleService {
   // ignore: unused_field
   StreamSubscription<BluetoothConnectionState>? _connectionSubscription;
 
-  final StreamController<String> _nmeaStreamController =
-      StreamController<String>.broadcast();
-  Stream<String> get nmeaStream => _nmeaStreamController.stream;
+  final StreamController<UbxNavPvt> _ubxStreamController =
+      StreamController<UbxNavPvt>.broadcast();
+  Stream<UbxNavPvt> get ubxStream => _ubxStreamController.stream;
 
   final StreamController<String> _imuStreamController =
       StreamController<String>.broadcast();
@@ -86,11 +87,11 @@ class BleService {
 
               final subscription = char.onValueReceived.listen((value) {
                 if (value.isNotEmpty) {
-                  final decoded = String.fromCharCodes(value);
                   if (uuid == imuCharacteristicUuid) {
+                    final decoded = String.fromCharCodes(value);
                     _processImuData(decoded);
                   } else {
-                    _processReceivedData(decoded);
+                    _processReceivedData(value);
                   }
                 }
               });
@@ -114,17 +115,50 @@ class BleService {
     }
   }
 
-  String _buffer = "";
+  List<int> _ubxBuffer = [];
   String _imuBuffer = "";
 
-  void _processReceivedData(String data) {
-    _buffer += data;
-    int newlineIndex;
-    while ((newlineIndex = _buffer.indexOf('\n')) != -1) {
-      String line = _buffer.substring(0, newlineIndex).trim();
-      _buffer = _buffer.substring(newlineIndex + 1);
-      if (line.isNotEmpty) {
-        _nmeaStreamController.add(line);
+  void _processReceivedData(List<int> data) {
+    _ubxBuffer.addAll(data);
+    
+    while (_ubxBuffer.length >= 8) { // Minimum size for header + len + ck
+      // Find sync chars 0xB5 0x62
+      if (_ubxBuffer[0] != 0xB5 || _ubxBuffer[1] != 0x62) {
+        _ubxBuffer.removeAt(0);
+        continue;
+      }
+      
+      // We have sync chars. Check if it's NAV-PVT (Class 0x01, ID 0x07)
+      if (_ubxBuffer[2] != 0x01 || _ubxBuffer[3] != 0x07) {
+         _ubxBuffer.removeAt(0); // Not NAV-PVT, discard and continue
+         continue;
+      }
+      
+      int payloadLen = _ubxBuffer[4] | (_ubxBuffer[5] << 8);
+      int packetLen = payloadLen + 8; // header(2) + cls(1) + id(1) + len(2) + payload + ck(2)
+      
+      // Sanity check on payload length (NAV-PVT is usually 92 or 100)
+      if (payloadLen > 110) {
+        _ubxBuffer.removeAt(0);
+        continue;
+      }
+      
+      if (_ubxBuffer.length >= packetLen) {
+        // Extract payload
+        List<int> payload = _ubxBuffer.sublist(6, 6 + payloadLen);
+        
+        try {
+          final pvt = UbxNavPvt.fromBytes(payload);
+          _ubxStreamController.add(pvt);
+        } catch (e) {
+          // ignore: avoid_print
+          print('[BLE] Error parsing UBX: $e');
+        }
+        
+        _ubxBuffer.removeRange(0, packetLen);
+      } else {
+        // Wait for more data
+        break;
       }
     }
   }

@@ -12,7 +12,6 @@ import '../services/history_service.dart';
 import '../services/garage_service.dart';
 import '../services/settings_service.dart';
 import '../services/weather_service.dart';
-import '../utils/nmea_parser.dart';
 import '../utils/unit_converter.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import '../models/race_target.dart';
@@ -352,7 +351,7 @@ class DragyProvider extends ChangeNotifier {
     return baseTime;
   }
 
-  StreamSubscription? _nmeaSubscription;
+  StreamSubscription? _ubxSubscription;
   StreamSubscription? _imuSubscription;
   StreamSubscription? _connectionSubscription;
 
@@ -407,131 +406,111 @@ class DragyProvider extends ChangeNotifier {
       _needsUiUpdate = true;
     });
 
-    _nmeaSubscription = _bleService.nmeaStream.listen((sentence) {
-      final data = NmeaParser.parse(sentence);
-      if (data != null) {
-        bool updated = false;
+    _ubxSubscription = _bleService.ubxStream.listen((pvt) {
+      bool updated = false;
 
-        if (data.satellites != null) {
-          _satellites = data.satellites!;
-          updated = true;
+      if (pvt.fixType >= 2) { // 2 = 2D fix, 3 = 3D fix
+        _satellites = pvt.numSV;
+        _hdop = pvt.pDOP;
+        _altitude = pvt.hMSL;
+        _latitude = pvt.lat;
+        _longitude = pvt.lon;
+        _triggerWeatherFetchIfNull();
+
+        double speedKmh = pvt.gSpeed * 3.6; // m/s to km/h
+
+        _recentSpeeds.add(speedKmh);
+        if (_recentSpeeds.length > 5) {
+          _recentSpeeds.removeAt(0);
         }
 
-        if (data.hdop != null) {
-          _hdop = data.hdop!;
-          updated = true;
-        }
+        final wasRunning = _metrics.isRunning;
+        final oldTests = _enableTts && wasRunning
+            ? getCompletedTests(_metrics, useNhraRules: _useNhraRules)
+            : <OfficialTest>[];
 
-        if (data.altitude != null) {
-          _altitude = data.altitude!;
-          updated = true;
-        }
+        _metrics = _physicsEngine.updateMetrics(
+          _metrics,
+          speedKmh,
+          _altitude,
+          isArmed: _isArmed,
+          runMode: _runMode,
+          targetDistance: targetDistance,
+          targetDistanceUnit: targetDistanceUnit,
+          targetStartSpeed: targetStartSpeed,
+          targetEndSpeed: targetEndSpeed,
+          targetSpeedUnit: targetSpeedUnit,
+          intervalStartSpeed: intervalStartSpeed,
+          intervalEndSpeed: intervalEndSpeed,
+          gpsTimeSeconds: pvt.iTOW / 1000.0,
+        );
+        final isRunning = _metrics.isRunning;
 
-        if (data.latitude != null) {
-          _latitude = data.latitude;
-          updated = true;
-        }
-
-        if (data.longitude != null) {
-          _longitude = data.longitude;
-          updated = true;
-          _triggerWeatherFetchIfNull();
-        }
-
-        if (data.speedKmh != null) {
-          _recentSpeeds.add(data.speedKmh!);
-          if (_recentSpeeds.length > 5) {
-            _recentSpeeds.removeAt(0);
+        if (!wasRunning && isRunning) {
+          if (_enableAudioRecording) {
+            _launchChartOffset = _metrics.elapsedTime;
+            _audioService.commitLaunch();
           }
+          if (_enableTts) {
+            // Silently wake up the TTS engine at launch so it loads the voice models
+            // into RAM. This eliminates the ~1s latency for the first actual milestone.
+            _ttsService.speak(" ");
+          }
+        }
 
-          final wasRunning = _metrics.isRunning;
-          final oldTests = _enableTts && wasRunning
-              ? getCompletedTests(_metrics, useNhraRules: _useNhraRules)
-              : <OfficialTest>[];
-
-          _metrics = _physicsEngine.updateMetrics(
+        if (_enableTts && wasRunning) {
+          final newTests = getCompletedTests(
             _metrics,
-            data.speedKmh!,
-            _altitude,
-            isArmed: _isArmed,
-            runMode: _runMode,
-            targetDistance: targetDistance,
-            targetDistanceUnit: targetDistanceUnit,
-            targetStartSpeed: targetStartSpeed,
-            targetEndSpeed: targetEndSpeed,
-            targetSpeedUnit: targetSpeedUnit,
-            intervalStartSpeed: intervalStartSpeed,
-            intervalEndSpeed: intervalEndSpeed,
-            gpsTimeSeconds: data.timeSeconds,
+            useNhraRules: _useNhraRules,
           );
-          final isRunning = _metrics.isRunning;
-
-          if (!wasRunning && isRunning) {
-            if (_enableAudioRecording) {
-              _launchChartOffset = _metrics.elapsedTime;
-              _audioService.commitLaunch();
-            }
-            if (_enableTts) {
-              // Silently wake up the TTS engine at launch so it loads the voice models
-              // into RAM. This eliminates the ~1s latency for the first actual milestone.
-              _ttsService.speak(" ");
-            }
-          }
-
-          if (_enableTts && wasRunning) {
-            final newTests = getCompletedTests(
-              _metrics,
-              useNhraRules: _useNhraRules,
-            );
-            for (final test in newTests) {
-              if (!oldTests.any((t) => t.id == test.id)) {
-                if (!test.enableTts ||
-                    test.ttsPhrase == null ||
-                    test.ttsPhrase!.isEmpty)
-                  continue;
-                if (test.speedUnit != null) {
-                  if (_isMetric && test.speedUnit != SpeedUnit.kmh) continue;
-                  if (!_isMetric && test.speedUnit != SpeedUnit.mph) continue;
-                }
-                _ttsService.speak(test.ttsPhrase!);
+          for (final test in newTests) {
+            if (!oldTests.any((t) => t.id == test.id)) {
+              if (!test.enableTts ||
+                  test.ttsPhrase == null ||
+                  test.ttsPhrase!.isEmpty)
+                continue;
+              if (test.speedUnit != null) {
+                if (_isMetric && test.speedUnit != SpeedUnit.kmh) continue;
+                if (!_isMetric && test.speedUnit != SpeedUnit.mph) continue;
               }
+              _ttsService.speak(test.ttsPhrase!);
             }
           }
+        }
 
-          if (isRunning) {
-            _lastGpsUpdateTime = DateTime.now();
+        if (isRunning) {
+          _lastGpsUpdateTime = DateTime.now();
+        } else {
+          _lastGpsUpdateTime = null;
+          if (wasRunning) {
+            _isArmed = false; // Auto-disarm on completion
+          }
+        }
+
+        // Check if run just finished
+        if (wasRunning && !isRunning && _metrics.history.isNotEmpty) {
+          final metricsToSave = _metrics;
+          
+          if (_enableAudioRecording) {
+            _audioService.stopAndSaveRun().then((audioData) {
+              _saveRunToHistory(
+                metricsToSave,
+                audioFilePath: audioData?['path'] as String?,
+                audioStartOffset: (audioData?['offset'] as double?) != null
+                    ? (audioData!['offset'] as double) - _launchChartOffset
+                    : null,
+              );
+            });
           } else {
-            _lastGpsUpdateTime = null;
-            if (wasRunning) {
-              _isArmed = false; // Auto-disarm on completion
-            }
+            _saveRunToHistory(metricsToSave);
           }
-
-          // Check if run just finished
-          if (wasRunning && !isRunning && _metrics.history.isNotEmpty) {
-            final metricsToSave = _metrics;
-            
-            if (_enableAudioRecording) {
-              _audioService.stopAndSaveRun().then((audioData) {
-                _saveRunToHistory(
-                  metricsToSave,
-                  audioFilePath: audioData?['path'] as String?,
-                  audioStartOffset: (audioData?['offset'] as double?) != null
-                      ? (audioData!['offset'] as double) - _launchChartOffset
-                      : null,
-                );
-              });
-            } else {
-              _saveRunToHistory(metricsToSave);
-            }
-          }
-
-          updated = true;
         }
 
-        if (updated) {
-          _needsUiUpdate = true;
-        }
+        updated = true;
+      }
+
+      if (updated) {
+        _needsUiUpdate = true;
       }
     });
 
@@ -1008,7 +987,7 @@ class DragyProvider extends ChangeNotifier {
   @override
   void dispose() {
     _uiTimer?.cancel();
-    _nmeaSubscription?.cancel();
+    _ubxSubscription?.cancel();
     _imuSubscription?.cancel();
     _connectionSubscription?.cancel();
     WakelockPlus.disable();

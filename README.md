@@ -73,8 +73,7 @@ The ESP32-S3 firmware is located in [OpenDragy.ino](file:///d:/Projets/open-drag
 5. Compile and flash the code to your ESP32-S3.
 6. The device will boot and start broadcasting a BLE service named `OpenDragy`.
 
-> [!IMPORTANT]
-> Your u-blox M10 GPS module must be configured before first use to ensure it outputs GGA/RMC messages at 10Hz at 115200 baud. Follow the step-by-step guide in [README_GPS_CONFIG.md](file:///d:/Projets/open-dragy/README_GPS_CONFIG.md) using the **u-center 2** utility.
+
 
 ---
 
