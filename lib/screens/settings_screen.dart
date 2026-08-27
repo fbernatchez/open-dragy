@@ -113,13 +113,23 @@ class SettingsScreen extends StatelessWidget {
                       const SizedBox(height: 2),
                       Text(
                         dragy.appVersion.isNotEmpty
-                            ? dragy.appVersion
-                            : 'Loading...',
+                            ? 'App: ${dragy.appVersion}'
+                            : 'App: Loading...',
                         style: GoogleFonts.roboto(
                           color: Colors.white38,
                           fontSize: 12,
                         ),
                       ),
+                      if (dragy.isConnected && dragy.firmwareVersion.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          'Firmware: ${dragy.firmwareVersion}',
+                          style: GoogleFonts.roboto(
+                            color: Colors.white38,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),

@@ -366,6 +366,9 @@ class DragyProvider extends ChangeNotifier {
   String _appVersion = '';
   String get appVersion => _appVersion;
 
+  String _firmwareVersion = '';
+  String get firmwareVersion => _firmwareVersion;
+
   Future<void> _loadAppVersion() async {
     try {
       final packageInfo = await PackageInfo.fromPlatform();
@@ -394,6 +397,7 @@ class DragyProvider extends ChangeNotifier {
       _isConnected = connected;
       if (!connected) {
         _connectedDevice = null;
+        _firmwareVersion = '';
         _isArmed = false;
         _metrics = _physicsEngine.reset();
         _lastGpsUpdateTime = null;
@@ -403,6 +407,11 @@ class DragyProvider extends ChangeNotifier {
       } else {
         WakelockPlus.enable();
       }
+      _needsUiUpdate = true;
+    });
+
+    _bleService.firmwareVersionStream.listen((version) {
+      _firmwareVersion = version;
       _needsUiUpdate = true;
     });
 

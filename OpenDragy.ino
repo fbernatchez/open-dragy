@@ -22,6 +22,9 @@ bool imuReady = false;
 #define CHARACTERISTIC_UUID_RX "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
 #define CHARACTERISTIC_UUID_TX "6e400003-b5a3-f393-e0a9-e50e24dcca9e"
 #define CHARACTERISTIC_UUID_IMU "6e400004-b5a3-f393-e0a9-e50e24dcca9e"
+#define CHARACTERISTIC_UUID_VERSION "6e400005-b5a3-f393-e0a9-e50e24dcca9e"
+
+#define FIRMWARE_VERSION "1.0.0"
 
 // RTOS Queue for GPS packets
 QueueHandle_t gpsQueue;
@@ -48,6 +51,10 @@ void setupBLE() {
   pServer = BLEDevice::createServer();
   pServer->setCallbacks(new MyServerCallbacks());
   BLEService *pService = pServer->createService(SERVICE_UUID);
+
+  BLECharacteristic *pVersionCharacteristic = pService->createCharacteristic(
+      CHARACTERISTIC_UUID_VERSION, BLECharacteristic::PROPERTY_READ);
+  pVersionCharacteristic->setValue(FIRMWARE_VERSION);
 
   pTxCharacteristic = pService->createCharacteristic(
       CHARACTERISTIC_UUID_TX, BLECharacteristic::PROPERTY_NOTIFY);

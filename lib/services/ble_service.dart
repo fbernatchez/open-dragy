@@ -8,6 +8,8 @@ class BleService {
       "6e400003-b5a3-f393-e0a9-e50e24dcca9e"; // GPS
   final String imuCharacteristicUuid =
       "6e400004-b5a3-f393-e0a9-e50e24dcca9e"; // IMU
+  final String versionCharacteristicUuid =
+      "6e400005-b5a3-f393-e0a9-e50e24dcca9e"; // Version
 
   BluetoothDevice? _connectedDevice;
   StreamSubscription<List<int>>? _txSubscription;
@@ -26,6 +28,10 @@ class BleService {
   final StreamController<bool> _connectionStateController =
       StreamController<bool>.broadcast();
   Stream<bool> get connectionStateStream => _connectionStateController.stream;
+
+  final StreamController<String> _firmwareVersionController =
+      StreamController<String>.broadcast();
+  Stream<String> get firmwareVersionStream => _firmwareVersionController.stream;
 
   Future<bool> connectToDevice(BluetoothDevice device) async {
     try {
@@ -79,9 +85,19 @@ class BleService {
       for (var service in services) {
         if (service.uuid.toString().toLowerCase() == uartServiceUuid) {
           for (var char in service.characteristics) {
+            final uuid = char.uuid.toString().toLowerCase();
+            
+            if (uuid == versionCharacteristicUuid) {
+              if (char.properties.read) {
+                final value = await char.read();
+                final versionString = String.fromCharCodes(value);
+                _firmwareVersionController.add(versionString);
+              }
+              continue;
+            }
+
             if (char.properties.notify || char.properties.indicate) {
               await char.setNotifyValue(true);
-              final uuid = char.uuid.toString().toLowerCase();
               // ignore: avoid_print
               print('[BLE] Subscribed to notifications on: $uuid');
 
