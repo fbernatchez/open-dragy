@@ -1,0 +1,52 @@
+name: Compile Firmware
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          path: OpenDragy
+
+      - name: Setup Arduino CLI
+        uses: arduino/setup-arduino-cli@v2.0.0
+
+      - name: Install ESP32 Core and Libraries
+        run: |
+          arduino-cli core update-index --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
+          arduino-cli core install esp32:esp32 --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
+          arduino-cli lib install "DFRobot_BMI160"
+          
+          # Fix case-sensitivity issue in DFRobot_BMI160 library for Linux runners
+          sed -i 's/arduino.h/Arduino.h/g' $HOME/Arduino/libraries/DFRobot_BMI160/DFRobot_BMI160.h
+
+      - name: Compile Sketch
+        working-directory: OpenDragy
+        run: |
+          arduino-cli compile --fqbn esp32:esp32:esp32s3:CDCOnBoot=cdc --output-dir build OpenDragy.ino
+          mkdir -p firmware_binaries
+          cp build/OpenDragy.ino.bin firmware_binaries/firmware.bin
+          cp build/OpenDragy.ino.bootloader.bin firmware_binaries/bootloader.bin
+          cp build/OpenDragy.ino.partitions.bin firmware_binaries/partitions.bin
+
+      - name: Upload Binaries as Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: open-dragy-firmware
+          path: OpenDragy/firmware_binaries/
+
+      - name: Upload Binaries to Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: OpenDragy/firmware_binaries/*
