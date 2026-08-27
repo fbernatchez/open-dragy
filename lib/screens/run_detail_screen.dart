@@ -1138,7 +1138,7 @@ class _TelemetryChartState extends State<TelemetryChart> {
         _positionSubscription = _audioPlayer.onPositionChanged.listen((
           position,
         ) {
-          if (_isScrubbing) return;
+          if (_isScrubbing || !_isPlayingAudio) return;
           final offset = widget.run.audioStartOffset ?? 0.0;
           final audioSec = position.inMilliseconds / 1000.0;
           _interpolatedChartSec = audioSec - offset;
