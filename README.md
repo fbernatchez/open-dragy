@@ -6,8 +6,8 @@ OpenDragy is a high-precision, open-source vehicle performance timer that measur
 
 ## ✨ Features
 
-* **High-Precision Telemetry (10Hz)**: Receives and parses raw NMEA sentences from the GPS module 10 times per second for precise speed and position data.
-* **Sensor Fusion & Glitch Rejection**: Compares GPS speed increments with live accelerometer G-force data (running at 20Hz) from the IMU. Speed anomalies or multipath spikes that violate physical acceleration limits are automatically rejected.
+* **High-Precision Telemetry (10Hz)**: Receives and parses binary **UBX-NAV-PVT** packets from the u-blox GPS module 10 times per second, providing precise speed, position, and satellite count directly from the chip's internal navigation solution.
+* **Real-Time G-Force Telemetry**: Streams live accelerometer data at 20Hz from the onboard BMI160 IMU for instant G-force mapping and post-run acceleration curve analysis.
 * **Zero-Crossing Interpolation**: Interpolates the exact start time (down to the millisecond) between the last stationary tick and the first launch tick, guaranteeing highly accurate launch timings.
 * **Auto-Armed Launch Control**: Automatically starts recording when speed exceeds `3.0 km/h` to bypass GPS drift/wandering, auto-stops when stationary, and auto-disarms upon completion.
 * **Wakelock Integration**: Intelligently keeps your device screen awake and active during armed and ongoing runs, so you never miss your telemetry.
@@ -22,14 +22,14 @@ OpenDragy is a high-precision, open-source vehicle performance timer that measur
 
 ### Drag Mode (From a standstill)
 * **Distances**: 60ft, 330ft, 1/8 mile, 1000 ft, 1/4 mile, 1/2 mile (includes trap speed calculations)
-* **Speeds**: 0–60 mph, 0–100 km/h, 0–130 mph, 0–200 km/h
+* **Speeds**: 0-60 mph, 0-100 km/h, 0-130 mph, 0-200 km/h
 * **NHRA Mode**: Optional 1-ft rollout subtraction and 66ft average trap speed calculation to match official track times.
 
 ### Interval Mode (Speed-to-Speed)
 * **Standard Ranges**:
-  * **Imperial**: 0–60 mph, 0–100 mph, 50–75 mph, 60–100 mph, 60–130 mph, 0–130 mph
-  * **Metric**: 0–100 km/h, 0–160 km/h, 80–120 km/h, 100–160 km/h, 100–200 km/h, 0–200 km/h
-* **Custom Ranges**: Define your own starting and ending speeds (e.g., 100–150 km/h, 80–120 km/h) in both Metric and Imperial units.
+  * **Imperial**: 0-60 mph, 0-100 mph, 50-75 mph, 60-100 mph, 60-130 mph, 0-130 mph
+  * **Metric**: 0-100 km/h, 0-160 km/h, 80-120 km/h, 100-160 km/h, 100-200 km/h, 0-200 km/h
+* **Custom Ranges**: Define your own starting and ending speeds (e.g., 100-150 km/h, 80-120 km/h) in both Metric and Imperial units.
 
 ---
 
@@ -62,18 +62,16 @@ Connect the components to your ESP32-S3 board using the following pin mapping de
 
 ## 💾 Firmware Installation
 
-The ESP32-S3 firmware is located in [OpenDragy.ino](file:///d:/Projets/open-dragy/OpenDragy.ino).
+The ESP32-S3 firmware is located in [`OpenDragy.ino`](OpenDragy.ino).
 
 1. Install the Arduino IDE or VS Code with the PlatformIO extension.
 2. Install the **ESP32 board support package** if using Arduino IDE.
 3. Install the library dependencies:
    * **DFRobot_BMI160** library (for interfacing with the IMU)
    * **BLE** stack (built-in for ESP32/ESP32-S3)
-4. Open [OpenDragy.ino](file:///d:/Projets/open-dragy/OpenDragy.ino).
+4. Open [`OpenDragy.ino`](OpenDragy.ino).
 5. Compile and flash the code to your ESP32-S3.
 6. The device will boot and start broadcasting a BLE service named `OpenDragy`.
-
-
 
 ---
 
@@ -103,17 +101,17 @@ The companion application is written in Flutter and is located in the root direc
 
 ## 📂 Code Structure
 
-* [OpenDragy.ino](file:///d:/Projets/open-dragy/OpenDragy.ino): Microcontroller C++ firmware for reading UART GPS data & I2C IMU data and transmitting over BLE.
-* [lib/main.dart](file:///d:/Projets/open-dragy/lib/main.dart): Main application entry point, sets up global theme and screen routing.
-* [lib/services/physics_engine.dart](file:///d:/Projets/open-dragy/lib/services/physics_engine.dart): Advanced physics computations (trapezoidal integration, sensor fusion filters, interpolation logic).
-* [lib/services/ble_service.dart](file:///d:/Projets/open-dragy/lib/services/ble_service.dart): BLE scanner and stream listener for UART & IMU data.
-* [lib/providers/dragy_provider.dart](file:///d:/Projets/open-dragy/lib/providers/dragy_provider.dart): Core state provider coordinating Bluetooth events, GPS/IMU data processing, runs logic, settings, and database saves.
-* [lib/services/history_service.dart](file:///d:/Projets/open-dragy/lib/services/history_service.dart): Manages local saving and retrieval of historical run logs.
-* [lib/services/weather_service.dart](file:///d:/Projets/open-dragy/lib/services/weather_service.dart): Integration with Open-Meteo API to log run-time environment data.
-* [lib/services/garage_service.dart](file:///d:/Projets/open-dragy/lib/services/garage_service.dart): Manages local storage of vehicle profiles (cars, bikes) for fleet management.
-* [lib/services/settings_service.dart](file:///d:/Projets/open-dragy/lib/services/settings_service.dart): Handles user preferences such as unit toggles (Metric/Imperial) and app settings.
-* [lib/screens/dashboard_screen.dart](file:///d:/Projets/open-dragy/lib/screens/dashboard_screen.dart): Live telemetry display, speedometer, Bluetooth controls, and active timer stats.
-* [lib/screens/run_history_screen.dart](file:///d:/Projets/open-dragy/lib/screens/run_history_screen.dart): Displays the history of all recorded runs and allows filtering or selecting runs to view details.
-* [lib/screens/run_detail_screen.dart](file:///d:/Projets/open-dragy/lib/screens/run_detail_screen.dart): Post-run analysis, graphs, G-force curves, and slope validations.
-* [lib/screens/garage_screen.dart](file:///d:/Projets/open-dragy/lib/screens/garage_screen.dart): Interface for adding, editing, and selecting vehicles.
-* [lib/screens/settings_screen.dart](file:///d:/Projets/open-dragy/lib/screens/settings_screen.dart): UI for configuring app preferences.
+* [`OpenDragy.ino`](OpenDragy.ino): Microcontroller C++ firmware for reading binary UBX-NAV-PVT packets over UART & I2C IMU data and transmitting over BLE.
+* [`lib/main.dart`](lib/main.dart): Main application entry point, sets up global theme and screen routing.
+* [`lib/services/physics_engine.dart`](lib/services/physics_engine.dart): Advanced physics computations (trapezoidal integration, zero-crossing interpolation, speed interval timing).
+* [`lib/services/ble_service.dart`](lib/services/ble_service.dart): BLE scanner and stream listener that parses binary UBX packets & IMU data.
+* [`lib/providers/dragy_provider.dart`](lib/providers/dragy_provider.dart): Core state provider coordinating Bluetooth events, GPS/IMU data processing, runs logic, settings, and database saves.
+* [`lib/services/history_service.dart`](lib/services/history_service.dart): Manages local saving and retrieval of historical run logs.
+* [`lib/services/weather_service.dart`](lib/services/weather_service.dart): Integration with Open-Meteo API to log run-time environment data.
+* [`lib/services/garage_service.dart`](lib/services/garage_service.dart): Manages local storage of vehicle profiles (cars, bikes) for fleet management.
+* [`lib/services/settings_service.dart`](lib/services/settings_service.dart): Handles user preferences such as unit toggles (Metric/Imperial) and app settings.
+* [`lib/screens/dashboard_screen.dart`](lib/screens/dashboard_screen.dart): Live telemetry display, speedometer, Bluetooth controls, and active timer stats.
+* [`lib/screens/run_history_screen.dart`](lib/screens/run_history_screen.dart): Displays the history of all recorded runs and allows filtering or selecting runs to view details.
+* [`lib/screens/run_detail_screen.dart`](lib/screens/run_detail_screen.dart): Post-run analysis, graphs, G-force curves, and slope validations.
+* [`lib/screens/garage_screen.dart`](lib/screens/garage_screen.dart): Interface for adding, editing, and selecting vehicles.
+* [`lib/screens/settings_screen.dart`](lib/screens/settings_screen.dart): UI for configuring app preferences.
