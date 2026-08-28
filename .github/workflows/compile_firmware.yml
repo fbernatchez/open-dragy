@@ -30,7 +30,7 @@ jobs:
       - name: Compile Sketch
         working-directory: OpenDragy
         run: |
-          arduino-cli compile --fqbn esp32:esp32:esp32s3:CDCOnBoot=cdc --output-dir build OpenDragy.ino
+          arduino-cli compile --fqbn esp32:esp32:esp32s3:CDCOnBoot=cdc,PartitionScheme=min_spiffs --output-dir build OpenDragy.ino
           mkdir -p firmware_binaries
           cp build/OpenDragy.ino.bin firmware_binaries/firmware.bin
           cp build/OpenDragy.ino.bootloader.bin firmware_binaries/bootloader.bin
