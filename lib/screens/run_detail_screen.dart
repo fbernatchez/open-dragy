@@ -1192,15 +1192,16 @@ class _TelemetryChartState extends State<TelemetryChart> {
     return output;
   }
 
-  void _handleTouch(Offset localPosition, double width) {
+  void _handleTouch(Offset localPosition, double containerWidth) {
     if (!_isScrubbing) {
       _isScrubbing = true;
     }
     final history = widget.run.metrics.history;
     if (history.isEmpty) return;
 
-    final double relativeX = localPosition.dx - 16;
-    final double pct = (relativeX / width).clamp(0.0, 1.0);
+    final double chartWidth = containerWidth - 32;
+    final double relativeX = localPosition.dx;
+    final double pct = (relativeX / chartWidth).clamp(0.0, 1.0);
     final int index = (pct * (history.length - 1)).round();
 
     if (_selectedIndex != index) {
