@@ -17,6 +17,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import '../models/race_target.dart';
 import '../services/tts_service.dart';
 import '../services/audio_recording_service.dart';
+import '../services/firmware_service.dart';
 import 'dart:io';
 
 enum RaceDragTarget {
@@ -60,6 +61,7 @@ class DragyProvider extends ChangeNotifier {
   final WeatherService _weatherService = WeatherService();
   final TtsService _ttsService = TtsService();
   final AudioRecordingService _audioService = AudioRecordingService();
+  final FirmwareService _firmwareService = FirmwareService();
 
   double? _latitude;
   double? get latitude => _latitude;
@@ -570,6 +572,16 @@ class DragyProvider extends ChangeNotifier {
     } catch (_) {}
     _connectedDevice = null;
     notifyListeners();
+  }
+
+  Future<void> performFirmwareUpdate(
+      String requestedVersion, void Function(double) onProgress) async {
+    // 1. Fetch bytes from the remote service
+    final firmwareBytes =
+        await _firmwareService.fetchBestFirmwareBytes(requestedVersion);
+
+    // 2. Pass bytes to BLE service
+    await _bleService.performOtaUpdate(firmwareBytes, onProgress);
   }
 
   void resetRace() {

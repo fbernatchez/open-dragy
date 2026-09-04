@@ -8,7 +8,6 @@
 #include <Update.h>
 #include <Wire.h>
 
-
 HardwareSerial UART(1);
 DFRobot_BMI160 bmi160;
 
@@ -29,7 +28,7 @@ bool otaRebootPending = false;
 #define CHARACTERISTIC_UUID_OTA_CTRL "6e400006-b5a3-f393-e0a9-e50e24dcca9e"
 #define CHARACTERISTIC_UUID_OTA_DATA "6e400007-b5a3-f393-e0a9-e50e24dcca9e"
 
-#define FIRMWARE_VERSION "1.0.1"
+#define FIRMWARE_VERSION "1.0.2"
 
 // RTOS Queue for GPS packets
 QueueHandle_t gpsQueue;
@@ -339,7 +338,7 @@ void imuTask(void *parameter) {
       pImuCharacteristic->setValue((uint8_t *)imuData, strlen(imuData));
       pImuCharacteristic->notify();
     }
-    vTaskDelay(pdMS_TO_TICKS(50)); // 20Hz IMU rate
+    vTaskDelay(pdMS_TO_TICKS(10)); // 100Hz IMU rate
   }
 }
 

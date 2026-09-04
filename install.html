@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenDragy Web Installer</title>
+    <!-- Use Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    
+    <!-- ESP Web Tools -->
+    <script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
+    
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #0d0d0d;
+            color: #fff;
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 20px;
+            text-align: center;
+        }
+        .installer-card {
+            background: #1a1a1a;
+            padding: 40px;
+            border-radius: 16px;
+            border: 1px solid #333;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        h1 {
+            margin-top: 0;
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        p {
+            color: #aaa;
+            margin-bottom: 30px;
+            line-height: 1.5;
+        }
+        select {
+            width: 100%;
+            padding: 12px;
+            background: #2a2a2a;
+            border: 1px solid #444;
+            color: #fff;
+            border-radius: 8px;
+            font-size: 16px;
+            margin-bottom: 20px;
+            cursor: pointer;
+            outline: none;
+        }
+        select:focus {
+            border-color: #1565C0;
+        }
+        .button-wrapper {
+            display: flex;
+            justify-content: center;
+            min-height: 50px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="installer-card">
+        <h1>Flash OpenDragy</h1>
+        <p>Connect your ESP32-S3 via USB, select a firmware version, and click Install to flash your device directly from the browser.</p>
+        
+        <select id="version-select">
+            <option value="">Loading versions...</option>
+        </select>
+
+        <div class="button-wrapper" id="btn-container">
+            <!-- This button will be dynamically configured by JS -->
+            <esp-web-install-button id="install-button"></esp-web-install-button>
+        </div>
+    </div>
+
+    <script>
+        // Fetch from the exact same manifest the app uses!
+        const manifestUrl = 'https://open-dragy.fb-engineering.com/firmware/manifest.json';
+        const selectEl = document.getElementById('version-select');
+        const btnContainer = document.getElementById('btn-container');
+
+        // We assume bootloader and partitions are hosted next to the manifest
+        const baseUrl = 'https://open-dragy.fb-engineering.com/firmware';
+
+        fetch(manifestUrl)
+            .then(res => res.json())
+            .then(data => {
+                selectEl.innerHTML = '';
+                
+                // Sort descending so newest is first
+                data.sort((a, b) => b.version.localeCompare(a.version, undefined, { numeric: true }));
+
+                data.forEach(item => {
+                    const opt = document.createElement('option');
+                    opt.value = item.url;
+                    opt.textContent = `Version ${item.version}`;
+                    selectEl.appendChild(opt);
+                });
+
+                // Trigger update for the first selected item
+                if (data.length > 0) {
+                    updateWebToolsManifest(data[0].version, data[0].url);
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                selectEl.innerHTML = '<option value="">Error loading manifest. Is CORS enabled on your server?</option>';
+            });
+
+        selectEl.addEventListener('change', (e) => {
+            const selectedUrl = e.target.value;
+            const selectedText = e.target.options[e.target.selectedIndex].text;
+            const version = selectedText.replace('Version ', '');
+            updateWebToolsManifest(version, selectedUrl);
+        });
+
+        let currentBlobUrl = null;
+
+        function updateWebToolsManifest(version, appBinUrl) {
+            // Clean up previous blob to avoid memory leaks
+            if (currentBlobUrl) {
+                URL.revokeObjectURL(currentBlobUrl);
+            }
+
+            // Create a dynamic ESP Web Tools manifest
+            // Note: ESP32-S3 requires bootloader at 0x0, partitions at 0x8000, and app at 0x10000
+            const espManifest = {
+                name: "OpenDragy",
+                version: version,
+                builds: [
+                    {
+                        chipFamily: "ESP32-S3",
+                        parts: [
+                            { path: `${baseUrl}/bootloader.bin`, offset: 0x0 },
+                            { path: `${baseUrl}/partitions.bin`, offset: 0x8000 },
+                            { path: appBinUrl, offset: 0x10000 }
+                        ]
+                    }
+                ]
+            };
+
+            const blob = new Blob([JSON.stringify(espManifest)], { type: 'application/json' });
+            currentBlobUrl = URL.createObjectURL(blob);
+            
+            // Recreate the button element to force it to fetch the new manifest
+            const newBtn = document.createElement('esp-web-install-button');
+            newBtn.setAttribute('manifest', currentBlobUrl);
+            
+            btnContainer.innerHTML = '';
+            btnContainer.appendChild(newBtn);
+        }
+    </script>
+</body>
+</html>

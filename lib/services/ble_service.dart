@@ -10,6 +10,13 @@ class BleService {
       "6e400004-b5a3-f393-e0a9-e50e24dcca9e"; // IMU
   final String versionCharacteristicUuid =
       "6e400005-b5a3-f393-e0a9-e50e24dcca9e"; // Version
+  final String otaCtrlCharacteristicUuid =
+      "6e400006-b5a3-f393-e0a9-e50e24dcca9e"; // OTA Control
+  final String otaDataCharacteristicUuid =
+      "6e400007-b5a3-f393-e0a9-e50e24dcca9e"; // OTA Data
+
+  BluetoothCharacteristic? _otaCtrlChar;
+  BluetoothCharacteristic? _otaDataChar;
 
   BluetoothDevice? _connectedDevice;
   StreamSubscription<List<int>>? _txSubscription;
@@ -93,6 +100,15 @@ class BleService {
                 final versionString = String.fromCharCodes(value);
                 _firmwareVersionController.add(versionString);
               }
+              continue;
+            }
+
+            if (uuid == otaCtrlCharacteristicUuid) {
+              _otaCtrlChar = char;
+              continue;
+            }
+            if (uuid == otaDataCharacteristicUuid) {
+              _otaDataChar = char;
               continue;
             }
 
@@ -206,6 +222,56 @@ class BleService {
     _connectionSubscription?.cancel();
     _connectionSubscription = null;
     _connectedDevice = null;
+    _otaCtrlChar = null;
+    _otaDataChar = null;
+  }
+
+  Future<void> performOtaUpdate(
+      List<int> firmwareBytes, void Function(double) onProgress) async {
+    if (_otaCtrlChar == null || _otaDataChar == null) {
+      throw Exception(
+          "OTA characteristics not found. Are you connected to a compatible device?");
+    }
+
+    try {
+      // 1. Send START (0x00) + 4-byte size (little endian)
+      int size = firmwareBytes.length;
+      List<int> startCmd = [
+        0x00,
+        size & 0xFF,
+        (size >> 8) & 0xFF,
+        (size >> 16) & 0xFF,
+        (size >> 24) & 0xFF
+      ];
+      await _otaCtrlChar!.write(startCmd, withoutResponse: false);
+
+      // Wait a bit for ESP32 to prepare Update.begin()
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      // 2. Send DATA chunks
+      int mtu = 200; // Safe MTU size for payload
+      int totalChunks = (size / mtu).ceil();
+      for (int i = 0; i < totalChunks; i++) {
+        int start = i * mtu;
+        int end = (start + mtu < size) ? start + mtu : size;
+        List<int> chunk = firmwareBytes.sublist(start, end);
+
+        // Send chunk. We use withoutResponse for speed, but add a tiny delay
+        // to prevent overwhelming the ESP32's buffer while it writes to flash.
+        await _otaDataChar!.write(chunk, withoutResponse: true);
+        await Future.delayed(const Duration(milliseconds: 15)); 
+
+        double progress = (end / size);
+        onProgress(progress);
+      }
+
+      // 3. Send END (0x01)
+      await _otaCtrlChar!.write([0x01], withoutResponse: false);
+
+      // ESP32 will reboot, device will disconnect.
+    } catch (e) {
+      throw Exception("OTA Update failed: $e");
+    }
   }
 
   Stream<List<ScanResult>> get scanResults => FlutterBluePlus.scanResults;

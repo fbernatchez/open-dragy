@@ -32,7 +32,12 @@ jobs:
         run: |
           arduino-cli compile --fqbn esp32:esp32:esp32s3:CDCOnBoot=cdc,PartitionScheme=min_spiffs --output-dir build OpenDragy.ino
           mkdir -p firmware_binaries
-          cp build/OpenDragy.ino.bin firmware_binaries/firmware.bin
+          
+          # Extract the version from the #define in the sketch
+          VERSION=$(grep -oP '#define FIRMWARE_VERSION "\K[^"]+' OpenDragy.ino)
+          echo "Found version: $VERSION"
+          
+          cp build/OpenDragy.ino.bin firmware_binaries/opendragy_${VERSION}.bin
           cp build/OpenDragy.ino.bootloader.bin firmware_binaries/bootloader.bin
           cp build/OpenDragy.ino.partitions.bin firmware_binaries/partitions.bin
 
