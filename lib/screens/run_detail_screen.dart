@@ -1265,9 +1265,7 @@ class _TelemetryChartState extends State<TelemetryChart> {
         .map((p) => isMetric ? p.speedKmh : UnitConverter.kmhToMph(p.speedKmh))
         .toList();
 
-    // The physics engine natively shifts the G-force to align with GPS latency.
-    final rawGForces = history.map((p) => p.gForce).toList();
-    final gForces = _smoothList(rawGForces, 7);
+    final gForces = history.map((p) => p.gForce).toList();
 
     final double startAltitude = widget.run.metrics.startAltitude ?? 0.0;
     final rawElevations = history.map((p) {

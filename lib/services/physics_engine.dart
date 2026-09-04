@@ -52,7 +52,7 @@ class PhysicsEngine {
     }
     _lastGpsTimeSeconds = gpsTimeSeconds;
 
-    // 0. Maintain Rolling Buffer for 200ms G-Force latency shifting
+    // 0. Maintain Rolling Buffer for G-Force latency shifting
     _preRunBuffer.add(
       DataPoint(
         elapsedTime: current.isRunning ? current.elapsedTime : 0.0,
@@ -62,7 +62,13 @@ class PhysicsEngine {
       ),
     );
 
-    int delayTicks = (0.2 / currentDt).round();
+    // Calculate ticks needed for a 100ms shift, subtracting the inherent 
+    // phase delay (currentDt / 2) introduced by the IMU accumulator.
+    double inherentPhaseDelay = currentDt / 2;
+    double remainingShiftNeeded = 0.1 - inherentPhaseDelay;
+    if (remainingShiftNeeded < 0) remainingShiftNeeded = 0;
+    
+    int delayTicks = (remainingShiftNeeded / currentDt).round();
     if (delayTicks < 1) delayTicks = 1;
 
     if (_preRunBuffer.length > delayTicks + 5) {
