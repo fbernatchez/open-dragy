@@ -21,6 +21,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   final ScrollController _scrollController = ScrollController();
   int _previousMilestoneCount = 0;
   bool _hasPromptedUpdate = false;
+  bool _pendingUpdatePrompt = false;
   DragyProvider? _dragyProviderRef;
 
   @override
@@ -41,30 +42,43 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   void _onProviderChange() {
     if (!mounted || _dragyProviderRef == null) return;
-    
+
     if (!_dragyProviderRef!.isConnected) {
       _hasPromptedUpdate = false;
+      _pendingUpdatePrompt = false;
       return;
     }
-    
-    if (_dragyProviderRef!.isConnected && _dragyProviderRef!.firmwareVersion.isNotEmpty && !_hasPromptedUpdate) {
-      _hasPromptedUpdate = true;
+
+    if (_dragyProviderRef!.isConnected &&
+        _dragyProviderRef!.firmwareVersion.isNotEmpty &&
+        !_hasPromptedUpdate) {
       if (_isUpdateAvailable(_dragyProviderRef!.firmwareVersion)) {
-        _showUpdatePromptDialog();
+        if (ModalRoute.of(context)?.isCurrent == true) {
+          _hasPromptedUpdate = true;
+          _showUpdatePromptDialog();
+        } else {
+          _pendingUpdatePrompt = true;
+        }
       }
     }
   }
 
   bool _isUpdateAvailable(String currentVersion) {
-     final p1 = currentVersion.split('.').map((e) => int.tryParse(e) ?? 0).toList();
-     final p2 = SettingsScreen.minRecommendedFirmware.split('.').map((e) => int.tryParse(e) ?? 0).toList();
+    final p1 = currentVersion
+        .split('.')
+        .map((e) => int.tryParse(e) ?? 0)
+        .toList();
+    final p2 = SettingsScreen.minRecommendedFirmware
+        .split('.')
+        .map((e) => int.tryParse(e) ?? 0)
+        .toList();
 
-     for (int i = 0; i < p1.length && i < p2.length; i++) {
-       if (p1[i] < p2[i]) return true;
-       if (p1[i] > p2[i]) return false;
-     }
-     if (p1.length < p2.length) return true;
-     return false;
+    for (int i = 0; i < p1.length && i < p2.length; i++) {
+      if (p1[i] < p2[i]) return true;
+      if (p1[i] > p2[i]) return false;
+    }
+    if (p1.length < p2.length) return true;
+    return false;
   }
 
   void _showUpdatePromptDialog() {
@@ -73,7 +87,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
       builder: (context) {
         return AlertDialog(
           backgroundColor: const Color(0xFF222222),
-          title: const Text('Firmware Update Available', style: TextStyle(color: Colors.white)),
+          title: const Text(
+            'Firmware Update Available',
+            style: TextStyle(color: Colors.white),
+          ),
           content: const Text(
             'A newer firmware version is recommended for optimal performance with this app version. Would you like to update now?',
             style: TextStyle(color: Colors.white70),
@@ -81,10 +98,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Later', style: TextStyle(color: Colors.white54)),
+              child: const Text(
+                'Later',
+                style: TextStyle(color: Colors.white54),
+              ),
             ),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1565C0)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF1565C0),
+              ),
               onPressed: () {
                 Navigator.of(context).pop();
                 showDialog(
@@ -93,11 +115,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   builder: (context) => const FirmwareUpdateDialog(),
                 );
               },
-              child: const Text('Update Now', style: TextStyle(color: Colors.white)),
+              child: const Text(
+                'Update Now',
+                style: TextStyle(color: Colors.white),
+              ),
             ),
           ],
         );
-      }
+      },
     );
   }
 
@@ -110,7 +135,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
         heightFactor: 0.8,
         child: DeviceSelectorModal(),
       ),
-    );
+    ).then((_) {
+      if (!mounted) return;
+      if (_pendingUpdatePrompt) {
+        _pendingUpdatePrompt = false;
+        _hasPromptedUpdate = true;
+        _showUpdatePromptDialog();
+      }
+    });
   }
 
   @override
@@ -1399,23 +1431,30 @@ class _LiveWeatherWidget extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(top: 12),
       child: Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.04),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.12)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(_weatherIcon(weatherCode), color: _weatherColor(weatherCode), size: 14),
-          const SizedBox(width: 6),
-          Text(
-            '$tempStr | $humidityStr | DA: $daStr',
-            style: GoogleFonts.robotoMono(color: Colors.white70, fontSize: 11),
-          ),
-        ],
-      ),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.04),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white.withOpacity(0.12)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              _weatherIcon(weatherCode),
+              color: _weatherColor(weatherCode),
+              size: 14,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              '$tempStr | $humidityStr | DA: $daStr',
+              style: GoogleFonts.robotoMono(
+                color: Colors.white70,
+                fontSize: 11,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

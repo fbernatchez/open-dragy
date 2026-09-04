@@ -362,6 +362,9 @@ class DragyProvider extends ChangeNotifier {
   List<SavedRun> _savedRuns = [];
   List<SavedRun> get savedRuns => _savedRuns;
 
+  double _gForceAccumulator = 0.0;
+  int _gForceCount = 0;
+
   Timer? _uiTimer;
   bool _needsUiUpdate = false;
 
@@ -440,6 +443,12 @@ class DragyProvider extends ChangeNotifier {
         final oldTests = _enableTts && wasRunning
             ? getCompletedTests(_metrics, useNhraRules: _useNhraRules)
             : <OfficialTest>[];
+
+        double avgGForce = _gForceCount > 0 ? _gForceAccumulator / _gForceCount : _metrics.gForce;
+        _gForceAccumulator = 0.0;
+        _gForceCount = 0;
+        
+        _metrics = _metrics.copyWith(gForce: avgGForce);
 
         _metrics = _physicsEngine.updateMetrics(
           _metrics,
@@ -545,6 +554,9 @@ class DragyProvider extends ChangeNotifier {
           if (calibratedGForce.abs() < 0.05) {
             calibratedGForce = 0.0;
           }
+
+          _gForceAccumulator += calibratedGForce;
+          _gForceCount++;
 
           _metrics = _metrics.copyWith(gForce: calibratedGForce);
           _needsUiUpdate = true;

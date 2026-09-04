@@ -52,7 +52,7 @@ class PhysicsEngine {
     }
     _lastGpsTimeSeconds = gpsTimeSeconds;
 
-    // 0. Maintain Rolling Buffer (50 ticks) for 200ms G-Force latency shifting
+    // 0. Maintain Rolling Buffer for 200ms G-Force latency shifting
     _preRunBuffer.add(
       DataPoint(
         elapsedTime: current.isRunning ? current.elapsedTime : 0.0,
@@ -61,11 +61,14 @@ class PhysicsEngine {
         altitude: currentAltitude,
       ),
     );
-    if (_preRunBuffer.length > 50) {
+
+    int delayTicks = (0.2 / currentDt).round();
+    if (delayTicks < 1) delayTicks = 1;
+
+    if (_preRunBuffer.length > delayTicks + 5) {
       _preRunBuffer.removeAt(0);
     }
 
-    int delayTicks = 2; // 200ms at 10Hz
     double shiftedGForce = current.gForce;
     if (_preRunBuffer.length > delayTicks) {
       shiftedGForce =
