@@ -1,11 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:permission_handler/permission_handler.dart';
 import '../providers/dragy_provider.dart';
 
 class SettingsScreen extends StatelessWidget {
-  static const String minRecommendedFirmware = "1.0.2";
+  static const String minRecommendedFirmware = "1.0.3";
+
+  static bool isUpdateAvailable(String currentVersion) {
+    if (currentVersion.isEmpty) return false;
+    final p1 = currentVersion
+        .split('.')
+        .map((e) => int.tryParse(e) ?? 0)
+        .toList();
+    final p2 = minRecommendedFirmware
+        .split('.')
+        .map((e) => int.tryParse(e) ?? 0)
+        .toList();
+
+    for (int i = 0; i < p1.length && i < p2.length; i++) {
+      if (p1[i] < p2[i]) return true;
+      if (p1[i] > p2[i]) return false;
+    }
+    return p1.length < p2.length;
+  }
 
   const SettingsScreen({super.key});
 
@@ -122,7 +139,8 @@ class SettingsScreen extends StatelessWidget {
                           fontSize: 12,
                         ),
                       ),
-                      if (dragy.isConnected && dragy.firmwareVersion.isNotEmpty) ...[
+                      if (dragy.isConnected &&
+                          dragy.firmwareVersion.isNotEmpty) ...[
                         const SizedBox(height: 2),
                         Text(
                           'Firmware: ${dragy.firmwareVersion}',
@@ -139,7 +157,8 @@ class SettingsScreen extends StatelessWidget {
             ),
           ),
 
-          if (dragy.isConnected) ...[
+          if (dragy.isConnected &&
+              SettingsScreen.isUpdateAvailable(dragy.firmwareVersion)) ...[
             const SizedBox(height: 16),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -161,10 +180,7 @@ class SettingsScreen extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Text(
                 'Recommended firmware: v${SettingsScreen.minRecommendedFirmware} or higher for this app version.',
-                style: GoogleFonts.roboto(
-                  color: Colors.white38,
-                  fontSize: 11,
-                ),
+                style: GoogleFonts.roboto(color: Colors.white38, fontSize: 11),
                 textAlign: TextAlign.center,
               ),
             ),
@@ -221,7 +237,9 @@ class _FirmwareUpdateDialogState extends State<FirmwareUpdateDialog> {
       setState(() {
         status = "Fetching firmware manifest...";
       });
-      await dragy.performFirmwareUpdate(SettingsScreen.minRecommendedFirmware, (p) {
+      await dragy.performFirmwareUpdate(SettingsScreen.minRecommendedFirmware, (
+        p,
+      ) {
         setState(() {
           status = "Flashing...";
           progress = p;
@@ -243,7 +261,10 @@ class _FirmwareUpdateDialogState extends State<FirmwareUpdateDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       backgroundColor: const Color(0xFF222222),
-      title: const Text('Firmware Update', style: TextStyle(color: Colors.white)),
+      title: const Text(
+        'Firmware Update',
+        style: TextStyle(color: Colors.white),
+      ),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [

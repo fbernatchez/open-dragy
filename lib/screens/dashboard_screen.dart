@@ -782,6 +782,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   ),
                                   child: DropdownButtonHideUnderline(
                                     child: DropdownButton<RaceIntervalTarget>(
+                                      key: const Key('intervalTargetDropdown'),
                                       value: dragy.activeIntervalTarget,
                                       dropdownColor: Colors.grey.shade900,
                                       icon: const Icon(
