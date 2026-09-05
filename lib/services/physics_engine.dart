@@ -62,31 +62,12 @@ class PhysicsEngine {
       ),
     );
 
-    // Calculate ticks needed for a 100ms shift, subtracting the inherent 
-    // phase delay (currentDt / 2) introduced by the IMU accumulator.
-    double inherentPhaseDelay = currentDt / 2;
-    double remainingShiftNeeded = 0.1 - inherentPhaseDelay;
-    if (remainingShiftNeeded < 0) remainingShiftNeeded = 0;
-    
-    int delayTicks = (remainingShiftNeeded / currentDt).round();
-    if (delayTicks < 1) delayTicks = 1;
-
-    if (_preRunBuffer.length > delayTicks + 5) {
+    // Keep buffer bounded (50 ticks = ~0.5s of history for launch detection)
+    if (_preRunBuffer.length > 50) {
       _preRunBuffer.removeAt(0);
     }
 
-    double shiftedGForce = current.gForce;
-    if (_preRunBuffer.length > delayTicks) {
-      shiftedGForce =
-          _preRunBuffer[_preRunBuffer.length - 1 - delayTicks].gForce;
-    }
-
-    // Smooth G-Force slightly
-    double smoothedGForce = shiftedGForce;
-    if (current.history.isNotEmpty) {
-      smoothedGForce =
-          (current.history.last.gForce * 0.7) + (shiftedGForce * 0.3);
-    }
+    double smoothedGForce = current.gForce;
 
     // 0.5 Sensor-Fusion Outlier Rejection
     // Validate the GPS speed jump against the delayed IMU acceleration.
@@ -99,7 +80,7 @@ class PhysicsEngine {
     if (_preRunBuffer.isNotEmpty || current.isRunning) {
       double actualDeltaKmh = newSpeedKmh - lastSpeed;
       double expectedDeltaKmh =
-          (shiftedGForce * gAcceleration * currentDt) * 3.6;
+          (smoothedGForce * gAcceleration * currentDt) * 3.6;
       double dynamicToleranceKmh = (1.0 * gAcceleration * currentDt) * 3.6;
 
       if (actualDeltaKmh > 0 &&
@@ -862,17 +843,13 @@ class PhysicsEngine {
           initialDistance += stepAvgSpeedMs * currentDt;
         }
 
-        int delayTicks = 2;
-        int getShiftedIndex(int idx) =>
-            (idx - delayTicks).clamp(0, _preRunBuffer.length - 1);
-
         List<DataPoint> initialHistory = [];
         // Zero crossing point
         initialHistory.add(
           DataPoint(
             elapsedTime: 0.0,
             speedKmh: 0.0, // Start exactly at 0 to match physical reality
-            gForce: _preRunBuffer[getShiftedIndex(crossingIndex)].gForce,
+            gForce: _preRunBuffer[crossingIndex].gForce,
             altitude: _preRunBuffer[crossingIndex].altitude ?? currentAltitude,
           ),
         );
@@ -884,7 +861,7 @@ class PhysicsEngine {
             DataPoint(
               elapsedTime: tJ,
               speedKmh: _preRunBuffer[j].speedKmh,
-              gForce: _preRunBuffer[getShiftedIndex(j)].gForce,
+              gForce: _preRunBuffer[j].gForce,
               altitude: _preRunBuffer[j].altitude ?? currentAltitude,
             ),
           );

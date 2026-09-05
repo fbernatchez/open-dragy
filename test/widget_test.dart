@@ -22,6 +22,12 @@ class MockDragyProvider extends ChangeNotifier implements DragyProvider {
   bool isConnected = false;
 
   @override
+  String get firmwareVersion => "1.0.0-mock";
+
+  @override
+  Future<void> performFirmwareUpdate(String requestedVersion, void Function(double) onProgress) async {}
+
+  @override
   bool enableAudioRecording = false;
 
   @override
@@ -558,6 +564,80 @@ void main() {
     expect(find.text('3.42s'), findsOneWidget);   // One in Run 1 card (not in category PB chip since PB is 2.92s)
   });
 
+  testWidgets('RunHistoryScreen correctly filters interval runs between metric and imperial', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1080, 1920);
+    tester.view.devicePixelRatio = 1.0;
+
+    final mockProvider = MockDragyProvider();
+
+    final metricIntervalRun = SavedRun(
+      id: 'metric_run',
+      dateTime: DateTime.now().subtract(const Duration(minutes: 10)),
+      metrics: RaceMetrics(
+        speedKmh: 0.0,
+        distanceMeters: 100.0,
+        elapsedTime: 3.50,
+        runMode: 'interval',
+        targetStartSpeed: 80.0,
+        targetEndSpeed: 120.0,
+        targetSpeedUnit: 'kmh',
+        history: const [
+          DataPoint(elapsedTime: 0.0, speedKmh: 80.0, gForce: 0.0, altitude: 100.0),
+          DataPoint(elapsedTime: 3.50, speedKmh: 120.0, gForce: 0.0, altitude: 100.0),
+        ],
+      ),
+    );
+
+    final imperialIntervalRun = SavedRun(
+      id: 'imperial_run',
+      dateTime: DateTime.now().subtract(const Duration(minutes: 5)),
+      metrics: RaceMetrics(
+        speedKmh: 0.0,
+        distanceMeters: 200.0,
+        elapsedTime: 7.20,
+        time60to130mph: 7.20,
+        runMode: 'interval',
+        targetStartSpeed: 96.56064,
+        targetEndSpeed: 209.21472,
+        targetSpeedUnit: 'mph',
+        history: const [
+          DataPoint(elapsedTime: 0.0, speedKmh: 96.56064, gForce: 0.0, altitude: 100.0),
+          DataPoint(elapsedTime: 7.20, speedKmh: 209.21472, gForce: 0.0, altitude: 100.0),
+        ],
+      ),
+    );
+
+    mockProvider.savedRuns = [metricIntervalRun, imperialIntervalRun];
+    mockProvider.isMetric = false;
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider<DragyProvider>.value(
+        value: mockProvider,
+        child: const MaterialApp(
+          home: RunHistoryScreen(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // In Imperial mode:
+    // Only imperialIntervalRun should be visible (1 run)
+    expect(find.byType(RunHistoryCard), findsOneWidget);
+    expect(find.text('60-130 mph'), findsWidgets);
+    expect(find.text('80-120 km/h'), findsNothing);
+
+    // Switch to Metric mode:
+    mockProvider.isMetric = true;
+    mockProvider.notifyListeners();
+    await tester.pumpAndSettle();
+
+    // In Metric mode:
+    // Only metricIntervalRun should be visible (1 run)
+    expect(find.byType(RunHistoryCard), findsOneWidget);
+    expect(find.text('80-120 km/h'), findsWidgets);
+    expect(find.text('60-130 mph'), findsNothing);
+  });
+
   testWidgets('SettingsScreen displays toggles and triggers actions', (WidgetTester tester) async {
     final mockProvider = MockDragyProvider();
     mockProvider.isMetric = false; // metric = false
@@ -600,7 +680,7 @@ void main() {
     expect(mockProvider.tempInCelsius, false);
 
     // Verify version info is displayed
-    expect(find.text('1.0.0-mock'), findsOneWidget);
+    expect(find.text('App: 1.0.0-mock'), findsOneWidget);
   });
 
   testWidgets('GarageScreen displays empty state and lists vehicles', (WidgetTester tester) async {
@@ -656,58 +736,56 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // Verify Dropdown button is showing '60-130 mph'
+    // Verify selected value label is shown
     expect(find.text('60-130 mph'), findsOneWidget);
     expect(find.text('100-200 km/h'), findsNothing);
 
-    // Open the dropdown
-    await tester.tap(find.text('60-130 mph'));
-    await tester.pumpAndSettle();
+    // Introspect the DropdownButton's items directly -- no need to open the overlay.
+    // This tests the exact same filter logic without fragile overlay interactions.
+    DropdownButton<RaceIntervalTarget> getDropdown() {
+      return tester.widget<DropdownButton<RaceIntervalTarget>>(
+        find.byKey(const Key('intervalTargetDropdown')),
+      );
+    }
 
-    // Verify options present
-    expect(find.text('0-60 mph').last, findsOneWidget);
-    expect(find.text('0-100 mph').last, findsOneWidget);
-    expect(find.text('0-130 mph').last, findsOneWidget);
-    expect(find.text('50-75 mph').last, findsOneWidget);
-    expect(find.text('60-100 mph').last, findsOneWidget);
-    expect(find.text('60-130 mph').last, findsOneWidget);
-    expect(find.text('Custom Range...').last, findsOneWidget);
-    // Verify metric options are NOT present
-    expect(find.text('0-100 km/h'), findsNothing);
-    expect(find.text('0-160 km/h'), findsNothing);
-    expect(find.text('80-120 km/h'), findsNothing);
-    expect(find.text('100-200 km/h'), findsNothing);
+    final imperialItems = getDropdown().items!.map((i) => i.value).toList();
+    // Imperial targets only
+    expect(imperialItems.contains(RaceIntervalTarget.zeroToSixtyMph), isTrue);
+    expect(imperialItems.contains(RaceIntervalTarget.zeroToOneHundredMph), isTrue);
+    expect(imperialItems.contains(RaceIntervalTarget.zeroToOneThirtyMph), isTrue);
+    expect(imperialItems.contains(RaceIntervalTarget.fiftyToSeventyFiveMph), isTrue);
+    expect(imperialItems.contains(RaceIntervalTarget.sixtyToOneHundredMph), isTrue);
+    expect(imperialItems.contains(RaceIntervalTarget.sixtyToOneThirtyMph), isTrue);
+    expect(imperialItems.contains(RaceIntervalTarget.custom), isTrue);
+    // Metric targets must be absent
+    expect(imperialItems.contains(RaceIntervalTarget.zeroToOneHundredKmh), isFalse);
+    expect(imperialItems.contains(RaceIntervalTarget.zeroToOneSixtyKmh), isFalse);
+    expect(imperialItems.contains(RaceIntervalTarget.eightyToOneTwentyKmh), isFalse);
+    expect(imperialItems.contains(RaceIntervalTarget.oneHundredToTwoHundredKmh), isFalse);
 
-    // Close the dropdown menu by selecting '0-60 mph'
-    await tester.tap(find.text('0-60 mph').last);
-    await tester.pumpAndSettle();
-
-    // 2. Metric units (isMetric = true)
+    // 2. Switch to metric
     mockProvider.isMetric = true;
     mockProvider.activeIntervalTarget = RaceIntervalTarget.oneHundredToTwoHundredKmh;
     mockProvider.notifyListeners();
     await tester.pumpAndSettle();
 
-    // Verify Dropdown button is showing '100-200 km/h'
+    // Verify selected value label is shown
     expect(find.text('100-200 km/h'), findsOneWidget);
     expect(find.text('60-130 mph'), findsNothing);
 
-    // Open the dropdown
-    await tester.tap(find.text('100-200 km/h'));
-    await tester.pumpAndSettle();
-
-    // Verify options present
-    expect(find.text('0-100 km/h').last, findsOneWidget);
-    expect(find.text('0-160 km/h').last, findsOneWidget);
-    expect(find.text('0-200 km/h').last, findsOneWidget);
-    expect(find.text('80-120 km/h').last, findsOneWidget);
-    expect(find.text('100-200 km/h').last, findsOneWidget);
-    expect(find.text('Custom Range...').last, findsOneWidget);
-    // Verify imperial options are NOT present
-    expect(find.text('0-60 mph'), findsNothing);
-    expect(find.text('0-100 mph'), findsNothing);
-    expect(find.text('50-75 mph'), findsNothing);
-    expect(find.text('60-130 mph'), findsNothing);
+    final metricItems = getDropdown().items!.map((i) => i.value).toList();
+    // Metric targets only
+    expect(metricItems.contains(RaceIntervalTarget.zeroToOneHundredKmh), isTrue);
+    expect(metricItems.contains(RaceIntervalTarget.zeroToOneSixtyKmh), isTrue);
+    expect(metricItems.contains(RaceIntervalTarget.zeroToTwoHundredKmh), isTrue);
+    expect(metricItems.contains(RaceIntervalTarget.eightyToOneTwentyKmh), isTrue);
+    expect(metricItems.contains(RaceIntervalTarget.oneHundredToTwoHundredKmh), isTrue);
+    expect(metricItems.contains(RaceIntervalTarget.custom), isTrue);
+    // Imperial targets must be absent
+    expect(metricItems.contains(RaceIntervalTarget.zeroToSixtyMph), isFalse);
+    expect(metricItems.contains(RaceIntervalTarget.zeroToOneHundredMph), isFalse);
+    expect(metricItems.contains(RaceIntervalTarget.fiftyToSeventyFiveMph), isFalse);
+    expect(metricItems.contains(RaceIntervalTarget.sixtyToOneThirtyMph), isFalse);
   });
 
   testWidgets('RunDetailScreen displays telemetry chart with data', (WidgetTester tester) async {

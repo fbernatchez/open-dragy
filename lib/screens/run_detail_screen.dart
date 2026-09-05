@@ -121,29 +121,33 @@ class RunDetailScreen extends StatelessWidget {
         }
       }
       if (!matchesAny) {
-        final unit = metrics.targetSpeedUnit ?? (isMetric ? 'kmh' : 'mph');
-        final startSpeed = !isMetric
-            ? UnitConverter.kmhToMph(metrics.targetStartSpeed!).round()
-            : metrics.targetStartSpeed!.round();
-        final endSpeed = !isMetric
-            ? UnitConverter.kmhToMph(metrics.targetEndSpeed!).round()
-            : metrics.targetEndSpeed!.round();
-        final customId = 'custom_${startSpeed}_${endSpeed}_$unit';
-        final compTime = getCompletedTimeForCategory(
-          metrics,
-          customId,
-          useNhraRules: useNhraRules,
-        );
-        if (compTime != null) {
-          final label = getDisplayLabelForTarget(
-            startSpeed: metrics.targetStartSpeed,
-            endSpeed: metrics.targetEndSpeed,
-            speedUnit: metrics.targetSpeedUnit,
-            runMode: 'interval',
+        final runIsMetric = (metrics.targetSpeedUnit ?? 'kmh') == 'kmh';
+        if (runIsMetric == isMetric) {
+          final unit = metrics.targetSpeedUnit ?? (isMetric ? 'kmh' : 'mph');
+          final isRunMetric = unit == 'kmh';
+          final startSpeed = !isRunMetric
+              ? UnitConverter.kmhToMph(metrics.targetStartSpeed!).round()
+              : metrics.targetStartSpeed!.round();
+          final endSpeed = !isRunMetric
+              ? UnitConverter.kmhToMph(metrics.targetEndSpeed!).round()
+              : metrics.targetEndSpeed!.round();
+          final customId = 'custom_${startSpeed}_${endSpeed}_$unit';
+          final compTime = getCompletedTimeForCategory(
+            metrics,
+            customId,
+            useNhraRules: useNhraRules,
           );
-          reachedMilestones.add(
-            _ReachedMilestone(label: label, time: compTime, sortTime: compTime),
-          );
+          if (compTime != null) {
+            final label = getDisplayLabelForTarget(
+              startSpeed: metrics.targetStartSpeed,
+              endSpeed: metrics.targetEndSpeed,
+              speedUnit: metrics.targetSpeedUnit,
+              runMode: 'interval',
+            );
+            reachedMilestones.add(
+              _ReachedMilestone(label: label, time: compTime, sortTime: compTime),
+            );
+          }
         }
       }
     }
@@ -204,10 +208,11 @@ class RunDetailScreen extends StatelessWidget {
       );
       primaryLabel = "$label Time";
       final unit = metrics.targetSpeedUnit ?? (isMetric ? 'kmh' : 'mph');
-      final startSpeed = !isMetric
+      final isRunMetric = unit == 'kmh';
+      final startSpeed = !isRunMetric
           ? UnitConverter.kmhToMph(metrics.targetStartSpeed!).round()
           : metrics.targetStartSpeed!.round();
-      final endSpeed = !isMetric
+      final endSpeed = !isRunMetric
           ? UnitConverter.kmhToMph(metrics.targetEndSpeed!).round()
           : metrics.targetEndSpeed!.round();
       final customId = 'custom_${startSpeed}_${endSpeed}_$unit';

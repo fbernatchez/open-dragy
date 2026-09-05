@@ -7,7 +7,7 @@ OpenDragy is a high-precision, open-source vehicle performance timer that measur
 ## ✨ Features
 
 * **High-Precision Telemetry (10Hz)**: Receives and parses binary **UBX-NAV-PVT** packets from the u-blox GPS module 10 times per second, providing precise speed, position, and satellite count directly from the chip's internal navigation solution.
-* **Real-Time G-Force Telemetry**: Streams live accelerometer data at 20Hz from the onboard BMI160 IMU for instant G-force mapping and post-run acceleration curve analysis.
+* **Real-Time G-Force Telemetry**: Streams live accelerometer data at 100Hz from the onboard BMI160 IMU for instant G-force mapping and post-run acceleration curve analysis.
 * **Zero-Crossing Interpolation**: Interpolates the exact start time (down to the millisecond) between the last stationary tick and the first launch tick, guaranteeing highly accurate launch timings.
 * **Auto-Armed Launch Control**: Automatically starts recording when speed exceeds `3.0 km/h` to bypass GPS drift/wandering, auto-stops when stationary, and auto-disarms upon completion.
 * **Wakelock Integration**: Intelligently keeps your device screen awake and active during armed and ongoing runs, so you never miss your telemetry.

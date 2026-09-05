@@ -97,12 +97,16 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
         }
 
         if (!matchesAny) {
+          final runIsMetric = (run.metrics.targetSpeedUnit ?? 'kmh') == 'kmh';
+          if (runIsMetric != isMetric) continue;
+
           final unit =
               run.metrics.targetSpeedUnit ?? (isMetric ? 'kmh' : 'mph');
-          final start = !isMetric
+          final isRunMetric = unit == 'kmh';
+          final start = !isRunMetric
               ? UnitConverter.kmhToMph(run.metrics.targetStartSpeed!).round()
               : run.metrics.targetStartSpeed!.round();
-          final end = !isMetric
+          final end = !isRunMetric
               ? UnitConverter.kmhToMph(run.metrics.targetEndSpeed!).round()
               : run.metrics.targetEndSpeed!.round();
           final customId = 'custom_${start}_${end}_$unit';
@@ -181,8 +185,17 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
     String categoryId,
     List<SavedRun> runs,
     bool useNhraRules,
+    bool isMetric,
   ) {
-    if (categoryId == 'all') return runs;
+    if (categoryId == 'all') {
+      return runs.where((run) {
+        if (run.metrics.runMode == 'interval') {
+          final runIsMetric = (run.metrics.targetSpeedUnit ?? 'kmh') == 'kmh';
+          return runIsMetric == isMetric;
+        }
+        return true;
+      }).toList();
+    }
     return runs.where((run) {
       final time = getCompletedTimeForCategory(
         run.metrics,
@@ -352,6 +365,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
       _selectedCategory,
       runs,
       useNhraRules,
+      isMetric,
     );
 
     return Scaffold(
@@ -657,10 +671,11 @@ class RunHistoryCard extends StatelessWidget {
           runMode: 'interval',
         );
         final unit = metrics.targetSpeedUnit ?? (isMetric ? 'kmh' : 'mph');
-        final start = !isMetric
+        final isRunMetric = unit == 'kmh';
+        final start = !isRunMetric
             ? UnitConverter.kmhToMph(metrics.targetStartSpeed!).round()
             : metrics.targetStartSpeed!.round();
-        final end = !isMetric
+        final end = !isRunMetric
             ? UnitConverter.kmhToMph(metrics.targetEndSpeed!).round()
             : metrics.targetEndSpeed!.round();
         final customId = 'custom_${start}_${end}_$unit';

@@ -28,7 +28,7 @@ bool otaRebootPending = false;
 #define CHARACTERISTIC_UUID_OTA_CTRL "6e400006-b5a3-f393-e0a9-e50e24dcca9e"
 #define CHARACTERISTIC_UUID_OTA_DATA "6e400007-b5a3-f393-e0a9-e50e24dcca9e"
 
-#define FIRMWARE_VERSION "1.0.2"
+#define FIRMWARE_VERSION "1.0.3"
 
 // RTOS Queue for GPS packets
 QueueHandle_t gpsQueue;
@@ -327,16 +327,36 @@ void bleNotifyTask(void *parameter) {
 
 // RTOS Task: IMU polling
 void imuTask(void *parameter) {
+  float filteredAx = 0.0f;
+  float filteredAy = 0.0f;
+  float filteredAz = 0.0f;
+  const float alpha =
+      0.2f; // EMA smoothing factor (0.0 to 1.0). Lower is smoother.
+  bool filterInitialized = false;
+
   while (1) {
     if (deviceConnected && imuReady) {
       int16_t accelGyro[6] = {0};
       bmi160.getAccelGyroData(accelGyro);
 
+      if (!filterInitialized) {
+        filteredAx = accelGyro[3];
+        filteredAy = accelGyro[4];
+        filteredAz = accelGyro[5];
+        filterInitialized = true;
+      } else {
+        filteredAx = (alpha * accelGyro[3]) + ((1.0f - alpha) * filteredAx);
+        filteredAy = (alpha * accelGyro[4]) + ((1.0f - alpha) * filteredAy);
+        filteredAz = (alpha * accelGyro[5]) + ((1.0f - alpha) * filteredAz);
+      }
+
       char imuData[32];
-      snprintf(imuData, sizeof(imuData), "%d,%d,%d\n", accelGyro[3],
-               accelGyro[4], accelGyro[5]);
+      snprintf(imuData, sizeof(imuData), "%d,%d,%d\n", (int16_t)filteredAx,
+               (int16_t)filteredAy, (int16_t)filteredAz);
       pImuCharacteristic->setValue((uint8_t *)imuData, strlen(imuData));
       pImuCharacteristic->notify();
+    } else {
+      filterInitialized = false; // Reset filter state on disconnect
     }
     vTaskDelay(pdMS_TO_TICKS(10)); // 100Hz IMU rate
   }
