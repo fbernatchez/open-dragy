@@ -166,7 +166,7 @@ class SettingsScreen extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Text(
-                'Recommended firmware: v${SettingsScreen.minRecommendedFirmware} or higher for this app version. Do not unplug the device during the update.',
+                'Recommended firmware: v${SettingsScreen.minRecommendedFirmware} or higher for this app version.',
                 style: GoogleFonts.roboto(color: Colors.white38, fontSize: 11),
                 textAlign: TextAlign.center,
               ),
