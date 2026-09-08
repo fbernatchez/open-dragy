@@ -2,27 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../providers/dragy_provider.dart';
+import '../widgets/firmware_update_dialog.dart';
+import '../services/firmware_service.dart';
 
 class SettingsScreen extends StatelessWidget {
-  static const String minRecommendedFirmware = "1.0.3";
+  static const String minRecommendedFirmware = FirmwareService.minRecommendedFirmware;
 
-  static bool isUpdateAvailable(String currentVersion) {
-    if (currentVersion.isEmpty) return false;
-    final p1 = currentVersion
-        .split('.')
-        .map((e) => int.tryParse(e) ?? 0)
-        .toList();
-    final p2 = minRecommendedFirmware
-        .split('.')
-        .map((e) => int.tryParse(e) ?? 0)
-        .toList();
-
-    for (int i = 0; i < p1.length && i < p2.length; i++) {
-      if (p1[i] < p2[i]) return true;
-      if (p1[i] > p2[i]) return false;
-    }
-    return p1.length < p2.length;
-  }
+  static bool isUpdateAvailable(String currentVersion) =>
+      FirmwareService.isUpdateAvailable(currentVersion);
 
   const SettingsScreen({super.key});
 
@@ -179,7 +166,7 @@ class SettingsScreen extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Text(
-                'Recommended firmware: v${SettingsScreen.minRecommendedFirmware} or higher for this app version.',
+                'Recommended firmware: v${SettingsScreen.minRecommendedFirmware} or higher for this app version. Do not unplug the device during the update.',
                 style: GoogleFonts.roboto(color: Colors.white38, fontSize: 11),
                 textAlign: TextAlign.center,
               ),
@@ -208,83 +195,6 @@ class SettingsScreen extends StatelessWidget {
       builder: (context) {
         return const FirmwareUpdateDialog();
       },
-    );
-  }
-}
-
-class FirmwareUpdateDialog extends StatefulWidget {
-  const FirmwareUpdateDialog({super.key});
-
-  @override
-  State<FirmwareUpdateDialog> createState() => _FirmwareUpdateDialogState();
-}
-
-class _FirmwareUpdateDialogState extends State<FirmwareUpdateDialog> {
-  String status = "Initializing...";
-  double progress = 0.0;
-  bool isError = false;
-  bool isComplete = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _startUpdate();
-  }
-
-  Future<void> _startUpdate() async {
-    final dragy = Provider.of<DragyProvider>(context, listen: false);
-    try {
-      setState(() {
-        status = "Fetching firmware manifest...";
-      });
-      await dragy.performFirmwareUpdate(SettingsScreen.minRecommendedFirmware, (
-        p,
-      ) {
-        setState(() {
-          status = "Flashing...";
-          progress = p;
-        });
-      });
-      setState(() {
-        status = "Update complete! Device restarting.";
-        isComplete = true;
-      });
-    } catch (e) {
-      setState(() {
-        status = "Error: $e";
-        isError = true;
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      backgroundColor: const Color(0xFF222222),
-      title: const Text(
-        'Firmware Update',
-        style: TextStyle(color: Colors.white),
-      ),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(status, style: const TextStyle(color: Colors.white70)),
-          const SizedBox(height: 20),
-          if (!isError && !isComplete)
-            LinearProgressIndicator(
-              value: progress > 0 ? progress : null,
-              backgroundColor: Colors.white12,
-              valueColor: const AlwaysStoppedAnimation<Color>(Colors.blue),
-            ),
-        ],
-      ),
-      actions: [
-        if (isError || isComplete)
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
-          ),
-      ],
     );
   }
 }

@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../providers/dragy_provider.dart';
 import '../models/saved_run.dart';
-import '../models/race_target.dart';
 import '../utils/unit_converter.dart';
 import 'run_detail_screen.dart';
 
@@ -81,7 +80,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
         }
       }
 
-      if (run.metrics.runMode == 'interval' &&
+      if (run.metrics.runMode == RunMode.interval &&
           run.metrics.targetStartSpeed != null &&
           run.metrics.targetEndSpeed != null) {
         bool matchesAny = false;
@@ -90,19 +89,20 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
               (run.metrics.targetStartSpeed! - test.startSpeed!).abs() < 0.1 &&
               test.endSpeed != null &&
               (run.metrics.targetEndSpeed! - test.endSpeed!).abs() < 0.1 &&
-              run.metrics.targetSpeedUnit == test.speedUnit?.name) {
+              run.metrics.targetSpeedUnit == test.speedUnit) {
             matchesAny = true;
             break;
           }
         }
 
         if (!matchesAny) {
-          final runIsMetric = (run.metrics.targetSpeedUnit ?? 'kmh') == 'kmh';
+          final runIsMetric = (run.metrics.targetSpeedUnit ?? SpeedUnit.kmh) == SpeedUnit.kmh;
           if (runIsMetric != isMetric) continue;
 
-          final unit =
-              run.metrics.targetSpeedUnit ?? (isMetric ? 'kmh' : 'mph');
-          final isRunMetric = unit == 'kmh';
+          final unitEnum =
+              run.metrics.targetSpeedUnit ?? (isMetric ? SpeedUnit.kmh : SpeedUnit.mph);
+          final unit = unitEnum.name;
+          final isRunMetric = unitEnum == SpeedUnit.kmh;
           final start = !isRunMetric
               ? UnitConverter.kmhToMph(run.metrics.targetStartSpeed!).round()
               : run.metrics.targetStartSpeed!.round();
@@ -116,7 +116,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
               startSpeed: run.metrics.targetStartSpeed,
               endSpeed: run.metrics.targetEndSpeed,
               speedUnit: run.metrics.targetSpeedUnit,
-              runMode: 'interval',
+              runMode: RunMode.interval,
             );
             categories.add(
               HistoryCategory(
@@ -125,9 +125,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                 isOfficial: false,
                 startSpeed: run.metrics.targetStartSpeed,
                 endSpeed: run.metrics.targetEndSpeed,
-                speedUnit: run.metrics.targetSpeedUnit == 'mph'
-                    ? SpeedUnit.mph
-                    : SpeedUnit.kmh,
+                speedUnit: unitEnum,
               ),
             );
           }
@@ -189,8 +187,8 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
   ) {
     if (categoryId == 'all') {
       return runs.where((run) {
-        if (run.metrics.runMode == 'interval') {
-          final runIsMetric = (run.metrics.targetSpeedUnit ?? 'kmh') == 'kmh';
+        if (run.metrics.runMode == RunMode.interval) {
+          final runIsMetric = (run.metrics.targetSpeedUnit ?? SpeedUnit.kmh) == SpeedUnit.kmh;
           return runIsMetric == isMetric;
         }
         return true;
@@ -661,17 +659,19 @@ class RunHistoryCard extends StatelessWidget {
       }
 
       if (maxTime < 0 &&
-          metrics.runMode == 'interval' &&
+          metrics.runMode == RunMode.interval &&
           metrics.targetStartSpeed != null &&
           metrics.targetEndSpeed != null) {
         primaryLabel = getDisplayLabelForTarget(
           startSpeed: metrics.targetStartSpeed,
           endSpeed: metrics.targetEndSpeed,
           speedUnit: metrics.targetSpeedUnit,
-          runMode: 'interval',
+          runMode: RunMode.interval,
         );
-        final unit = metrics.targetSpeedUnit ?? (isMetric ? 'kmh' : 'mph');
-        final isRunMetric = unit == 'kmh';
+        final unitEnum =
+            metrics.targetSpeedUnit ?? (isMetric ? SpeedUnit.kmh : SpeedUnit.mph);
+        final unit = unitEnum.name;
+        final isRunMetric = unitEnum == SpeedUnit.kmh;
         final start = !isRunMetric
             ? UnitConverter.kmhToMph(metrics.targetStartSpeed!).round()
             : metrics.targetStartSpeed!.round();

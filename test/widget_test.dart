@@ -103,7 +103,7 @@ class MockDragyProvider extends ChangeNotifier implements DragyProvider {
   bool isArmed = false;
 
   @override
-  String runMode = 'drag';
+  RunMode runMode = RunMode.drag;
 
   @override
   RaceIntervalTarget activeIntervalTarget = RaceIntervalTarget.sixtyToOneThirtyMph;
@@ -134,7 +134,7 @@ class MockDragyProvider extends ChangeNotifier implements DragyProvider {
 
   @override
   double? get targetDistance {
-    if (runMode != 'drag') return null;
+    if (runMode != RunMode.drag) return null;
     switch (activeDragTarget) {
       case RaceDragTarget.sixtyFeet: return 60.0;
       case RaceDragTarget.threeHundredThirtyFeet: return 330.0;
@@ -146,39 +146,20 @@ class MockDragyProvider extends ChangeNotifier implements DragyProvider {
   }
 
   @override
-  String? get targetDistanceUnit {
-    if (runMode != 'drag') return null;
-    switch (activeDragTarget) {
-      case RaceDragTarget.sixtyFeet: return 'feet';
-      case RaceDragTarget.threeHundredThirtyFeet: return 'feet';
-      case RaceDragTarget.eighthMile: return 'mile';
-      case RaceDragTarget.thousandFeet: return 'feet';
-      case RaceDragTarget.quarterMile: return 'mile';
-      case RaceDragTarget.halfMile: return 'mile';
-    }
-  }
+  DistanceUnit? get targetDistanceUnit =>
+      runMode == RunMode.drag ? activeDragTarget.distanceUnit : null;
 
   @override
-  double? get targetStartSpeed => runMode == 'interval' ? intervalStartSpeed : null;
+  double? get targetStartSpeed => runMode == RunMode.interval ? intervalStartSpeed : null;
 
   @override
-  double? get targetEndSpeed => runMode == 'interval' ? intervalEndSpeed : null;
+  double? get targetEndSpeed => runMode == RunMode.interval ? intervalEndSpeed : null;
 
   @override
-  String? get targetSpeedUnit {
-    if (runMode != 'interval') return null;
-    switch (activeIntervalTarget) {
-      case RaceIntervalTarget.zeroToSixtyMph:
-      case RaceIntervalTarget.fiftyToSeventyFiveMph:
-      case RaceIntervalTarget.sixtyToOneThirtyMph:
-        return 'mph';
-      case RaceIntervalTarget.zeroToOneHundredKmh:
-      case RaceIntervalTarget.eightyToOneTwentyKmh:
-      case RaceIntervalTarget.oneHundredToTwoHundredKmh:
-        return 'kmh';
-      default:
-        return isMetric ? 'kmh' : 'mph';
-    }
+  SpeedUnit? get targetSpeedUnit {
+    if (runMode != RunMode.interval) return null;
+    return activeIntervalTarget.speedUnit ??
+        (isMetric ? SpeedUnit.kmh : SpeedUnit.mph);
   }
 
   @override
@@ -191,7 +172,7 @@ class MockDragyProvider extends ChangeNotifier implements DragyProvider {
   }
 
   @override
-  void setRunMode(String mode) {
+  void setRunMode(RunMode mode) {
     runMode = mode;
     notifyListeners();
   }
@@ -365,7 +346,7 @@ void main() {
     // 2a. Connected & Stationary, GPS not ready (0 satellites, 0.0 hdop)
     mockProvider.updateState(
       isConnected: true,
-      metrics: RaceMetrics(speedKmh: 0.0, isRunning: false, runMode: 'drag'),
+      metrics: RaceMetrics(speedKmh: 0.0, isRunning: false, runMode: RunMode.drag),
       satellites: 0,
       hdop: 0.0,
     );
@@ -375,7 +356,7 @@ void main() {
     // 2b. Connected & Stationary, GPS ready (8 satellites, 1.2 hdop)
     mockProvider.updateState(
       isConnected: true,
-      metrics: RaceMetrics(speedKmh: 0.0, isRunning: false, runMode: 'drag'),
+      metrics: RaceMetrics(speedKmh: 0.0, isRunning: false, runMode: RunMode.drag),
       satellites: 8,
       hdop: 1.2,
     );
@@ -385,7 +366,7 @@ void main() {
     // 3. Connected & Moving (Disarmed) State
     mockProvider.updateState(
       isConnected: true,
-      metrics: RaceMetrics(speedKmh: 10.0, isRunning: false, runMode: 'drag'),
+      metrics: RaceMetrics(speedKmh: 10.0, isRunning: false, runMode: RunMode.drag),
       satellites: 8,
       hdop: 1.2,
     );
@@ -396,10 +377,10 @@ void main() {
 
     // 3b. Connected, Armed, but Moving (Stop) State in drag mode
     mockProvider.isArmed = true;
-    mockProvider.runMode = 'drag';
+    mockProvider.runMode = RunMode.drag;
     mockProvider.updateState(
       isConnected: true,
-      metrics: RaceMetrics(speedKmh: 15.0, isRunning: false, runMode: 'drag'),
+      metrics: RaceMetrics(speedKmh: 15.0, isRunning: false, runMode: RunMode.drag),
       satellites: 8,
       hdop: 1.2,
     );
@@ -409,7 +390,7 @@ void main() {
     // 3c. Connected, Armed, and Stationary (Awaiting Launch) State in drag mode
     mockProvider.updateState(
       isConnected: true,
-      metrics: RaceMetrics(speedKmh: 0.0, isRunning: false, runMode: 'drag'),
+      metrics: RaceMetrics(speedKmh: 0.0, isRunning: false, runMode: RunMode.drag),
       satellites: 8,
       hdop: 1.2,
     );
@@ -421,7 +402,7 @@ void main() {
     // 4. Running State (Live Elapsed Time)
     mockProvider.updateState(
       isConnected: true,
-      metrics: RaceMetrics(speedKmh: 50.0, isRunning: true, runMode: 'drag'),
+      metrics: RaceMetrics(speedKmh: 50.0, isRunning: true, runMode: RunMode.drag),
       liveElapsedTime: 3.45,
       satellites: 8,
       hdop: 1.2,
@@ -438,7 +419,7 @@ void main() {
         speedKmh: 0.0,
         isRunning: false,
         time14Mile: 12.34,
-        runMode: 'drag',
+        runMode: RunMode.drag,
       ),
       satellites: 8,
       hdop: 1.2,
@@ -464,9 +445,9 @@ void main() {
         elapsedTime: 11.45,
         time0to60mph: 3.42,
         time14Mile: 11.45,
-        runMode: 'drag',
+        runMode: RunMode.drag,
         targetDistance: 0.25,
-        targetDistanceUnit: 'mile',
+        targetDistanceUnit: DistanceUnit.mile,
         history: [],
       ),
     );
@@ -480,10 +461,10 @@ void main() {
         distanceMeters: 100.0,
         elapsedTime: 2.92,
         time0to60mph: 2.92,
-        runMode: 'drag',
+        runMode: RunMode.drag,
         targetStartSpeed: 0.0,
         targetEndSpeed: 96.56064,
-        targetSpeedUnit: 'mph',
+        targetSpeedUnit: SpeedUnit.mph,
         history: [],
       ),
     );
@@ -496,10 +477,10 @@ void main() {
         speedKmh: 0.0,
         distanceMeters: 150.0,
         elapsedTime: 2.15,
-        runMode: 'interval',
+        runMode: RunMode.interval,
         targetStartSpeed: 48.28032,
         targetEndSpeed: 80.4672,
-        targetSpeedUnit: 'mph',
+        targetSpeedUnit: SpeedUnit.mph,
         history: const [
           DataPoint(elapsedTime: -0.01, speedKmh: 47.28032, gForce: 0.0, altitude: 100.0),
           DataPoint(elapsedTime: 0.0, speedKmh: 48.28032, gForce: 0.0, altitude: 100.0),
@@ -577,10 +558,10 @@ void main() {
         speedKmh: 0.0,
         distanceMeters: 100.0,
         elapsedTime: 3.50,
-        runMode: 'interval',
+        runMode: RunMode.interval,
         targetStartSpeed: 80.0,
         targetEndSpeed: 120.0,
-        targetSpeedUnit: 'kmh',
+        targetSpeedUnit: SpeedUnit.kmh,
         history: const [
           DataPoint(elapsedTime: 0.0, speedKmh: 80.0, gForce: 0.0, altitude: 100.0),
           DataPoint(elapsedTime: 3.50, speedKmh: 120.0, gForce: 0.0, altitude: 100.0),
@@ -596,10 +577,10 @@ void main() {
         distanceMeters: 200.0,
         elapsedTime: 7.20,
         time60to130mph: 7.20,
-        runMode: 'interval',
+        runMode: RunMode.interval,
         targetStartSpeed: 96.56064,
         targetEndSpeed: 209.21472,
-        targetSpeedUnit: 'mph',
+        targetSpeedUnit: SpeedUnit.mph,
         history: const [
           DataPoint(elapsedTime: 0.0, speedKmh: 96.56064, gForce: 0.0, altitude: 100.0),
           DataPoint(elapsedTime: 7.20, speedKmh: 209.21472, gForce: 0.0, altitude: 100.0),
@@ -720,7 +701,7 @@ void main() {
   testWidgets('Dashboard rolling target dropdown filtering by unit setting test', (WidgetTester tester) async {
     final mockProvider = MockDragyProvider();
     mockProvider.isConnected = true;
-    mockProvider.runMode = 'interval';
+    mockProvider.runMode = RunMode.interval;
 
     // 1. Imperial units (isMetric = false)
     mockProvider.isMetric = false;
@@ -848,7 +829,7 @@ void main() {
         speedKmh: 0.0,
         distanceMeters: 0.0,
         elapsedTime: 0.0,
-        runMode: 'drag',
+        runMode: RunMode.drag,
         history: const [],
       ),
     );
@@ -904,6 +885,7 @@ void main() {
 
     expect(savedRun.id, 'run_123');
     expect(savedRun.metrics.speedKmh, 100.0);
+    expect(savedRun.metrics.runMode, RunMode.drag);
     expect(savedRun.metrics.history.length, 2);
     expect(savedRun.metrics.history[1].speedKmh, 50.0);
   });

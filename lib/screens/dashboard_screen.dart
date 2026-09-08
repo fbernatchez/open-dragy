@@ -3,8 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../providers/dragy_provider.dart';
-import '../models/race_target.dart';
 import '../widgets/device_selector_modal.dart';
+import '../widgets/firmware_update_dialog.dart';
+import '../services/firmware_service.dart';
 import 'run_history_screen.dart';
 import 'garage_screen.dart';
 import 'settings_screen.dart';
@@ -52,7 +53,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (_dragyProviderRef!.isConnected &&
         _dragyProviderRef!.firmwareVersion.isNotEmpty &&
         !_hasPromptedUpdate) {
-      if (_isUpdateAvailable(_dragyProviderRef!.firmwareVersion)) {
+      if (FirmwareService.isUpdateAvailable(_dragyProviderRef!.firmwareVersion)) {
         if (ModalRoute.of(context)?.isCurrent == true) {
           _hasPromptedUpdate = true;
           _showUpdatePromptDialog();
@@ -63,66 +64,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  bool _isUpdateAvailable(String currentVersion) {
-    final p1 = currentVersion
-        .split('.')
-        .map((e) => int.tryParse(e) ?? 0)
-        .toList();
-    final p2 = SettingsScreen.minRecommendedFirmware
-        .split('.')
-        .map((e) => int.tryParse(e) ?? 0)
-        .toList();
-
-    for (int i = 0; i < p1.length && i < p2.length; i++) {
-      if (p1[i] < p2[i]) return true;
-      if (p1[i] > p2[i]) return false;
-    }
-    if (p1.length < p2.length) return true;
-    return false;
-  }
-
   void _showUpdatePromptDialog() {
     showDialog(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: const Color(0xFF222222),
-          title: const Text(
-            'Firmware Update Available',
-            style: TextStyle(color: Colors.white),
-          ),
-          content: const Text(
-            'A newer firmware version is recommended for optimal performance with this app version. Would you like to update now?',
-            style: TextStyle(color: Colors.white70),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text(
-                'Later',
-                style: TextStyle(color: Colors.white54),
-              ),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1565C0),
-              ),
-              onPressed: () {
-                Navigator.of(context).pop();
-                showDialog(
-                  context: context,
-                  barrierDismissible: false,
-                  builder: (context) => const FirmwareUpdateDialog(),
-                );
-              },
-              child: const Text(
-                'Update Now',
-                style: TextStyle(color: Colors.white),
-              ),
-            ),
-          ],
-        );
-      },
+      barrierDismissible: false,
+      builder: (context) => const FirmwareUpdateDialog(),
     );
   }
 
@@ -170,7 +116,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       statusKey = "running";
     } else {
       double? completedTime;
-      if (dragy.runMode == 'interval') {
+      if (dragy.runMode == RunMode.interval) {
         String intervalId = dragy.activeIntervalTarget.id;
         if (dragy.activeIntervalTarget == RaceIntervalTarget.custom) {
           final unit = isMetric ? 'kmh' : 'mph';
@@ -221,13 +167,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
           textColor = Colors.amberAccent;
           statusKey = "waiting_gps";
         } else if (dragy.isArmed) {
-          if (dragy.runMode == 'drag' && metrics.speedKmh > 0.0) {
+          if (dragy.runMode == RunMode.drag && metrics.speedKmh > 0.0) {
             mainTime = "Stop";
             fontSize = 60.0;
             textColor = Colors.redAccent;
             statusKey = "stop";
           } else {
-            mainTime = dragy.runMode == 'drag'
+            mainTime = dragy.runMode == RunMode.drag
                 ? "Awaiting Launch"
                 : "Awaiting Speed";
             fontSize = 32.0;
@@ -256,7 +202,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     // Collect reached milestones sorted by completion time ascending
     final List<_ReachedMilestone> reachedMilestones = [];
 
-    if (dragy.runMode == 'drag') {
+    if (dragy.runMode == RunMode.drag) {
       final completed = getCompletedTests(
         metrics,
         useNhraRules: dragy.useNhraRules,
@@ -320,7 +266,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           startSpeed: metrics.targetStartSpeed,
           endSpeed: metrics.targetEndSpeed,
           speedUnit: metrics.targetSpeedUnit,
-          runMode: 'interval',
+          runMode: RunMode.interval,
         );
         reachedMilestones.add(
           _ReachedMilestone(
@@ -711,20 +657,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               children: [
                                 _ModeButton(
                                   label: 'DRAG',
-                                  isActive: dragy.runMode == 'drag',
-                                  onTap: () => dragy.setRunMode('drag'),
+                                  isActive: dragy.runMode == RunMode.drag,
+                                  onTap: () => dragy.setRunMode(RunMode.drag),
                                 ),
                                 _ModeButton(
                                   label: 'INTERVAL',
-                                  isActive: dragy.runMode == 'interval',
-                                  onTap: () => dragy.setRunMode('interval'),
+                                  isActive: dragy.runMode == RunMode.interval,
+                                  onTap: () => dragy.setRunMode(RunMode.interval),
                                 ),
                               ],
                             ),
                           ),
                           const SizedBox(height: 12),
                           // Target Selector
-                          if (dragy.runMode == 'drag')
+                          if (dragy.runMode == RunMode.drag)
                             Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 16,

@@ -23,7 +23,7 @@ class FirmwareService {
     // Filter available versions to only those <= requestedVersion
     final availableVersions = manifestData.where((entry) {
       final String entryVersion = entry['version'];
-      return _compareVersions(entryVersion, requestedVersion) <= 0;
+      return compareVersions(entryVersion, requestedVersion) <= 0;
     }).toList();
 
     if (availableVersions.isEmpty) {
@@ -31,7 +31,7 @@ class FirmwareService {
     }
 
     // Sort descending and pick the highest available
-    availableVersions.sort((a, b) => _compareVersions(b['version'], a['version']));
+    availableVersions.sort((a, b) => compareVersions(b['version'], a['version']));
     final bestMatch = availableVersions.first;
 
     final String firmwareUrl = bestMatch['url'];
@@ -46,12 +46,20 @@ class FirmwareService {
     return firmwareResponse.bodyBytes;
   }
 
+  static const String minRecommendedFirmware = "1.0.3";
+
+  /// Checks whether [currentVersion] is lower than [minRecommendedFirmware]
+  static bool isUpdateAvailable(String currentVersion) {
+    if (currentVersion.isEmpty) return false;
+    return compareVersions(currentVersion, minRecommendedFirmware) < 0;
+  }
+
   /// Helper to compare two semantic version strings (e.g., "1.0.2" and "1.0.4")
   /// Returns:
   ///   < 0 if v1 < v2
   ///     0 if v1 == v2
   ///   > 0 if v1 > v2
-  int _compareVersions(String v1, String v2) {
+  static int compareVersions(String v1, String v2) {
     final p1 = v1.split('.').map((e) => int.tryParse(e) ?? 0).toList();
     final p2 = v2.split('.').map((e) => int.tryParse(e) ?? 0).toList();
 

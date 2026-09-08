@@ -1,3 +1,5 @@
+import 'package:open_dragy/models/race_target.dart';
+
 import '../models/race_metrics.dart';
 
 class PhysicsEngine {
@@ -28,12 +30,12 @@ class PhysicsEngine {
     double newSpeedKmh,
     double currentAltitude, {
     required bool isArmed,
-    required String runMode,
+    required RunMode runMode,
     required double? targetDistance,
-    required String? targetDistanceUnit,
+    required DistanceUnit? targetDistanceUnit,
     required double? targetStartSpeed,
     required double? targetEndSpeed,
-    required String? targetSpeedUnit,
+    required SpeedUnit? targetSpeedUnit,
     required double intervalStartSpeed,
     required double intervalEndSpeed,
     double? gpsTimeSeconds,
@@ -121,7 +123,7 @@ class PhysicsEngine {
     }
 
     if (!current.isRunning) {
-      if (runMode == 'drag') {
+      if (runMode == RunMode.drag) {
         // Armed state
         if (newSpeedKmh == 0.0) {
           return current.copyWith(
@@ -134,7 +136,7 @@ class PhysicsEngine {
             startAltitude: current.history.isNotEmpty
                 ? current.startAltitude
                 : currentAltitude,
-            runMode: 'drag',
+            runMode: RunMode.drag,
             targetDistance: targetDistance,
             targetDistanceUnit: targetDistanceUnit,
             targetStartSpeed: targetStartSpeed,
@@ -148,7 +150,7 @@ class PhysicsEngine {
           current,
           newSpeedKmh,
           currentAltitude,
-          runMode: 'drag',
+          runMode: RunMode.drag,
           targetDistance: targetDistance,
           targetDistanceUnit: targetDistanceUnit,
           targetStartSpeed: targetStartSpeed,
@@ -172,7 +174,7 @@ class PhysicsEngine {
           startAltitude: current.history.isNotEmpty
               ? current.startAltitude
               : currentAltitude,
-          runMode: 'drag',
+          runMode: RunMode.drag,
           targetDistance: targetDistance,
           targetDistanceUnit: targetDistanceUnit,
           targetStartSpeed: targetStartSpeed,
@@ -186,7 +188,7 @@ class PhysicsEngine {
             current,
             newSpeedKmh,
             currentAltitude,
-            runMode: 'interval',
+            runMode: RunMode.interval,
             targetDistance: targetDistance,
             targetDistanceUnit: targetDistanceUnit,
             targetStartSpeed: targetStartSpeed,
@@ -221,7 +223,7 @@ class PhysicsEngine {
                 speedKmh: newSpeedKmh,
                 gForce: smoothedGForce,
                 startAltitude: currentAltitude,
-                runMode: 'interval',
+                runMode: RunMode.interval,
                 targetDistance: targetDistance,
                 targetDistanceUnit: targetDistanceUnit,
                 targetStartSpeed: targetStartSpeed,
@@ -260,7 +262,7 @@ class PhysicsEngine {
           startAltitude: current.history.isNotEmpty
               ? current.startAltitude
               : currentAltitude,
-          runMode: 'interval',
+          runMode: RunMode.interval,
           targetDistance: targetDistance,
           targetDistanceUnit: targetDistanceUnit,
           targetStartSpeed: targetStartSpeed,
@@ -270,7 +272,7 @@ class PhysicsEngine {
       }
     } else {
       // 4. Already running, just integrate normally
-      if (runMode == 'drag') {
+      if (runMode == RunMode.drag) {
         // Auto-stop logic: if we are fully stopped for 2 seconds, finish/cancel the run
         if (newSpeedKmh < 3.0) {
           _stoppedTicks++;
@@ -649,13 +651,19 @@ class PhysicsEngine {
     bool targetAchieved = false;
     if (current.targetDistance != null && current.targetDistanceUnit != null) {
       double targetDistanceMeters = current.targetDistance!;
-      final unit = current.targetDistanceUnit!.toLowerCase();
-      if (unit == 'feet') {
-        targetDistanceMeters = current.targetDistance! * 0.3048;
-      } else if (unit == 'mile') {
-        targetDistanceMeters = current.targetDistance! * 1609.344;
-      } else if (unit == 'kilometer') {
-        targetDistanceMeters = current.targetDistance! * 1000.0;
+      switch (current.targetDistanceUnit!) {
+        case DistanceUnit.feet:
+          targetDistanceMeters = current.targetDistance! * 0.3048;
+          break;
+        case DistanceUnit.mile:
+          targetDistanceMeters = current.targetDistance! * 1609.344;
+          break;
+        case DistanceUnit.meter:
+          targetDistanceMeters = current.targetDistance!;
+          break;
+        case DistanceUnit.kilometer:
+          targetDistanceMeters = current.targetDistance! * 1000.0;
+          break;
       }
       // Add 1ft (0.3048m) to allow for NHRA rollout calculations to complete
       if (newDistance >= targetDistanceMeters + 0.3048) {
@@ -755,24 +763,24 @@ class PhysicsEngine {
     if (current.targetStartSpeed != null && current.targetEndSpeed != null) {
       if ((current.targetStartSpeed! - 96.56).abs() < 1.0 &&
           (current.targetEndSpeed! - 209.21).abs() < 1.0 &&
-          current.targetSpeedUnit == 'mph') {
+          current.targetSpeedUnit == SpeedUnit.mph) {
         t60_130 = newElapsedTimeCalculated;
       } else if ((current.targetStartSpeed! - 100.0).abs() < 0.1 &&
           (current.targetEndSpeed! - 200.0).abs() < 0.1 &&
-          current.targetSpeedUnit == 'kmh') {
+          current.targetSpeedUnit == SpeedUnit.kmh) {
         t100_200 = newElapsedTimeCalculated;
       } else if (current.targetStartSpeed == 0.0) {
         if ((current.targetEndSpeed! - 96.56).abs() < 1.0 &&
-            current.targetSpeedUnit == 'mph') {
+            current.targetSpeedUnit == SpeedUnit.mph) {
           t0_60mph = newElapsedTimeCalculated;
         } else if ((current.targetEndSpeed! - 100.0).abs() < 0.1 &&
-            current.targetSpeedUnit == 'kmh') {
+            current.targetSpeedUnit == SpeedUnit.kmh) {
           t0_100kmh = newElapsedTimeCalculated;
         } else if ((current.targetEndSpeed! - 209.21).abs() < 1.0 &&
-            current.targetSpeedUnit == 'mph') {
+            current.targetSpeedUnit == SpeedUnit.mph) {
           t0_130mph = newElapsedTimeCalculated;
         } else if ((current.targetEndSpeed! - 200.0).abs() < 0.1 &&
-            current.targetSpeedUnit == 'kmh') {
+            current.targetSpeedUnit == SpeedUnit.kmh) {
           t0_200kmh = newElapsedTimeCalculated;
         }
       }
@@ -799,12 +807,12 @@ class PhysicsEngine {
     RaceMetrics current,
     double newSpeedKmh,
     double currentAltitude, {
-    required String runMode,
+    required RunMode runMode,
     required double? targetDistance,
-    required String? targetDistanceUnit,
+    required DistanceUnit? targetDistanceUnit,
     required double? targetStartSpeed,
     required double? targetEndSpeed,
-    required String? targetSpeedUnit,
+    required SpeedUnit? targetSpeedUnit,
     required double currentDt,
   }) {
     if (newSpeedKmh > launchCommitThreshold && _preRunBuffer.length >= 2) {

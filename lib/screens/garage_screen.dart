@@ -615,7 +615,6 @@ class _StyledField extends StatelessWidget {
   final String hint;
   final TextInputType keyboardType;
   final String? Function(String?)? validator;
-  final TextCapitalization textCapitalization;
 
   const _StyledField({
     required this.controller,
@@ -623,7 +622,6 @@ class _StyledField extends StatelessWidget {
     required this.hint,
     this.keyboardType = TextInputType.text,
     this.validator,
-    this.textCapitalization = TextCapitalization.words,
   });
 
   @override
@@ -632,7 +630,7 @@ class _StyledField extends StatelessWidget {
       controller: controller,
       maxLines: 1,
       keyboardType: keyboardType,
-      textCapitalization: textCapitalization,
+      textCapitalization: TextCapitalization.words,
       validator: validator,
       style: const TextStyle(color: Colors.white, fontSize: 15),
       cursorColor: const Color(0xFFFFBF00),

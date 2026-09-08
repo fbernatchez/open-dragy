@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 
+import 'package:open_dragy/models/race_target.dart';
+
 class DataPoint {
   final double elapsedTime;
   final double speedKmh;
@@ -75,12 +77,12 @@ class RaceMetrics {
   final double? startAltitude; // Start elevation in meters
 
   // Mode & Target Info
-  final String? runMode; // 'drag' or 'interval'
+  final RunMode? runMode;
   final double? targetDistance;
-  final String? targetDistanceUnit;
+  final DistanceUnit? targetDistanceUnit;
   final double? targetStartSpeed;
   final double? targetEndSpeed;
-  final String? targetSpeedUnit;
+  final SpeedUnit? targetSpeedUnit;
 
   final bool isRunning;
   final List<DataPoint> history;
@@ -163,12 +165,12 @@ class RaceMetrics {
     double? time0to130mph,
     double? time0to200kmh,
     double? startAltitude,
-    String? runMode,
+    RunMode? runMode,
     double? targetDistance,
-    String? targetDistanceUnit,
+    DistanceUnit? targetDistanceUnit,
     double? targetStartSpeed,
     double? targetEndSpeed,
-    String? targetSpeedUnit,
+    SpeedUnit? targetSpeedUnit,
     bool? isRunning,
     List<DataPoint>? history,
   }) {
@@ -246,12 +248,12 @@ class RaceMetrics {
       'time0to130mph': time0to130mph,
       'time0to200kmh': time0to200kmh,
       'startAltitude': startAltitude,
-      'runMode': runMode,
+      'runMode': runMode?.name,
       'targetDistance': targetDistance,
-      'targetDistanceUnit': targetDistanceUnit,
+      'targetDistanceUnit': targetDistanceUnit?.name,
       'targetStartSpeed': targetStartSpeed,
       'targetEndSpeed': targetEndSpeed,
-      'targetSpeedUnit': targetSpeedUnit,
+      'targetSpeedUnit': targetSpeedUnit?.name,
       'history': history.map((e) => e.toJson()).toList(),
     };
   }
@@ -340,18 +342,24 @@ class RaceMetrics {
       startAltitude: json['startAltitude'] != null
           ? (json['startAltitude'] as num).toDouble()
           : null,
-      runMode: json['runMode'] as String?,
+      runMode: json['runMode'] != null
+          ? RunMode.values.asNameMap()[json['runMode']]
+          : null,
       targetDistance: json['targetDistance'] != null
           ? (json['targetDistance'] as num).toDouble()
           : null,
-      targetDistanceUnit: json['targetDistanceUnit'] as String?,
+      targetDistanceUnit: json['targetDistanceUnit'] != null
+          ? DistanceUnit.values.asNameMap()[json['targetDistanceUnit']]
+          : null,
       targetStartSpeed: json['targetStartSpeed'] != null
           ? (json['targetStartSpeed'] as num).toDouble()
           : null,
       targetEndSpeed: json['targetEndSpeed'] != null
           ? (json['targetEndSpeed'] as num).toDouble()
           : null,
-      targetSpeedUnit: json['targetSpeedUnit'] as String?,
+      targetSpeedUnit: json['targetSpeedUnit'] != null
+          ? SpeedUnit.values.asNameMap()[json['targetSpeedUnit']]
+          : null,
       isRunning: false,
       history: (json['history'] as List? ?? [])
           .map((e) => DataPoint.fromJson(Map<String, dynamic>.from(e as Map)))

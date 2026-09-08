@@ -20,37 +20,7 @@ import '../services/audio_recording_service.dart';
 import '../services/firmware_service.dart';
 import 'dart:io';
 
-enum RaceDragTarget {
-  sixtyFeet('60ft'),
-  threeHundredThirtyFeet('330ft'),
-  eighthMile('1/8 mile'),
-  thousandFeet('1000ft'),
-  quarterMile('1/4 mile'),
-  halfMile('1/2 mile');
-
-  final String label;
-  const RaceDragTarget(this.label);
-}
-
-enum RaceIntervalTarget {
-  zeroToSixtyMph('0-60 mph', '0-60mph'),
-  zeroToOneHundredMph('0-100 mph', 'custom_0_100_mph'),
-  fiftyToSeventyFiveMph('50-75 mph', 'custom_50_75_mph'),
-  sixtyToOneHundredMph('60-100 mph', 'custom_60_100_mph'),
-  sixtyToOneThirtyMph('60-130 mph', '60-130mph'),
-  zeroToOneThirtyMph('0-130 mph', '0-130mph'),
-  zeroToOneHundredKmh('0-100 km/h', '0-100kmh'),
-  zeroToOneSixtyKmh('0-160 km/h', 'custom_0_160_kmh'),
-  eightyToOneTwentyKmh('80-120 km/h', 'custom_80_120_kmh'),
-  oneHundredToOneSixtyKmh('100-160 km/h', 'custom_100_160_kmh'),
-  oneHundredToTwoHundredKmh('100-200 km/h', '100-200kmh'),
-  zeroToTwoHundredKmh('0-200 km/h', '0-200kmh'),
-  custom('Custom Range...', 'custom');
-
-  final String label;
-  final String id;
-  const RaceIntervalTarget(this.label, this.id);
-}
+export '../models/race_target.dart';
 
 class DragyProvider extends ChangeNotifier {
   final BleService _bleService = BleService();
@@ -122,8 +92,8 @@ class DragyProvider extends ChangeNotifier {
   bool _isArmed = false;
   bool get isArmed => _isArmed;
 
-  String _runMode = 'drag';
-  String get runMode => _runMode;
+  RunMode _runMode = RunMode.drag;
+  RunMode get runMode => _runMode;
 
   double _launchChartOffset = 0.0;
 
@@ -138,69 +108,21 @@ class DragyProvider extends ChangeNotifier {
   double get customIntervalEndSpeed => _customIntervalEndSpeed;
 
   double get intervalStartSpeed {
-    switch (_activeIntervalTarget) {
-      case RaceIntervalTarget.zeroToSixtyMph:
-        return 0.0;
-      case RaceIntervalTarget.zeroToOneHundredMph:
-        return 0.0;
-      case RaceIntervalTarget.fiftyToSeventyFiveMph:
-        return 80.4672;
-      case RaceIntervalTarget.sixtyToOneHundredMph:
-        return 96.5606;
-      case RaceIntervalTarget.sixtyToOneThirtyMph:
-        return 96.5606;
-      case RaceIntervalTarget.zeroToOneThirtyMph:
-        return 0.0;
-      case RaceIntervalTarget.zeroToOneHundredKmh:
-        return 0.0;
-      case RaceIntervalTarget.zeroToOneSixtyKmh:
-        return 0.0;
-      case RaceIntervalTarget.eightyToOneTwentyKmh:
-        return 80.0;
-      case RaceIntervalTarget.oneHundredToOneSixtyKmh:
-        return 100.0;
-      case RaceIntervalTarget.oneHundredToTwoHundredKmh:
-        return 100.0;
-      case RaceIntervalTarget.zeroToTwoHundredKmh:
-        return 0.0;
-      case RaceIntervalTarget.custom:
-        return _isMetric
-            ? _customIntervalStartSpeed
-            : UnitConverter.mphToKmh(_customIntervalStartSpeed);
+    if (_activeIntervalTarget == RaceIntervalTarget.custom) {
+      return _isMetric
+          ? _customIntervalStartSpeed
+          : UnitConverter.mphToKmh(_customIntervalStartSpeed);
     }
+    return _activeIntervalTarget.startSpeedKmh ?? 0.0;
   }
 
   double get intervalEndSpeed {
-    switch (_activeIntervalTarget) {
-      case RaceIntervalTarget.zeroToSixtyMph:
-        return 96.5606;
-      case RaceIntervalTarget.zeroToOneHundredMph:
-        return 160.9344;
-      case RaceIntervalTarget.fiftyToSeventyFiveMph:
-        return 120.7008;
-      case RaceIntervalTarget.sixtyToOneHundredMph:
-        return 160.9344;
-      case RaceIntervalTarget.sixtyToOneThirtyMph:
-        return 209.2147;
-      case RaceIntervalTarget.zeroToOneThirtyMph:
-        return 209.2147;
-      case RaceIntervalTarget.zeroToOneHundredKmh:
-        return 100.0;
-      case RaceIntervalTarget.zeroToOneSixtyKmh:
-        return 160.0;
-      case RaceIntervalTarget.eightyToOneTwentyKmh:
-        return 120.0;
-      case RaceIntervalTarget.oneHundredToOneSixtyKmh:
-        return 160.0;
-      case RaceIntervalTarget.oneHundredToTwoHundredKmh:
-        return 200.0;
-      case RaceIntervalTarget.zeroToTwoHundredKmh:
-        return 200.0;
-      case RaceIntervalTarget.custom:
-        return _isMetric
-            ? _customIntervalEndSpeed
-            : UnitConverter.mphToKmh(_customIntervalEndSpeed);
+    if (_activeIntervalTarget == RaceIntervalTarget.custom) {
+      return _isMetric
+          ? _customIntervalEndSpeed
+          : UnitConverter.mphToKmh(_customIntervalEndSpeed);
     }
+    return _activeIntervalTarget.endSpeedKmh ?? 0.0;
   }
 
   double get customIntervalStartSpeedUserUnit {
@@ -226,79 +148,25 @@ class DragyProvider extends ChangeNotifier {
     }
   }
 
-  double? get targetDistance {
-    if (_runMode != 'drag') return null;
-    switch (_activeDragTarget) {
-      case RaceDragTarget.sixtyFeet:
-        return 60.0;
-      case RaceDragTarget.threeHundredThirtyFeet:
-        return 330.0;
-      case RaceDragTarget.eighthMile:
-        return 0.125;
-      case RaceDragTarget.thousandFeet:
-        return 1000.0;
-      case RaceDragTarget.quarterMile:
-        return 0.25;
-      case RaceDragTarget.halfMile:
-        return 0.5;
-    }
-  }
+  double? get targetDistance =>
+      _runMode == RunMode.drag ? _activeDragTarget.distance : null;
 
-  String? get targetDistanceUnit {
-    if (_runMode != 'drag') return null;
-    switch (_activeDragTarget) {
-      case RaceDragTarget.sixtyFeet:
-        return 'feet';
-      case RaceDragTarget.threeHundredThirtyFeet:
-        return 'feet';
-      case RaceDragTarget.eighthMile:
-        return 'mile';
-      case RaceDragTarget.thousandFeet:
-        return 'feet';
-      case RaceDragTarget.quarterMile:
-        return 'mile';
-      case RaceDragTarget.halfMile:
-        return 'mile';
-    }
-  }
+  DistanceUnit? get targetDistanceUnit =>
+      _runMode == RunMode.drag ? _activeDragTarget.distanceUnit : null;
 
-  double? get targetStartSpeed {
-    if (_runMode == 'interval') {
-      return intervalStartSpeed;
-    }
-    return null;
-  }
+  double? get targetStartSpeed =>
+      _runMode == RunMode.interval ? intervalStartSpeed : null;
 
-  double? get targetEndSpeed {
-    if (_runMode == 'interval') {
-      return intervalEndSpeed;
-    }
-    return null;
-  }
+  double? get targetEndSpeed =>
+      _runMode == RunMode.interval ? intervalEndSpeed : null;
 
-  String? get targetSpeedUnit {
-    if (_runMode != 'interval') return null;
+  SpeedUnit? get targetSpeedUnit {
+    if (_runMode != RunMode.interval) return null;
     if (_activeIntervalTarget == RaceIntervalTarget.custom) {
-      return _isMetric ? 'kmh' : 'mph';
+      return _isMetric ? SpeedUnit.kmh : SpeedUnit.mph;
     }
-    switch (_activeIntervalTarget) {
-      case RaceIntervalTarget.zeroToSixtyMph:
-      case RaceIntervalTarget.zeroToOneHundredMph:
-      case RaceIntervalTarget.fiftyToSeventyFiveMph:
-      case RaceIntervalTarget.sixtyToOneHundredMph:
-      case RaceIntervalTarget.sixtyToOneThirtyMph:
-      case RaceIntervalTarget.zeroToOneThirtyMph:
-        return 'mph';
-      case RaceIntervalTarget.zeroToOneHundredKmh:
-      case RaceIntervalTarget.zeroToOneSixtyKmh:
-      case RaceIntervalTarget.eightyToOneTwentyKmh:
-      case RaceIntervalTarget.oneHundredToOneSixtyKmh:
-      case RaceIntervalTarget.oneHundredToTwoHundredKmh:
-      case RaceIntervalTarget.zeroToTwoHundredKmh:
-        return 'kmh';
-      default:
-        return _isMetric ? 'kmh' : 'mph';
-    }
+    return _activeIntervalTarget.speedUnit ??
+        (_isMetric ? SpeedUnit.kmh : SpeedUnit.mph);
   }
 
   bool get isSpeedConstant {
@@ -342,7 +210,7 @@ class DragyProvider extends ChangeNotifier {
       baseTime += clampedDelta;
     }
 
-    if (_useNhraRules && (_runMode == 'drag' || targetStartSpeed == 0.0)) {
+    if (_useNhraRules && (_runMode == RunMode.drag || targetStartSpeed == 0.0)) {
       if (_metrics.rolloutTime1ft != null) {
         return max(0.0, baseTime - _metrics.rolloutTime1ft!);
       } else {
@@ -444,10 +312,12 @@ class DragyProvider extends ChangeNotifier {
             ? getCompletedTests(_metrics, useNhraRules: _useNhraRules)
             : <OfficialTest>[];
 
-        double avgGForce = _gForceCount > 0 ? _gForceAccumulator / _gForceCount : _metrics.gForce;
+        double avgGForce = _gForceCount > 0
+            ? _gForceAccumulator / _gForceCount
+            : _metrics.gForce;
         _gForceAccumulator = 0.0;
         _gForceCount = 0;
-        
+
         _metrics = _metrics.copyWith(gForce: avgGForce);
 
         _metrics = _physicsEngine.updateMetrics(
@@ -587,10 +457,13 @@ class DragyProvider extends ChangeNotifier {
   }
 
   Future<void> performFirmwareUpdate(
-      String requestedVersion, void Function(double) onProgress) async {
+    String requestedVersion,
+    void Function(double) onProgress,
+  ) async {
     // 1. Fetch bytes from the remote service
-    final firmwareBytes =
-        await _firmwareService.fetchBestFirmwareBytes(requestedVersion);
+    final firmwareBytes = await _firmwareService.fetchBestFirmwareBytes(
+      requestedVersion,
+    );
 
     // 2. Pass bytes to BLE service
     await _bleService.performOtaUpdate(firmwareBytes, onProgress);
@@ -888,7 +761,7 @@ class DragyProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void setRunMode(String mode) {
+  void setRunMode(RunMode mode) {
     if (_runMode != mode) {
       _runMode = mode;
       _isArmed = false; // Disarm on mode change
@@ -930,7 +803,10 @@ class DragyProvider extends ChangeNotifier {
     _useNhraRules = data['useNhraRules'] as bool? ?? true;
     _enableTts = data['enableTts'] as bool? ?? true;
     _enableAudioRecording = data['enableAudioRecording'] as bool? ?? true;
-    _runMode = data['runMode'] as String? ?? 'drag';
+    final modeStr = data['runMode'] as String?;
+    _runMode = modeStr != null
+        ? (RunMode.values.asNameMap()[modeStr] ?? RunMode.drag)
+        : RunMode.drag;
 
     final dragTargetName = data['activeDragTarget'] as String?;
     _activeDragTarget = RaceDragTarget.values.firstWhere(
@@ -959,7 +835,7 @@ class DragyProvider extends ChangeNotifier {
       'useNhraRules': _useNhraRules,
       'enableTts': _enableTts,
       'enableAudioRecording': _enableAudioRecording,
-      'runMode': _runMode,
+      'runMode': _runMode.name,
       'activeDragTarget': _activeDragTarget.name,
       'activeIntervalTarget': _activeIntervalTarget.name,
       'customIntervalStartSpeed': _customIntervalStartSpeed.round(),

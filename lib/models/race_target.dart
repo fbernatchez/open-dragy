@@ -19,6 +19,105 @@ enum SpeedUnit {
   static SpeedUnit fromJson(String name) => SpeedUnit.values.byName(name);
 }
 
+enum RunMode {
+  drag,
+  interval;
+
+  String toJson() => name;
+  static RunMode fromJson(String name) => RunMode.values.byName(name);
+}
+
+enum RaceDragTarget {
+  sixtyFeet('60ft', 60.0, DistanceUnit.feet),
+  threeHundredThirtyFeet('330ft', 330.0, DistanceUnit.feet),
+  eighthMile('1/8 mile', 0.125, DistanceUnit.mile),
+  thousandFeet('1000ft', 1000.0, DistanceUnit.feet),
+  quarterMile('1/4 mile', 0.25, DistanceUnit.mile),
+  halfMile('1/2 mile', 0.5, DistanceUnit.mile);
+
+  final String label;
+  final double distance;
+  final DistanceUnit distanceUnit;
+  const RaceDragTarget(this.label, this.distance, this.distanceUnit);
+}
+
+enum RaceIntervalTarget {
+  zeroToSixtyMph('0-60 mph', '0-60mph', SpeedUnit.mph, 0.0, 96.5606),
+  zeroToOneHundredMph(
+    '0-100 mph',
+    'custom_0_100_mph',
+    SpeedUnit.mph,
+    0.0,
+    160.9344,
+  ),
+  fiftyToSeventyFiveMph(
+    '50-75 mph',
+    'custom_50_75_mph',
+    SpeedUnit.mph,
+    80.4672,
+    120.7008,
+  ),
+  sixtyToOneHundredMph(
+    '60-100 mph',
+    'custom_60_100_mph',
+    SpeedUnit.mph,
+    96.5606,
+    160.9344,
+  ),
+  sixtyToOneThirtyMph(
+    '60-130 mph',
+    '60-130mph',
+    SpeedUnit.mph,
+    96.5606,
+    209.2147,
+  ),
+  zeroToOneThirtyMph('0-130 mph', '0-130mph', SpeedUnit.mph, 0.0, 209.2147),
+  zeroToOneHundredKmh('0-100 km/h', '0-100kmh', SpeedUnit.kmh, 0.0, 100.0),
+  zeroToOneSixtyKmh(
+    '0-160 km/h',
+    'custom_0_160_kmh',
+    SpeedUnit.kmh,
+    0.0,
+    160.0,
+  ),
+  eightyToOneTwentyKmh(
+    '80-120 km/h',
+    'custom_80_120_kmh',
+    SpeedUnit.kmh,
+    80.0,
+    120.0,
+  ),
+  oneHundredToOneSixtyKmh(
+    '100-160 km/h',
+    'custom_100_160_kmh',
+    SpeedUnit.kmh,
+    100.0,
+    160.0,
+  ),
+  oneHundredToTwoHundredKmh(
+    '100-200 km/h',
+    '100-200kmh',
+    SpeedUnit.kmh,
+    100.0,
+    200.0,
+  ),
+  zeroToTwoHundredKmh('0-200 km/h', '0-200kmh', SpeedUnit.kmh, 0.0, 200.0),
+  custom('Custom Range...', 'custom', null, null, null);
+
+  final String label;
+  final String id;
+  final SpeedUnit? speedUnit;
+  final double? startSpeedKmh;
+  final double? endSpeedKmh;
+  const RaceIntervalTarget(
+    this.label,
+    this.id,
+    this.speedUnit,
+    this.startSpeedKmh,
+    this.endSpeedKmh,
+  );
+}
+
 class OfficialTest {
   final String id;
   final String displayName;
@@ -110,7 +209,7 @@ const List<OfficialTest> officialTests = [
   OfficialTest(
     id: '1/4mile',
     displayName: '1/4 mile',
-    ttsPhrase: 'A, quarter mile',
+    ttsPhrase: 'Quarter mile',
     distance: 0.25,
     distanceUnit: DistanceUnit.mile,
   ),
@@ -351,7 +450,8 @@ double? getCompletedTimeForCategory(
       // Standing start tests require either drag mode or an interval run that started from 0.
       if (test.distance != null ||
           (test.startSpeed != null && test.startSpeed == 0.0)) {
-        if (metrics.runMode != 'drag' && metrics.targetStartSpeed != 0.0) {
+        if (metrics.runMode != RunMode.drag &&
+            metrics.targetStartSpeed != 0.0) {
           return null;
         }
       }
@@ -385,12 +485,12 @@ double? getCompletedTimeForCategory(
           endKmh = UnitConverter.mphToKmh(end);
         }
 
-        if (metrics.runMode == 'interval' &&
+        if (metrics.runMode == RunMode.interval &&
             metrics.targetStartSpeed != null &&
             metrics.targetEndSpeed != null &&
             (metrics.targetStartSpeed! - startKmh).abs() < 0.1 &&
             (metrics.targetEndSpeed! - endKmh).abs() < 0.1 &&
-            metrics.targetSpeedUnit == unit) {
+            metrics.targetSpeedUnit?.name == unit) {
           final startTime = startKmh == 0.0
               ? 0.0
               : _findSpeedCrossingTime(metrics.history, startKmh, 0.0);
@@ -421,14 +521,17 @@ double? getTrapSpeedForCategory(
   String categoryId, {
   bool useNhraRules = false,
 }) {
-  final shouldApply66ftRule = useNhraRules &&
-      metrics.runMode == 'drag' &&
+  final shouldApply66ftRule =
+      useNhraRules &&
+      metrics.runMode == RunMode.drag &&
       metrics.targetDistance != null &&
-      officialTests.any((t) =>
-          t.id == categoryId &&
-          t.distance != null &&
-          (t.distance! - metrics.targetDistance!).abs() < 0.001 &&
-          t.distanceUnit?.name == metrics.targetDistanceUnit);
+      officialTests.any(
+        (t) =>
+            t.id == categoryId &&
+            t.distance != null &&
+            (t.distance! - metrics.targetDistance!).abs() < 0.001 &&
+            t.distanceUnit == metrics.targetDistanceUnit,
+      );
 
   if (shouldApply66ftRule) {
     double targetMeters = 0.0;
@@ -489,15 +592,20 @@ double? getTrapSpeedForCategory(
 
 String getDisplayLabelForTarget({
   double? distance,
-  String? distanceUnit,
+  dynamic distanceUnit,
   double? startSpeed,
   double? endSpeed,
-  String? speedUnit,
-  String? runMode,
+  dynamic speedUnit,
+  dynamic runMode,
 }) {
-  if (runMode == 'drag') {
+  final isDrag = runMode is RunMode
+      ? runMode == RunMode.drag
+      : runMode == 'drag';
+  if (isDrag) {
     if (distance != null && distanceUnit != null) {
-      final unit = distanceUnit.toLowerCase();
+      final unit = distanceUnit is DistanceUnit
+          ? distanceUnit.name
+          : distanceUnit.toString().toLowerCase();
       if (unit == 'feet') {
         return '${distance.round()}ft';
       } else if (unit == 'mile') {
@@ -512,7 +620,10 @@ String getDisplayLabelForTarget({
     return 'Drag';
   } else {
     if (startSpeed != null && endSpeed != null) {
-      if (speedUnit == 'mph') {
+      final unit = speedUnit is SpeedUnit
+          ? speedUnit.name
+          : speedUnit?.toString();
+      if (unit == 'mph') {
         final start = UnitConverter.kmhToMph(startSpeed).round();
         final end = UnitConverter.kmhToMph(endSpeed).round();
         return '$start-$end mph';

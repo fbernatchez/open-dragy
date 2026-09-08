@@ -10,7 +10,6 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:path_provider/path_provider.dart';
 import '../providers/dragy_provider.dart';
 import '../models/saved_run.dart';
-import '../models/race_target.dart';
 import '../utils/unit_converter.dart';
 import 'package:share_plus/share_plus.dart';
 import '../widgets/share_slip_widget.dart';
@@ -106,7 +105,7 @@ class RunDetailScreen extends StatelessWidget {
     }
 
     // 2. Custom interval category if it's an interval run and not an official test
-    if (metrics.runMode == 'interval' &&
+    if (metrics.runMode == RunMode.interval &&
         metrics.targetStartSpeed != null &&
         metrics.targetEndSpeed != null) {
       bool matchesAny = false;
@@ -115,16 +114,17 @@ class RunDetailScreen extends StatelessWidget {
             (metrics.targetStartSpeed! - test.startSpeed!).abs() < 0.1 &&
             test.endSpeed != null &&
             (metrics.targetEndSpeed! - test.endSpeed!).abs() < 0.1 &&
-            metrics.targetSpeedUnit == test.speedUnit?.name) {
+            metrics.targetSpeedUnit == test.speedUnit) {
           matchesAny = true;
           break;
         }
       }
       if (!matchesAny) {
-        final runIsMetric = (metrics.targetSpeedUnit ?? 'kmh') == 'kmh';
+        final runIsMetric = (metrics.targetSpeedUnit ?? SpeedUnit.kmh) == SpeedUnit.kmh;
         if (runIsMetric == isMetric) {
-          final unit = metrics.targetSpeedUnit ?? (isMetric ? 'kmh' : 'mph');
-          final isRunMetric = unit == 'kmh';
+          final unitEnum = metrics.targetSpeedUnit ?? (isMetric ? SpeedUnit.kmh : SpeedUnit.mph);
+          final unit = unitEnum.name;
+          final isRunMetric = unitEnum == SpeedUnit.kmh;
           final startSpeed = !isRunMetric
               ? UnitConverter.kmhToMph(metrics.targetStartSpeed!).round()
               : metrics.targetStartSpeed!.round();
@@ -142,7 +142,7 @@ class RunDetailScreen extends StatelessWidget {
               startSpeed: metrics.targetStartSpeed,
               endSpeed: metrics.targetEndSpeed,
               speedUnit: metrics.targetSpeedUnit,
-              runMode: 'interval',
+              runMode: RunMode.interval,
             );
             reachedMilestones.add(
               _ReachedMilestone(label: label, time: compTime, sortTime: compTime),
@@ -171,7 +171,7 @@ class RunDetailScreen extends StatelessWidget {
       if (test.distance != null &&
           metrics.targetDistance != null &&
           (test.distance! - metrics.targetDistance!).abs() < 0.001 &&
-          test.distanceUnit?.name == metrics.targetDistanceUnit) {
+          test.distanceUnit == metrics.targetDistanceUnit) {
         targetTest = test;
         break;
       } else if (test.startSpeed != null &&
@@ -180,7 +180,7 @@ class RunDetailScreen extends StatelessWidget {
           test.endSpeed != null &&
           metrics.targetEndSpeed != null &&
           (test.endSpeed! - metrics.targetEndSpeed!).abs() < 0.1 &&
-          test.speedUnit?.name == metrics.targetSpeedUnit) {
+          test.speedUnit == metrics.targetSpeedUnit) {
         targetTest = test;
         break;
       }
@@ -196,7 +196,7 @@ class RunDetailScreen extends StatelessWidget {
       if (completedTime != null) {
         primaryLabel = "${targetTest.displayName} Time";
       }
-    } else if (metrics.runMode == 'interval' &&
+    } else if (metrics.runMode == RunMode.interval &&
         metrics.targetStartSpeed != null &&
         metrics.targetEndSpeed != null) {
       // Custom interval target
@@ -204,11 +204,12 @@ class RunDetailScreen extends StatelessWidget {
         startSpeed: metrics.targetStartSpeed,
         endSpeed: metrics.targetEndSpeed,
         speedUnit: metrics.targetSpeedUnit,
-        runMode: 'interval',
+        runMode: RunMode.interval,
       );
       primaryLabel = "$label Time";
-      final unit = metrics.targetSpeedUnit ?? (isMetric ? 'kmh' : 'mph');
-      final isRunMetric = unit == 'kmh';
+      final unitEnum = metrics.targetSpeedUnit ?? (isMetric ? SpeedUnit.kmh : SpeedUnit.mph);
+      final unit = unitEnum.name;
+      final isRunMetric = unitEnum == SpeedUnit.kmh;
       final startSpeed = !isRunMetric
           ? UnitConverter.kmhToMph(metrics.targetStartSpeed!).round()
           : metrics.targetStartSpeed!.round();
@@ -272,7 +273,7 @@ class RunDetailScreen extends StatelessWidget {
 
     final String fullLabel =
         (useNhraRules &&
-            (metrics.runMode == 'drag' || metrics.targetStartSpeed == 0.0))
+            (metrics.runMode == RunMode.drag || metrics.targetStartSpeed == 0.0))
         ? "$primaryLabel (NHRA rules)"
         : primaryLabel;
 
