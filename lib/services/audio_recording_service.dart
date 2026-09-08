@@ -35,6 +35,15 @@ class AudioRecordingService {
         encoder: AudioEncoder.pcm16bits,
         sampleRate: sampleRate,
         numChannels: numChannels,
+        androidConfig: AndroidRecordConfig(
+          audioSource: AndroidAudioSource.camcorder,
+          manageBluetooth: false,
+        ),
+        iosConfig: IosRecordConfig(
+          categoryOptions: [
+            IosAudioCategoryOption.defaultToSpeaker,
+          ],
+        ),
       ));
       
       _streamSubscription = stream.listen((data) {

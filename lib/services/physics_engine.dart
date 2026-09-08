@@ -54,7 +54,7 @@ class PhysicsEngine {
     }
     _lastGpsTimeSeconds = gpsTimeSeconds;
 
-    // 0. Maintain Rolling Buffer for G-Force latency shifting
+    // 0. Maintain Rolling Buffer for launch zero-crossing detection and outlier checking
     _preRunBuffer.add(
       DataPoint(
         elapsedTime: current.isRunning ? current.elapsedTime : 0.0,
@@ -72,7 +72,7 @@ class PhysicsEngine {
     double smoothedGForce = current.gForce;
 
     // 0.5 Sensor-Fusion Outlier Rejection
-    // Validate the GPS speed jump against the delayed IMU acceleration.
+    // Validate the GPS speed jump against the IMU acceleration.
     double lastSpeed = current.isRunning
         ? current.speedKmh
         : (_preRunBuffer.length > 1
@@ -92,7 +92,7 @@ class PhysicsEngine {
           // 200ms of sustained mismatch
           _rejectedCount = 0;
           if (!current.isRunning) {
-            // Accept new reality (e.g., GPS reconnect) but do not clear buffer to maintain latency
+            // Accept new reality (e.g., GPS reconnect) but do not clear buffer to maintain history
           }
         } else {
           return current; // Ignore this likely GPS multipath glitch
@@ -245,7 +245,7 @@ class PhysicsEngine {
                 ],
               );
 
-              // Do not clear _preRunBuffer to maintain latency history
+              // Do not clear _preRunBuffer to maintain rolling history
               return simulated;
             }
           }
