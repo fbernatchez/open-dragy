@@ -364,7 +364,7 @@ class _addCustomTestDialogState extends State<_addCustomTestDialog> {
             } else {
               final start = double.tryParse(_startController.text);
               final end = double.tryParse(_endController.text);
-              if (start != null && end != null && end > start) {
+              if (start != null && end != null && start != end) {
                 final isMetric = widget.dragy.isMetric;
                 final unit = isMetric ? SpeedUnit.kmh : SpeedUnit.mph;
                 final unitStr = isMetric ? 'km/h' : 'mph';

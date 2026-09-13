@@ -693,6 +693,8 @@ class DragyProvider extends ChangeNotifier {
       } else if (_activeIntervalTest ==
           RaceIntervalTest.zeroToOneHundredMph) {
         _activeIntervalTest = RaceIntervalTest.zeroToOneSixtyKmh;
+      } else if (_activeIntervalTest == RaceIntervalTest.sixtyToZeroMph) {
+        _activeIntervalTest = RaceIntervalTest.oneHundredToZeroKmh;
       }
     } else {
       if (_activeIntervalTest ==
@@ -707,6 +709,8 @@ class DragyProvider extends ChangeNotifier {
       } else if (_activeIntervalTest ==
           RaceIntervalTest.zeroToTwoHundredKmh) {
         _activeIntervalTest = RaceIntervalTest.zeroToOneThirtyMph;
+      } else if (_activeIntervalTest == RaceIntervalTest.oneHundredToZeroKmh) {
+        _activeIntervalTest = RaceIntervalTest.sixtyToZeroMph;
       } else if (_activeIntervalTest ==
           RaceIntervalTest.oneHundredToOneSixtyKmh) {
         _activeIntervalTest = RaceIntervalTest.sixtyToOneHundredMph;

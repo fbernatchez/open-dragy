@@ -103,6 +103,8 @@ enum RaceIntervalTest {
     200.0,
   ),
   zeroToTwoHundredKmh('0-200 km/h', '0-200kmh', SpeedUnit.kmh, 0.0, 200.0),
+  sixtyToZeroMph('60-0 mph', '60-0mph', SpeedUnit.mph, 96.5606, 0.0),
+  oneHundredToZeroKmh('100-0 km/h', '100-0kmh', SpeedUnit.kmh, 100.0, 0.0),
   custom('Custom Range...', 'custom', null, null, null);
 
   final String label;
@@ -285,6 +287,20 @@ const List<RaceTest> officialTests = [
     endSpeed: 300.0,
     speedUnit: SpeedUnit.kmh,
   ),
+  RaceTest(
+    id: '60-0mph',
+    displayName: '60-0 mph',
+    startSpeed: 96.56064,
+    endSpeed: 0.0,
+    speedUnit: SpeedUnit.mph,
+  ),
+  RaceTest(
+    id: '100-0kmh',
+    displayName: '100-0 km/h',
+    startSpeed: 100.0,
+    endSpeed: 0.0,
+    speedUnit: SpeedUnit.kmh,
+  ),
   // Distance tests
   RaceTest(
     id: '60ft',
@@ -410,14 +426,17 @@ double? _findSpeedCrossingTime(
     final curr = history[i];
     if (prev.elapsedTime < startTimeOffset) continue;
 
-    if (prev.speedKmh <= targetSpeedKmh && curr.speedKmh >= targetSpeedKmh) {
+    bool crossedUp = prev.speedKmh <= targetSpeedKmh && curr.speedKmh >= targetSpeedKmh;
+    bool crossedDown = prev.speedKmh >= targetSpeedKmh && curr.speedKmh <= targetSpeedKmh;
+
+    if (crossedUp || crossedDown) {
       if (prev.speedKmh == targetSpeedKmh) {
         return prev.elapsedTime;
       }
-      final speedDiff = curr.speedKmh - prev.speedKmh;
+      final speedDiff = (curr.speedKmh - prev.speedKmh).abs();
       double fraction = 0.0;
       if (speedDiff > 0) {
-        fraction = (targetSpeedKmh - prev.speedKmh) / speedDiff;
+        fraction = (targetSpeedKmh - prev.speedKmh).abs() / speedDiff;
       }
       final dt = curr.elapsedTime - prev.elapsedTime;
       return prev.elapsedTime + (dt * fraction);

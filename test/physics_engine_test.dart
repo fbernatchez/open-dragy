@@ -1167,6 +1167,128 @@ void main() {
         closeTo(1.89, 0.01),
       );
     });
+    test('braking interval run triggers, integrates, completes, and cancels correctly', () {
+      RaceMetrics metrics = RaceMetrics();
+      // Arm 100-0 km/h braking test
+      metrics = engine.updateMetrics(
+        metrics,
+        110.0,
+        100.0,
+        isArmed: true,
+        runMode: RunMode.interval,
+        testDistance: null,
+        testDistanceUnit: null,
+        testStartSpeed: 100.0,
+        testEndSpeed: 0.0,
+        testSpeedUnit: SpeedUnit.kmh,
+        intervalStartSpeed: 100.0,
+        intervalEndSpeed: 0.0,
+      );
+      expect(metrics.isRunning, false); // Speed is 110.0, not triggered yet
+
+      // Speed drops to 90.0, triggering the run
+      metrics = engine.updateMetrics(
+        metrics,
+        90.0,
+        100.0,
+        isArmed: true,
+        runMode: RunMode.interval,
+        testDistance: null,
+        testDistanceUnit: null,
+        testStartSpeed: 100.0,
+        testEndSpeed: 0.0,
+        testSpeedUnit: SpeedUnit.kmh,
+        intervalStartSpeed: 100.0,
+        intervalEndSpeed: 0.0,
+      );
+      expect(metrics.isRunning, true);
+      
+      // Speed drops further
+      metrics = engine.updateMetrics(
+        metrics,
+        50.0,
+        100.0,
+        isArmed: true,
+        runMode: RunMode.interval,
+        testDistance: null,
+        testDistanceUnit: null,
+        testStartSpeed: 100.0,
+        testEndSpeed: 0.0,
+        testSpeedUnit: SpeedUnit.kmh,
+        intervalStartSpeed: 100.0,
+        intervalEndSpeed: 0.0,
+      );
+      expect(metrics.isRunning, true);
+
+      // Speed crosses 0 to complete the run
+      metrics = engine.updateMetrics(
+        metrics,
+        -5.0, // negative speed simulating zero crossing
+        100.0,
+        isArmed: true,
+        runMode: RunMode.interval,
+        testDistance: null,
+        testDistanceUnit: null,
+        testStartSpeed: 100.0,
+        testEndSpeed: 0.0,
+        testSpeedUnit: SpeedUnit.kmh,
+        intervalStartSpeed: 100.0,
+        intervalEndSpeed: 0.0,
+      );
+      expect(metrics.isRunning, false);
+      expect(metrics.elapsedTime, greaterThan(0.0));
+      
+      // Test cancellation logic (should cancel if speed increases by 10 above start)
+      RaceMetrics metricsCancel = RaceMetrics();
+      metricsCancel = engine.updateMetrics(
+        metricsCancel,
+        105.0,
+        100.0,
+        isArmed: true,
+        runMode: RunMode.interval,
+        testDistance: null,
+        testDistanceUnit: null,
+        testStartSpeed: 100.0,
+        testEndSpeed: 0.0,
+        testSpeedUnit: SpeedUnit.kmh,
+        intervalStartSpeed: 100.0,
+        intervalEndSpeed: 0.0,
+      );
+      metricsCancel = engine.updateMetrics(
+        metricsCancel,
+        95.0, // Triggers run
+        100.0,
+        isArmed: true,
+        runMode: RunMode.interval,
+        testDistance: null,
+        testDistanceUnit: null,
+        testStartSpeed: 100.0,
+        testEndSpeed: 0.0,
+        testSpeedUnit: SpeedUnit.kmh,
+        intervalStartSpeed: 100.0,
+        intervalEndSpeed: 0.0,
+      );
+      expect(metricsCancel.isRunning, true);
+      
+      // Speed increases back above 110 (100 + 10) for 3 seconds (30 ticks)
+      for (int i = 0; i < 30; i++) {
+        metricsCancel = engine.updateMetrics(
+          metricsCancel,
+          115.0,
+          100.0,
+          isArmed: true,
+          runMode: RunMode.interval,
+          testDistance: null,
+          testDistanceUnit: null,
+          testStartSpeed: 100.0,
+          testEndSpeed: 0.0,
+          testSpeedUnit: SpeedUnit.kmh,
+          intervalStartSpeed: 100.0,
+          intervalEndSpeed: 0.0,
+        );
+      }
+      expect(metricsCancel.isRunning, false); // Cancelled
+    });
   });
 }
 

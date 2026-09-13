@@ -126,9 +126,12 @@ class RunDetailScreen extends StatelessWidget {
         }
       }
       if (!matchesAny) {
-        final runIsMetric = (metrics.testSpeedUnit ?? SpeedUnit.kmh) == SpeedUnit.kmh;
+        final runIsMetric =
+            (metrics.testSpeedUnit ?? SpeedUnit.kmh) == SpeedUnit.kmh;
         if (runIsMetric == isMetric) {
-          final unitEnum = metrics.testSpeedUnit ?? (isMetric ? SpeedUnit.kmh : SpeedUnit.mph);
+          final unitEnum =
+              metrics.testSpeedUnit ??
+              (isMetric ? SpeedUnit.kmh : SpeedUnit.mph);
           final unit = unitEnum.name;
           final isRunMetric = unitEnum == SpeedUnit.kmh;
           final startSpeed = !isRunMetric
@@ -151,7 +154,11 @@ class RunDetailScreen extends StatelessWidget {
               runMode: RunMode.interval,
             );
             reachedMilestones.add(
-              _ReachedMilestone(label: label, time: compTime, sortTime: compTime),
+              _ReachedMilestone(
+                label: label,
+                time: compTime,
+                sortTime: compTime,
+              ),
             );
           }
         }
@@ -213,7 +220,8 @@ class RunDetailScreen extends StatelessWidget {
         runMode: RunMode.interval,
       );
       primaryLabel = "$label Time";
-      final unitEnum = metrics.testSpeedUnit ?? (isMetric ? SpeedUnit.kmh : SpeedUnit.mph);
+      final unitEnum =
+          metrics.testSpeedUnit ?? (isMetric ? SpeedUnit.kmh : SpeedUnit.mph);
       final unit = unitEnum.name;
       final isRunMetric = unitEnum == SpeedUnit.kmh;
       final startSpeed = !isRunMetric
@@ -478,7 +486,7 @@ class RunDetailScreen extends StatelessWidget {
                 ],
                 TelemetryChart(run: run, isMetric: isMetric),
                 const SizedBox(height: 24),
-                // Run elevation summary
+                // Run summary
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -1701,8 +1709,20 @@ class TelemetryChartPainter extends CustomPainter {
     final double minSpeed = 0.0; // speed always starts at 0
 
     // Bounds for G-Force (Y axis 2)
-    final double minG = -0.5;
-    final double maxG = 1.5;
+    double minG = -0.5;
+    double maxG = 1.5;
+
+    if (gForces.isNotEmpty) {
+      final double dataMinG = gForces.reduce(min);
+      final double dataMaxG = gForces.reduce(max);
+
+      if (dataMaxG > maxG) {
+        maxG = (dataMaxG * 2).ceil() / 2.0; // round up to nearest 0.5
+      }
+      if (dataMinG < minG) {
+        minG = (dataMinG * 2).floor() / 2.0; // round down to nearest 0.5
+      }
+    }
 
     // Bounds for Height/Elevation (Y axis 3)
     double minAlt = isMetric ? -15.0 : -50.0;

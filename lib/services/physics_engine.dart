@@ -203,11 +203,19 @@ class PhysicsEngine {
         } else {
           if (_preRunBuffer.length >= 2) {
             double prevSpeed = _preRunBuffer[_preRunBuffer.length - 2].speedKmh;
-            if (prevSpeed <= intervalStartSpeed &&
-                newSpeedKmh > intervalStartSpeed) {
+            bool isBraking = intervalStartSpeed > intervalEndSpeed;
+            bool triggered = false;
+
+            if (!isBraking && prevSpeed <= intervalStartSpeed && newSpeedKmh > intervalStartSpeed) {
+              triggered = true;
+            } else if (isBraking && prevSpeed >= intervalStartSpeed && newSpeedKmh < intervalStartSpeed) {
+              triggered = true;
+            }
+
+            if (triggered) {
               // Trigger! Calculate the exact start crossing point.
-              double speedDiff = newSpeedKmh - prevSpeed;
-              double fraction = (intervalStartSpeed - prevSpeed) / speedDiff;
+              double speedDiff = (newSpeedKmh - prevSpeed).abs();
+              double fraction = (intervalStartSpeed - prevSpeed).abs() / speedDiff;
 
               // Time offset from the crossing point to the current tick
               double elapsedOffset = (1.0 - fraction) * currentDt;
@@ -299,11 +307,20 @@ class PhysicsEngine {
         );
       } else {
         // Interval Mode
-        // Auto-cancel logic: if speed drops below starting speed - 10 km/h for 2 seconds, cancel the run
-        final double cancelThreshold = intervalStartSpeed == 0.0
-            ? 3.0
-            : (intervalStartSpeed - 10.0).clamp(0.0, double.infinity);
-        if (newSpeedKmh < cancelThreshold) {
+        // Auto-cancel logic:
+        bool isBraking = intervalStartSpeed > intervalEndSpeed;
+        bool shouldCancel = false;
+        
+        if (isBraking) {
+          shouldCancel = newSpeedKmh > intervalStartSpeed + 10.0;
+        } else {
+          final double cancelThreshold = intervalStartSpeed == 0.0
+              ? 3.0
+              : (intervalStartSpeed - 10.0).clamp(0.0, double.infinity);
+          shouldCancel = newSpeedKmh < cancelThreshold;
+        }
+
+        if (shouldCancel) {
           _stoppedTicks++;
           if (_stoppedTicks >= 20) {
             _stoppedTicks = 0;
@@ -495,12 +512,20 @@ class PhysicsEngine {
 
     bool testAchieved = false;
     double newElapsedTimeCalculated = newElapsedTime;
+    bool isBraking = intervalStartSpeed > intervalEndSpeed;
 
-    if (newSpeedKmh >= intervalEndSpeed) {
+    if (!isBraking && newSpeedKmh >= intervalEndSpeed) {
       testAchieved = true;
       double speedDiff = newSpeedKmh - current.speedKmh;
       if (speedDiff > 0) {
         double fraction = (intervalEndSpeed - current.speedKmh) / speedDiff;
+        newElapsedTimeCalculated = current.elapsedTime + (currentDt * fraction);
+      }
+    } else if (isBraking && newSpeedKmh <= intervalEndSpeed) {
+      testAchieved = true;
+      double speedDiff = current.speedKmh - newSpeedKmh;
+      if (speedDiff > 0) {
+        double fraction = (current.speedKmh - intervalEndSpeed) / speedDiff;
         newElapsedTimeCalculated = current.elapsedTime + (currentDt * fraction);
       }
     }
