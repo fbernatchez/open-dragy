@@ -206,16 +206,21 @@ class PhysicsEngine {
             bool isBraking = intervalStartSpeed > intervalEndSpeed;
             bool triggered = false;
 
-            if (!isBraking && prevSpeed <= intervalStartSpeed && newSpeedKmh > intervalStartSpeed) {
+            if (!isBraking &&
+                prevSpeed <= intervalStartSpeed &&
+                newSpeedKmh > intervalStartSpeed) {
               triggered = true;
-            } else if (isBraking && prevSpeed >= intervalStartSpeed && newSpeedKmh < intervalStartSpeed) {
+            } else if (isBraking &&
+                prevSpeed >= intervalStartSpeed &&
+                newSpeedKmh < intervalStartSpeed) {
               triggered = true;
             }
 
             if (triggered) {
               // Trigger! Calculate the exact start crossing point.
               double speedDiff = (newSpeedKmh - prevSpeed).abs();
-              double fraction = (intervalStartSpeed - prevSpeed).abs() / speedDiff;
+              double fraction =
+                  (intervalStartSpeed - prevSpeed).abs() / speedDiff;
 
               // Time offset from the crossing point to the current tick
               double elapsedOffset = (1.0 - fraction) * currentDt;
@@ -310,7 +315,7 @@ class PhysicsEngine {
         // Auto-cancel logic:
         bool isBraking = intervalStartSpeed > intervalEndSpeed;
         bool shouldCancel = false;
-        
+
         if (isBraking) {
           shouldCancel = newSpeedKmh > intervalStartSpeed + 10.0;
         } else {
@@ -379,7 +384,7 @@ class PhysicsEngine {
     final Map<String, double> newtestTimes = Map.from(current.testTimes);
     final Map<String, double> newtestSpeeds = Map.from(current.testSpeeds);
     double? rollout1ft = current.rolloutTime1ft;
-    
+
     final double startAltitude = current.startAltitude ?? currentAltitude;
 
     // 1 ft (0.3048 meters) for rollout trigger point
@@ -397,48 +402,64 @@ class PhysicsEngine {
       if (newtestTimes.containsKey(test.id)) continue;
 
       if (test.distance != null && test.distanceUnit != null) {
-        double testDistanceMeters = convertToMeters(test.distance!, test.distanceUnit!);
+        double testDistanceMeters = convertToMeters(
+          test.distance!,
+          test.distanceUnit!,
+        );
 
         if (newDistance >= testDistanceMeters) {
           double distDiff = newDistance - current.distanceMeters;
           if (distDiff > 0) {
-            double fraction = (testDistanceMeters - current.distanceMeters) / distDiff;
-            newtestTimes[test.id] = current.elapsedTime + (currentDt * fraction);
-            newtestSpeeds[test.id] = current.speedKmh + ((newSpeedKmh - current.speedKmh) * fraction);
+            double fraction =
+                (testDistanceMeters - current.distanceMeters) / distDiff;
+            newtestTimes[test.id] =
+                current.elapsedTime + (currentDt * fraction);
+            newtestSpeeds[test.id] =
+                current.speedKmh +
+                ((newSpeedKmh - current.speedKmh) * fraction);
           } else {
             newtestTimes[test.id] = newElapsedTime;
             newtestSpeeds[test.id] = newSpeedKmh;
           }
         }
-      } else if (test.endSpeed != null && (test.startSpeed == null || test.startSpeed == 0.0)) {
+      } else if (test.endSpeed != null &&
+          (test.startSpeed == null || test.startSpeed == 0.0)) {
         double testEndSpeedKmh = test.endSpeed!;
         if (newSpeedKmh >= testEndSpeedKmh) {
           double speedDiff = newSpeedKmh - current.speedKmh;
           if (speedDiff > 0) {
             double fraction = (testEndSpeedKmh - current.speedKmh) / speedDiff;
-            newtestTimes[test.id] = current.elapsedTime + (currentDt * fraction);
+            newtestTimes[test.id] =
+                current.elapsedTime + (currentDt * fraction);
           } else {
             newtestTimes[test.id] = newElapsedTime;
           }
         }
-      } else if (test.endSpeed != null && test.startSpeed != null && test.startSpeed! > 0.0) {
+      } else if (test.endSpeed != null &&
+          test.startSpeed != null &&
+          test.startSpeed! > 0.0) {
         double testStartSpeedKmh = test.startSpeed!;
         double testEndSpeedKmh = test.endSpeed!;
         String startKey = '${test.id}_start';
 
         // Track start crossing
-        if (!newtestTimes.containsKey(startKey) && newSpeedKmh >= testStartSpeedKmh) {
+        if (!newtestTimes.containsKey(startKey) &&
+            newSpeedKmh >= testStartSpeedKmh) {
           double speedDiff = newSpeedKmh - current.speedKmh;
           if (speedDiff > 0) {
-            double fraction = (testStartSpeedKmh - current.speedKmh) / speedDiff;
-            newtestTimes[startKey] = current.elapsedTime + (currentDt * fraction);
+            double fraction =
+                (testStartSpeedKmh - current.speedKmh) / speedDiff;
+            newtestTimes[startKey] =
+                current.elapsedTime + (currentDt * fraction);
           } else {
             newtestTimes[startKey] = newElapsedTime;
           }
         }
 
         // Check if we crossed the end speed (and already have the start time)
-        if (newtestTimes.containsKey(startKey) && !newtestTimes.containsKey(test.id) && newSpeedKmh >= testEndSpeedKmh) {
+        if (newtestTimes.containsKey(startKey) &&
+            !newtestTimes.containsKey(test.id) &&
+            newSpeedKmh >= testEndSpeedKmh) {
           double speedDiff = newSpeedKmh - current.speedKmh;
           if (speedDiff > 0) {
             double fraction = (testEndSpeedKmh - current.speedKmh) / speedDiff;
@@ -454,13 +475,15 @@ class PhysicsEngine {
     // Determine target completion
     bool testAchieved = false;
     if (current.testDistance != null && current.testDistanceUnit != null) {
-      double testDistanceMeters = convertToMeters(current.testDistance!, current.testDistanceUnit!);
+      double testDistanceMeters = convertToMeters(
+        current.testDistance!,
+        current.testDistanceUnit!,
+      );
       // Add 1ft (0.3048m) to allow for NHRA rollout calculations to complete
       if (newDistance >= testDistanceMeters + 0.3048) {
         testAchieved = true;
       }
-    } else if (current.testEndSpeed != null &&
-        current.testStartSpeed == 0.0) {
+    } else if (current.testEndSpeed != null && current.testStartSpeed == 0.0) {
       if (newSpeedKmh >= current.testEndSpeed!) {
         testAchieved = true;
       }
@@ -514,6 +537,11 @@ class PhysicsEngine {
     double newElapsedTimeCalculated = newElapsedTime;
     bool isBraking = intervalStartSpeed > intervalEndSpeed;
 
+    double effectiveEndSpeed = intervalEndSpeed;
+    if (isBraking && intervalEndSpeed == 0.0) {
+      effectiveEndSpeed = PhysicsEngine.zeroCrossingThreshold;
+    }
+
     if (!isBraking && newSpeedKmh >= intervalEndSpeed) {
       testAchieved = true;
       double speedDiff = newSpeedKmh - current.speedKmh;
@@ -521,7 +549,7 @@ class PhysicsEngine {
         double fraction = (intervalEndSpeed - current.speedKmh) / speedDiff;
         newElapsedTimeCalculated = current.elapsedTime + (currentDt * fraction);
       }
-    } else if (isBraking && newSpeedKmh <= intervalEndSpeed) {
+    } else if (isBraking && newSpeedKmh <= effectiveEndSpeed) {
       testAchieved = true;
       double speedDiff = current.speedKmh - newSpeedKmh;
       if (speedDiff > 0) {
@@ -533,13 +561,20 @@ class PhysicsEngine {
     final Map<String, double> newtestTimes = Map.from(current.testTimes);
 
     if (testAchieved) {
+      if (current.testStartSpeed != null && current.testEndSpeed != null && current.testSpeedUnit != null) {
+        final unit = current.testSpeedUnit!.name;
+        final customId = 'custom_${current.testStartSpeed!.round()}_${current.testEndSpeed!.round()}_$unit';
+        if (!newtestTimes.containsKey(customId)) {
+          newtestTimes[customId] = newElapsedTimeCalculated;
+        }
+      }
       for (final test in activeTests) {
         if (newtestTimes.containsKey(test.id)) continue;
-        
+
         if (test.endSpeed != null && test.startSpeed != null) {
           if ((current.testStartSpeed! - test.startSpeed!).abs() < 1.0 &&
               (current.testEndSpeed! - test.endSpeed!).abs() < 1.0) {
-             newtestTimes[test.id] = newElapsedTimeCalculated;
+            newtestTimes[test.id] = newElapsedTimeCalculated;
           }
         }
       }

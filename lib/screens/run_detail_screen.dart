@@ -68,8 +68,6 @@ class RunDetailScreen extends StatelessWidget {
       activeTests: activeTestsList,
     );
     for (final test in completedTests) {
-      if (!dragy.enabledTests.contains(test.id)) continue;
-
       // Filter out speed tests of the opposite unit system to match user's preference
       if (test.speedUnit != null) {
         final isTestMetric = test.speedUnit == SpeedUnit.kmh;
@@ -129,37 +127,23 @@ class RunDetailScreen extends StatelessWidget {
         final runIsMetric =
             (metrics.testSpeedUnit ?? SpeedUnit.kmh) == SpeedUnit.kmh;
         if (runIsMetric == isMetric) {
-          final unitEnum =
-              metrics.testSpeedUnit ??
-              (isMetric ? SpeedUnit.kmh : SpeedUnit.mph);
-          final unit = unitEnum.name;
-          final isRunMetric = unitEnum == SpeedUnit.kmh;
-          final startSpeed = !isRunMetric
-              ? UnitConverter.kmhToMph(metrics.testStartSpeed!).round()
-              : metrics.testStartSpeed!.round();
-          final endSpeed = !isRunMetric
-              ? UnitConverter.kmhToMph(metrics.testEndSpeed!).round()
-              : metrics.testEndSpeed!.round();
-          final customId = 'custom_${startSpeed}_${endSpeed}_$unit';
-          final compTime = getCompletedTimeForCategory(
-            metrics,
-            customId,
-            useNhraRules: useNhraRules,
-          );
-          if (compTime != null) {
-            final label = getDisplayLabelForTest(
-              startSpeed: metrics.testStartSpeed,
-              endSpeed: metrics.testEndSpeed,
-              speedUnit: metrics.testSpeedUnit,
-              runMode: RunMode.interval,
+          final customTest = buildCustomIntervalTest(metrics);
+          if (customTest != null) {
+            final compTime = getCompletedTimeForCategory(
+              metrics,
+              customTest.id,
+              useNhraRules: useNhraRules,
+              activeTests: [...officialTests, customTest],
             );
-            reachedMilestones.add(
-              _ReachedMilestone(
-                label: label,
-                time: compTime,
-                sortTime: compTime,
-              ),
-            );
+            if (compTime != null) {
+              reachedMilestones.add(
+                _ReachedMilestone(
+                  label: customTest.displayName,
+                  time: compTime,
+                  sortTime: compTime,
+                ),
+              );
+            }
           }
         }
       }
@@ -213,29 +197,16 @@ class RunDetailScreen extends StatelessWidget {
         metrics.testStartSpeed != null &&
         metrics.testEndSpeed != null) {
       // Custom interval target
-      final label = getDisplayLabelForTest(
-        startSpeed: metrics.testStartSpeed,
-        endSpeed: metrics.testEndSpeed,
-        speedUnit: metrics.testSpeedUnit,
-        runMode: RunMode.interval,
-      );
-      primaryLabel = "$label Time";
-      final unitEnum =
-          metrics.testSpeedUnit ?? (isMetric ? SpeedUnit.kmh : SpeedUnit.mph);
-      final unit = unitEnum.name;
-      final isRunMetric = unitEnum == SpeedUnit.kmh;
-      final startSpeed = !isRunMetric
-          ? UnitConverter.kmhToMph(metrics.testStartSpeed!).round()
-          : metrics.testStartSpeed!.round();
-      final endSpeed = !isRunMetric
-          ? UnitConverter.kmhToMph(metrics.testEndSpeed!).round()
-          : metrics.testEndSpeed!.round();
-      final customId = 'custom_${startSpeed}_${endSpeed}_$unit';
-      completedTime = getCompletedTimeForCategory(
-        metrics,
-        customId,
-        useNhraRules: useNhraRules,
-      );
+      final customTest = buildCustomIntervalTest(metrics);
+      if (customTest != null) {
+        completedTime = getCompletedTimeForCategory(
+          metrics,
+          customTest.id,
+          useNhraRules: useNhraRules,
+          activeTests: [...officialTests, customTest],
+        );
+        primaryLabel = "${customTest.displayName} Time";
+      }
     }
 
     // Fallback if target is not completed or none was set

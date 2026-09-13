@@ -99,33 +99,17 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
           final runIsMetric = (run.metrics.testSpeedUnit ?? SpeedUnit.kmh) == SpeedUnit.kmh;
           if (runIsMetric != isMetric) continue;
 
-          final unitEnum =
-              run.metrics.testSpeedUnit ?? (isMetric ? SpeedUnit.kmh : SpeedUnit.mph);
-          final unit = unitEnum.name;
-          final isRunMetric = unitEnum == SpeedUnit.kmh;
-          final start = !isRunMetric
-              ? UnitConverter.kmhToMph(run.metrics.testStartSpeed!).round()
-              : run.metrics.testStartSpeed!.round();
-          final end = !isRunMetric
-              ? UnitConverter.kmhToMph(run.metrics.testEndSpeed!).round()
-              : run.metrics.testEndSpeed!.round();
-          final customId = 'custom_${start}_${end}_$unit';
-          if (!seenIds.contains(customId)) {
-            seenIds.add(customId);
-            final label = getDisplayLabelForTest(
-              startSpeed: run.metrics.testStartSpeed,
-              endSpeed: run.metrics.testEndSpeed,
-              speedUnit: run.metrics.testSpeedUnit,
-              runMode: RunMode.interval,
-            );
+          final customTest = buildCustomIntervalTest(run.metrics);
+          if (customTest != null && !seenIds.contains(customTest.id)) {
+            seenIds.add(customTest.id);
             categories.add(
               HistoryCategory(
-                id: customId,
-                displayName: label,
+                id: customTest.id,
+                displayName: customTest.displayName,
                 isOfficial: false,
-                startSpeed: run.metrics.testStartSpeed,
-                endSpeed: run.metrics.testEndSpeed,
-                speedUnit: unitEnum,
+                startSpeed: customTest.startSpeed,
+                endSpeed: customTest.endSpeed,
+                speedUnit: customTest.speedUnit,
               ),
             );
           }
@@ -672,45 +656,20 @@ class RunHistoryCard extends StatelessWidget {
         }
       }
 
-      if (maxTime < 0 &&
-          metrics.runMode == RunMode.interval &&
-          metrics.testStartSpeed != null &&
-          metrics.testEndSpeed != null) {
-        primaryLabel = getDisplayLabelForTest(
-          startSpeed: metrics.testStartSpeed,
-          endSpeed: metrics.testEndSpeed,
-          speedUnit: metrics.testSpeedUnit,
-          runMode: RunMode.interval,
-        );
-        final unitEnum =
-            metrics.testSpeedUnit ?? (isMetric ? SpeedUnit.kmh : SpeedUnit.mph);
-        final unit = unitEnum.name;
-        final isRunMetric = unitEnum == SpeedUnit.kmh;
-        final start = !isRunMetric
-            ? UnitConverter.kmhToMph(metrics.testStartSpeed!).round()
-            : metrics.testStartSpeed!.round();
-        final end = !isRunMetric
-            ? UnitConverter.kmhToMph(metrics.testEndSpeed!).round()
-            : metrics.testEndSpeed!.round();
-        final customId = 'custom_${start}_${end}_$unit';
-        final customTest = RaceTest(
-          id: customId,
-          displayName: customId,
-          startSpeed: metrics.testStartSpeed,
-          endSpeed: metrics.testEndSpeed,
-          speedUnit: unitEnum,
-          isOfficial: false,
-        );
-
-        final compTime = getCompletedTimeForCategory(
-          metrics,
-          customId,
-          useNhraRules: useNhraRulesSetting,
-          activeTests: [customTest],
-        );
-        primaryTime = compTime != null
-            ? "${compTime.toStringAsFixed(2)}s"
-            : "-.--s";
+      if (maxTime < 0) {
+        final customTest = buildCustomIntervalTest(metrics);
+        if (customTest != null) {
+          primaryLabel = customTest.displayName;
+          final compTime = getCompletedTimeForCategory(
+            metrics,
+            customTest.id,
+            useNhraRules: useNhraRulesSetting,
+            activeTests: [customTest],
+          );
+          primaryTime = compTime != null
+              ? "${compTime.toStringAsFixed(2)}s"
+              : "-.--s";
+        }
       }
     }
 

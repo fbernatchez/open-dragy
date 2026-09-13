@@ -492,8 +492,8 @@ void main() {
         distanceMeters: 150.0,
         elapsedTime: 2.15,
         runMode: RunMode.interval,
-        testStartSpeed: 48.28032,
-        testEndSpeed: 80.4672,
+        testStartSpeed: 30.0,
+        testEndSpeed: 50.0,
         testSpeedUnit: SpeedUnit.mph,
         history: const [
           DataPoint(elapsedTime: -0.01, speedKmh: 47.28032, gForce: 0.0, altitude: 100.0),

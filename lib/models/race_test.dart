@@ -501,6 +501,43 @@ List<RaceTest> getCompletedTests(
   return completed;
 }
 
+/// Builds a temporary [RaceTest] from a [RaceMetrics] object whose
+/// [RaceMetrics.runMode] is [RunMode.interval] with a custom speed range.
+///
+/// [RaceMetrics.testStartSpeed] and [RaceMetrics.testEndSpeed] are stored in
+/// the user's native unit ([RaceMetrics.testSpeedUnit]).  [RaceTest] internally
+/// expects speeds in **km/h**, so this helper normalises them before
+/// constructing the object.
+///
+/// Returns `null` if the metrics do not describe a custom interval run.
+RaceTest? buildCustomIntervalTest(RaceMetrics metrics) {
+  if (metrics.runMode != RunMode.interval ||
+      metrics.testStartSpeed == null ||
+      metrics.testEndSpeed == null) {
+    return null;
+  }
+
+  final unitEnum = metrics.testSpeedUnit ?? SpeedUnit.kmh;
+  final isMph = unitEnum == SpeedUnit.mph;
+  final startKmh =
+      isMph ? UnitConverter.mphToKmh(metrics.testStartSpeed!) : metrics.testStartSpeed!;
+  final endKmh =
+      isMph ? UnitConverter.mphToKmh(metrics.testEndSpeed!) : metrics.testEndSpeed!;
+
+  final start = metrics.testStartSpeed!.round();
+  final end = metrics.testEndSpeed!.round();
+  final unitStr = unitEnum.name; // 'mph' or 'kmh'
+
+  return RaceTest(
+    id: 'custom_${start}_${end}_$unitStr',
+    displayName: '$start-$end ${isMph ? "mph" : "km/h"}',
+    startSpeed: startKmh,
+    endSpeed: endKmh,
+    speedUnit: unitEnum,
+    isOfficial: false,
+  );
+}
+
 double? getCompletedTimeForCategory(
   RaceMetrics metrics,
   String categoryId, {
