@@ -519,8 +519,8 @@ class RunDetailScreen extends StatelessWidget {
                       _ProfileStatRow(
                         label: 'Total Distance',
                         value: isMetric
-                            ? '${metrics.distanceMeters.round()} m'
-                            : '${UnitConverter.metersToFeet(metrics.distanceMeters).round()} ft',
+                            ? '${metrics.distanceMeters.toStringAsFixed(1)} m'
+                            : '${UnitConverter.metersToFeet(metrics.distanceMeters).toStringAsFixed(1)} ft',
                       ),
                       _ProfileStatRow(
                         label: 'Start Altitude',
@@ -1072,8 +1072,8 @@ class _EnvironmentCard extends StatelessWidget {
           _ProfileStatRow(
             label: 'Density Altitude',
             value: isMetric
-                ? '${daMeters.toStringAsFixed(0)}m'
-                : '${UnitConverter.metersToFeet(daMeters).toStringAsFixed(0)}ft',
+                ? '${daMeters.toStringAsFixed(0)} m'
+                : '${UnitConverter.metersToFeet(daMeters).toStringAsFixed(0)} ft',
           ),
         ],
       ),
