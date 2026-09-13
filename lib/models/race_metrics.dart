@@ -42,36 +42,12 @@ class RaceMetrics {
   final double gForce;
   final double elapsedTime;
 
-  // Timers (in seconds)
-  final double? time60ft;
-  final double? time330ft;
-  final double? time0to60mph;
-  final double? time0to100kmh;
-  final double? time18Mile;
-  final double? trap18Mile; // Trap speed in km/h
-  final double? time1000ft;
-  final double? trap1000ft; // Trap speed in km/h
-  final double? time14Mile;
-  final double? trap14Mile; // Trap speed in km/h
-  final double? time12Mile;
-  final double? trap12Mile; // Trap speed in km/h
+  // Timers and Speeds
+  final Map<String, double> targetTimes;
+  final Map<String, double> targetSpeeds;
 
-  // Rollout Timers (in seconds)
+  // Global rollout timer (needed for NHRA calculations)
   final double? rolloutTime1ft;
-  final double? time60ftRollout;
-  final double? time330ftRollout;
-  final double? time0to60mphRollout;
-  final double? time0to100kmhRollout;
-  final double? time18MileRollout;
-  final double? time1000ftRollout;
-  final double? time14MileRollout;
-  final double? time12MileRollout;
-
-  // Speed intervals (in seconds)
-  final double? time60to130mph;
-  final double? time100to200kmh;
-  final double? time0to130mph;
-  final double? time0to200kmh;
 
   // Elevation
   final double? startAltitude; // Start elevation in meters
@@ -98,31 +74,9 @@ class RaceMetrics {
     this.distanceMeters = 0.0,
     this.gForce = 0.0,
     this.elapsedTime = 0.0,
-    this.time60ft,
-    this.time330ft,
-    this.time0to60mph,
-    this.time0to100kmh,
-    this.time18Mile,
-    this.trap18Mile,
-    this.time1000ft,
-    this.trap1000ft,
-    this.time14Mile,
-    this.trap14Mile,
-    this.time12Mile,
-    this.trap12Mile,
+    Map<String, double>? targetTimes,
+    Map<String, double>? targetSpeeds,
     this.rolloutTime1ft,
-    this.time60ftRollout,
-    this.time330ftRollout,
-    this.time0to60mphRollout,
-    this.time0to100kmhRollout,
-    this.time18MileRollout,
-    this.time1000ftRollout,
-    this.time14MileRollout,
-    this.time12MileRollout,
-    this.time60to130mph,
-    this.time100to200kmh,
-    this.time0to130mph,
-    this.time0to200kmh,
     this.startAltitude,
     this.runMode,
     this.targetDistance,
@@ -132,38 +86,17 @@ class RaceMetrics {
     this.targetSpeedUnit,
     this.isRunning = false,
     this.history = const [],
-  });
+  })  : targetTimes = targetTimes ?? const {},
+        targetSpeeds = targetSpeeds ?? const {};
 
   RaceMetrics copyWith({
     double? speedKmh,
     double? distanceMeters,
     double? gForce,
     double? elapsedTime,
-    double? time60ft,
-    double? time330ft,
-    double? time0to60mph,
-    double? time0to100kmh,
-    double? time18Mile,
-    double? trap18Mile,
-    double? time1000ft,
-    double? trap1000ft,
-    double? time14Mile,
-    double? trap14Mile,
-    double? time12Mile,
-    double? trap12Mile,
+    Map<String, double>? targetTimes,
+    Map<String, double>? targetSpeeds,
     double? rolloutTime1ft,
-    double? time60ftRollout,
-    double? time330ftRollout,
-    double? time0to60mphRollout,
-    double? time0to100kmhRollout,
-    double? time18MileRollout,
-    double? time1000ftRollout,
-    double? time14MileRollout,
-    double? time12MileRollout,
-    double? time60to130mph,
-    double? time100to200kmh,
-    double? time0to130mph,
-    double? time0to200kmh,
     double? startAltitude,
     RunMode? runMode,
     double? targetDistance,
@@ -179,31 +112,9 @@ class RaceMetrics {
       distanceMeters: distanceMeters ?? this.distanceMeters,
       gForce: gForce ?? this.gForce,
       elapsedTime: elapsedTime ?? this.elapsedTime,
-      time60ft: time60ft ?? this.time60ft,
-      time330ft: time330ft ?? this.time330ft,
-      time0to60mph: time0to60mph ?? this.time0to60mph,
-      time0to100kmh: time0to100kmh ?? this.time0to100kmh,
-      time18Mile: time18Mile ?? this.time18Mile,
-      trap18Mile: trap18Mile ?? this.trap18Mile,
-      time1000ft: time1000ft ?? this.time1000ft,
-      trap1000ft: trap1000ft ?? this.trap1000ft,
-      time14Mile: time14Mile ?? this.time14Mile,
-      trap14Mile: trap14Mile ?? this.trap14Mile,
-      time12Mile: time12Mile ?? this.time12Mile,
-      trap12Mile: trap12Mile ?? this.trap12Mile,
+      targetTimes: targetTimes ?? this.targetTimes,
+      targetSpeeds: targetSpeeds ?? this.targetSpeeds,
       rolloutTime1ft: rolloutTime1ft ?? this.rolloutTime1ft,
-      time60ftRollout: time60ftRollout ?? this.time60ftRollout,
-      time330ftRollout: time330ftRollout ?? this.time330ftRollout,
-      time0to60mphRollout: time0to60mphRollout ?? this.time0to60mphRollout,
-      time0to100kmhRollout: time0to100kmhRollout ?? this.time0to100kmhRollout,
-      time18MileRollout: time18MileRollout ?? this.time18MileRollout,
-      time1000ftRollout: time1000ftRollout ?? this.time1000ftRollout,
-      time14MileRollout: time14MileRollout ?? this.time14MileRollout,
-      time12MileRollout: time12MileRollout ?? this.time12MileRollout,
-      time60to130mph: time60to130mph ?? this.time60to130mph,
-      time100to200kmh: time100to200kmh ?? this.time100to200kmh,
-      time0to130mph: time0to130mph ?? this.time0to130mph,
-      time0to200kmh: time0to200kmh ?? this.time0to200kmh,
       startAltitude: startAltitude ?? this.startAltitude,
       runMode: runMode ?? this.runMode,
       targetDistance: targetDistance ?? this.targetDistance,
@@ -222,31 +133,9 @@ class RaceMetrics {
       'distanceMeters': distanceMeters,
       'gForce': gForce,
       'elapsedTime': elapsedTime,
-      'time60ft': time60ft,
-      'time330ft': time330ft,
-      'time0to60mph': time0to60mph,
-      'time0to100kmh': time0to100kmh,
-      'time18Mile': time18Mile,
-      'trap18Mile': trap18Mile,
-      'time1000ft': time1000ft,
-      'trap1000ft': trap1000ft,
-      'time14Mile': time14Mile,
-      'trap14Mile': trap14Mile,
-      'time12Mile': time12Mile,
-      'trap12Mile': trap12Mile,
+      'targetTimes': targetTimes,
+      'targetSpeeds': targetSpeeds,
       'rolloutTime1ft': rolloutTime1ft,
-      'time60ftRollout': time60ftRollout,
-      'time330ftRollout': time330ftRollout,
-      'time0to60mphRollout': time0to60mphRollout,
-      'time0to100kmhRollout': time0to100kmhRollout,
-      'time18MileRollout': time18MileRollout,
-      'time1000ftRollout': time1000ftRollout,
-      'time14MileRollout': time14MileRollout,
-      'time12MileRollout': time12MileRollout,
-      'time60to130mph': time60to130mph,
-      'time100to200kmh': time100to200kmh,
-      'time0to130mph': time0to130mph,
-      'time0to200kmh': time0to200kmh,
       'startAltitude': startAltitude,
       'runMode': runMode?.name,
       'targetDistance': targetDistance,
@@ -259,85 +148,66 @@ class RaceMetrics {
   }
 
   factory RaceMetrics.fromJson(Map<String, dynamic> json) {
+    // Migration for legacy hardcoded target properties
+    Map<String, double> migratedTargetTimes = {};
+    if (json.containsKey('targetTimes')) {
+      migratedTargetTimes = Map<String, double>.from(json['targetTimes']);
+    } else {
+      final legacyTimeKeys = {
+        '60ft': 'time60ft',
+        '330ft': 'time330ft',
+        '0-60mph': 'time0to60mph',
+        '0-100kmh': 'time0to100kmh',
+        '1/8mile': 'time18Mile',
+        '1000ft': 'time1000ft',
+        '1/4mile': 'time14Mile',
+        '1/2mile': 'time12Mile',
+        '0-130mph': 'time0to130mph',
+        '0-200kmh': 'time0to200kmh',
+        '60-130mph': 'time60to130mph',
+        '100-200kmh': 'time100to200kmh',
+        '60ft_rollout': 'time60ftRollout',
+        '330ft_rollout': 'time330ftRollout',
+        '0-60mph_rollout': 'time0to60mphRollout',
+        '0-100kmh_rollout': 'time0to100kmhRollout',
+        '1/8mile_rollout': 'time18MileRollout',
+        '1000ft_rollout': 'time1000ftRollout',
+        '1/4mile_rollout': 'time14MileRollout',
+        '1/2mile_rollout': 'time12MileRollout',
+      };
+      for (final entry in legacyTimeKeys.entries) {
+        if (json[entry.value] != null) {
+          migratedTargetTimes[entry.key] = (json[entry.value] as num).toDouble();
+        }
+      }
+    }
+
+    Map<String, double> migratedTargetSpeeds = {};
+    if (json.containsKey('targetSpeeds')) {
+      migratedTargetSpeeds = Map<String, double>.from(json['targetSpeeds']);
+    } else {
+      final legacySpeedKeys = {
+        '1/8mile': 'trap18Mile',
+        '1000ft': 'trap1000ft',
+        '1/4mile': 'trap14Mile',
+        '1/2mile': 'trap12Mile',
+      };
+      for (final entry in legacySpeedKeys.entries) {
+        if (json[entry.value] != null) {
+          migratedTargetSpeeds[entry.key] = (json[entry.value] as num).toDouble();
+        }
+      }
+    }
+
     return RaceMetrics(
       speedKmh: (json['speedKmh'] as num).toDouble(),
       distanceMeters: (json['distanceMeters'] as num).toDouble(),
       gForce: (json['gForce'] as num).toDouble(),
       elapsedTime: (json['elapsedTime'] as num).toDouble(),
-      time60ft: json['time60ft'] != null
-          ? (json['time60ft'] as num).toDouble()
-          : null,
-      time330ft: json['time330ft'] != null
-          ? (json['time330ft'] as num).toDouble()
-          : null,
-      time0to60mph: json['time0to60mph'] != null
-          ? (json['time0to60mph'] as num).toDouble()
-          : null,
-      time0to100kmh: json['time0to100kmh'] != null
-          ? (json['time0to100kmh'] as num).toDouble()
-          : null,
-      time18Mile: json['time18Mile'] != null
-          ? (json['time18Mile'] as num).toDouble()
-          : null,
-      trap18Mile: json['trap18Mile'] != null
-          ? (json['trap18Mile'] as num).toDouble()
-          : null,
-      time1000ft: json['time1000ft'] != null
-          ? (json['time1000ft'] as num).toDouble()
-          : null,
-      trap1000ft: json['trap1000ft'] != null
-          ? (json['trap1000ft'] as num).toDouble()
-          : null,
-      time14Mile: json['time14Mile'] != null
-          ? (json['time14Mile'] as num).toDouble()
-          : null,
-      trap14Mile: json['trap14Mile'] != null
-          ? (json['trap14Mile'] as num).toDouble()
-          : null,
-      time12Mile: json['time12Mile'] != null
-          ? (json['time12Mile'] as num).toDouble()
-          : null,
-      trap12Mile: json['trap12Mile'] != null
-          ? (json['trap12Mile'] as num).toDouble()
-          : null,
+      targetTimes: migratedTargetTimes,
+      targetSpeeds: migratedTargetSpeeds,
       rolloutTime1ft: json['rolloutTime1ft'] != null
           ? (json['rolloutTime1ft'] as num).toDouble()
-          : null,
-      time60ftRollout: json['time60ftRollout'] != null
-          ? (json['time60ftRollout'] as num).toDouble()
-          : null,
-      time330ftRollout: json['time330ftRollout'] != null
-          ? (json['time330ftRollout'] as num).toDouble()
-          : null,
-      time0to60mphRollout: json['time0to60mphRollout'] != null
-          ? (json['time0to60mphRollout'] as num).toDouble()
-          : null,
-      time0to100kmhRollout: json['time0to100kmhRollout'] != null
-          ? (json['time0to100kmhRollout'] as num).toDouble()
-          : null,
-      time18MileRollout: json['time18MileRollout'] != null
-          ? (json['time18MileRollout'] as num).toDouble()
-          : null,
-      time1000ftRollout: json['time1000ftRollout'] != null
-          ? (json['time1000ftRollout'] as num).toDouble()
-          : null,
-      time14MileRollout: json['time14MileRollout'] != null
-          ? (json['time14MileRollout'] as num).toDouble()
-          : null,
-      time12MileRollout: json['time12MileRollout'] != null
-          ? (json['time12MileRollout'] as num).toDouble()
-          : null,
-      time60to130mph: json['time60to130mph'] != null
-          ? (json['time60to130mph'] as num).toDouble()
-          : null,
-      time100to200kmh: json['time100to200kmh'] != null
-          ? (json['time100to200kmh'] as num).toDouble()
-          : null,
-      time0to130mph: json['time0to130mph'] != null
-          ? (json['time0to130mph'] as num).toDouble()
-          : null,
-      time0to200kmh: json['time0to200kmh'] != null
-          ? (json['time0to200kmh'] as num).toDouble()
           : null,
       startAltitude: json['startAltitude'] != null
           ? (json['startAltitude'] as num).toDouble()

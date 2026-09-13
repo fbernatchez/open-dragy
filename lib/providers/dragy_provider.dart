@@ -107,6 +107,12 @@ class DragyProvider extends ChangeNotifier {
   double _customIntervalEndSpeed = 200.0;
   double get customIntervalEndSpeed => _customIntervalEndSpeed;
 
+  List<String> _enabledTargets = officialTests.map((t) => t.id).toList();
+  List<String> get enabledTargets => List.unmodifiable(_enabledTargets);
+
+  List<RaceTarget> _customTargets = [];
+  List<RaceTarget> get customTargets => List.unmodifiable(_customTargets);
+
   double get intervalStartSpeed {
     if (_activeIntervalTarget == RaceIntervalTarget.custom) {
       return _isMetric
@@ -310,7 +316,7 @@ class DragyProvider extends ChangeNotifier {
         final wasRunning = _metrics.isRunning;
         final oldTests = _enableTts && wasRunning
             ? getCompletedTests(_metrics, useNhraRules: _useNhraRules)
-            : <OfficialTest>[];
+            : <RaceTarget>[];
 
         double avgGForce = _gForceCount > 0
             ? _gForceAccumulator / _gForceCount
@@ -605,7 +611,23 @@ class DragyProvider extends ChangeNotifier {
 
   void toggleSpeedUnit() {
     _isMetric = !_isMetric;
+
+    if (data['enabledTargets'] != null) {
+      _enabledTargets = List<String>.from(data['enabledTargets']);
+    } else {
+      _enabledTargets = officialTests.map((t) => t.id).toList();
+    }
+
+    if (data['customTargets'] != null) {
+      _customTargets = (data['customTargets'] as List)
+          .map((e) => RaceTarget.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } else {
+      _customTargets = [];
+    }
+
     _syncActiveTargetToUnit();
+
     if (_isMetric) {
       _customIntervalStartSpeed = UnitConverter.mphToKmh(
         _customIntervalStartSpeed,
@@ -642,7 +664,23 @@ class DragyProvider extends ChangeNotifier {
   void setMetric(bool isMetric) {
     if (_isMetric != isMetric) {
       _isMetric = isMetric;
-      _syncActiveTargetToUnit();
+  
+    if (data['enabledTargets'] != null) {
+      _enabledTargets = List<String>.from(data['enabledTargets']);
+    } else {
+      _enabledTargets = officialTests.map((t) => t.id).toList();
+    }
+
+    if (data['customTargets'] != null) {
+      _customTargets = (data['customTargets'] as List)
+          .map((e) => RaceTarget.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } else {
+      _customTargets = [];
+    }
+
+    _syncActiveTargetToUnit();
+
       if (_isMetric) {
         _customIntervalStartSpeed = UnitConverter.mphToKmh(
           _customIntervalStartSpeed,
@@ -796,6 +834,32 @@ class DragyProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void toggleTargetEnabled(String targetId, bool enabled) {
+    if (enabled) {
+      if (!_enabledTargets.contains(targetId)) {
+        _enabledTargets.add(targetId);
+      }
+    } else {
+      _enabledTargets.remove(targetId);
+    }
+    _saveSettings();
+    notifyListeners();
+  }
+
+  void addCustomTarget(RaceTarget target) {
+    _customTargets.add(target);
+    _enabledTargets.add(target.id);
+    _saveSettings();
+    notifyListeners();
+  }
+
+  void removeCustomTarget(String targetId) {
+    _customTargets.removeWhere((t) => t.id == targetId);
+    _enabledTargets.remove(targetId);
+    _saveSettings();
+    notifyListeners();
+  }
+
   Future<void> _loadSettings() async {
     final data = await _settingsService.load();
     _isMetric = data['isMetric'] as bool? ?? false;
@@ -824,7 +888,23 @@ class DragyProvider extends ChangeNotifier {
         (data['customIntervalStartSpeed'] as num?)?.toDouble() ?? 100.0;
     _customIntervalEndSpeed =
         (data['customIntervalEndSpeed'] as num?)?.toDouble() ?? 200.0;
+
+    if (data['enabledTargets'] != null) {
+      _enabledTargets = List<String>.from(data['enabledTargets']);
+    } else {
+      _enabledTargets = officialTests.map((t) => t.id).toList();
+    }
+
+    if (data['customTargets'] != null) {
+      _customTargets = (data['customTargets'] as List)
+          .map((e) => RaceTarget.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } else {
+      _customTargets = [];
+    }
+
     _syncActiveTargetToUnit();
+
     notifyListeners();
   }
 
@@ -840,6 +920,8 @@ class DragyProvider extends ChangeNotifier {
       'activeIntervalTarget': _activeIntervalTarget.name,
       'customIntervalStartSpeed': _customIntervalStartSpeed.round(),
       'customIntervalEndSpeed': _customIntervalEndSpeed.round(),
+      'enabledTargets': _enabledTargets,
+      'customTargets': _customTargets.map((t) => t.toJson()).toList(),
     });
   }
 

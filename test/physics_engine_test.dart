@@ -353,18 +353,18 @@ void main() {
       }
 
       // Verify that all timers were triggered
-      expect(metrics.time60ft, isNotNull);
-      expect(metrics.time0to60mph, isNotNull);
-      expect(metrics.time0to100kmh, isNotNull);
-      expect(metrics.time18Mile, isNotNull);
-      expect(metrics.time1000ft, isNotNull);
-      expect(metrics.time14Mile, isNotNull);
-      expect(metrics.time12Mile, isNotNull);
-      expect(metrics.trap12Mile, isNotNull);
-      expect(metrics.time60to130mph, isNotNull);
-      expect(metrics.time100to200kmh, isNotNull);
-      expect(metrics.time0to130mph, isNotNull);
-      expect(metrics.time0to200kmh, isNotNull);
+      expect(metrics.targetTimes['60ft'], isNotNull);
+      expect(metrics.targetTimes['0-60mph'], isNotNull);
+      expect(metrics.targetTimes['0-100kmh'], isNotNull);
+      expect(metrics.targetTimes['1/8mile'], isNotNull);
+      expect(metrics.targetTimes['1000ft'], isNotNull);
+      expect(metrics.targetTimes['1/4mile'], isNotNull);
+      expect(metrics.targetTimes['1/2mile'], isNotNull);
+      expect(metrics.targetSpeeds['1/2mile'], isNotNull);
+      expect(metrics.targetTimes['60-130mph'], isNotNull);
+      expect(metrics.targetTimes['100-200kmh'], isNotNull);
+      expect(metrics.targetTimes['0-130mph'], isNotNull);
+      expect(metrics.targetTimes['0-200kmh'], isNotNull);
       expect(metrics.isRunning, false); // completed 1/2 mile
     });
 
@@ -433,7 +433,7 @@ void main() {
       );
 
       expect(metrics.isRunning, false);
-      expect(metrics.time60to130mph, isNotNull);
+      expect(metrics.targetTimes['60-130mph'], isNotNull);
     });
 
     test('cancels interval run if speed drops', () {
@@ -1054,17 +1054,16 @@ void main() {
         );
       }
       expect(metrics.isRunning, false);
-      expect(metrics.time0to200kmh, isNotNull, reason: 'time0to200kmh is null! targetStartSpeed: ${metrics.targetStartSpeed}, targetEndSpeed: ${metrics.targetEndSpeed}, targetSpeedUnit: ${metrics.targetSpeedUnit}, elapsedTime: ${metrics.elapsedTime}, speedKmh: ${metrics.speedKmh}, isRunning: ${metrics.isRunning}');
-      expect(metrics.time0to200kmh, closeTo(metrics.elapsedTime, 0.01));
+      expect(metrics.targetTimes['0-200kmh'], isNotNull, reason: 'time0to200kmh is null! targetStartSpeed: ${metrics.targetStartSpeed}, targetEndSpeed: ${metrics.targetEndSpeed}, targetSpeedUnit: ${metrics.targetSpeedUnit}, elapsedTime: ${metrics.elapsedTime}, speedKmh: ${metrics.speedKmh}, isRunning: ${metrics.isRunning}');
+      expect(metrics.targetTimes['0-200kmh'], closeTo(metrics.elapsedTime, 0.01));
     });
 
     test('rollout calculation and fallback logic', () {
       // 1. Simulate a run with rollout data
       RaceMetrics metricsWithRollout = RaceMetrics(
         runMode: RunMode.drag,
-        time0to60mph: 4.5,
+        targetTimes: {'0-60mph': 4.5, '0-60mph_rollout': 4.2},
         rolloutTime1ft: 0.3,
-        time0to60mphRollout: 4.2,
       );
 
       // When rollout is enabled, retrieve rollout time
@@ -1082,9 +1081,8 @@ void main() {
       // 2. Simulate an old run without rollout data (rolloutTime1ft is null)
       RaceMetrics metricsOldRun = RaceMetrics(
         runMode: RunMode.drag,
-        time0to60mph: 4.5,
+        targetTimes: {'0-60mph': 4.5},
         rolloutTime1ft: null,
-        time0to60mphRollout: null,
       );
 
       expect(

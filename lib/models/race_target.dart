@@ -107,6 +107,8 @@ enum RaceIntervalTarget {
   final String label;
   final String id;
   final SpeedUnit? speedUnit;
+  final bool isOfficial;
+
   final double? startSpeedKmh;
   final double? endSpeedKmh;
   const RaceIntervalTarget(
@@ -118,7 +120,7 @@ enum RaceIntervalTarget {
   );
 }
 
-class OfficialTest {
+class RaceTarget {
   final String id;
   final String displayName;
   final String? ttsPhrase;
@@ -130,8 +132,10 @@ class OfficialTest {
   final double? startSpeed; // in km/h
   final double? endSpeed; // in km/h
   final SpeedUnit? speedUnit;
+  final bool isOfficial;
 
-  const OfficialTest({
+
+  const RaceTarget({
     required this.id,
     required this.displayName,
     this.ttsPhrase,
@@ -141,7 +145,38 @@ class OfficialTest {
     this.startSpeed,
     this.endSpeed,
     this.speedUnit,
+    this.isOfficial = true,
   });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'displayName': displayName,
+      'ttsPhrase': ttsPhrase,
+      'enableTts': enableTts,
+      'distance': distance,
+      'distanceUnit': distanceUnit?.name,
+      'startSpeed': startSpeed,
+      'endSpeed': endSpeed,
+      'speedUnit': speedUnit?.name,
+      'isOfficial': isOfficial,
+    };
+  }
+
+  factory RaceTarget.fromJson(Map<String, dynamic> json) {
+    return RaceTarget(
+      id: json['id'] as String,
+      displayName: json['displayName'] as String,
+      ttsPhrase: json['ttsPhrase'] as String?,
+      enableTts: json['enableTts'] as bool? ?? true,
+      distance: (json['distance'] as num?)?.toDouble(),
+      distanceUnit: json['distanceUnit'] != null ? DistanceUnit.fromJson(json['distanceUnit'] as String) : null,
+      startSpeed: (json['startSpeed'] as num?)?.toDouble(),
+      endSpeed: (json['endSpeed'] as num?)?.toDouble(),
+      speedUnit: json['speedUnit'] != null ? SpeedUnit.fromJson(json['speedUnit'] as String) : null,
+      isOfficial: json['isOfficial'] as bool? ?? false,
+    );
+  }
 }
 
 class HistoryCategory {
@@ -153,6 +188,8 @@ class HistoryCategory {
   final double? startSpeed;
   final double? endSpeed;
   final SpeedUnit? speedUnit;
+  final bool isOfficial;
+
 
   const HistoryCategory({
     required this.id,
@@ -161,23 +198,54 @@ class HistoryCategory {
     this.startSpeed,
     this.endSpeed,
     this.speedUnit,
+    this.isOfficial = true,
   });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'displayName': displayName,
+      'ttsPhrase': ttsPhrase,
+      'enableTts': enableTts,
+      'distance': distance,
+      'distanceUnit': distanceUnit?.name,
+      'startSpeed': startSpeed,
+      'endSpeed': endSpeed,
+      'speedUnit': speedUnit?.name,
+      'isOfficial': isOfficial,
+    };
+  }
+
+  factory RaceTarget.fromJson(Map<String, dynamic> json) {
+    return RaceTarget(
+      id: json['id'] as String,
+      displayName: json['displayName'] as String,
+      ttsPhrase: json['ttsPhrase'] as String?,
+      enableTts: json['enableTts'] as bool? ?? true,
+      distance: (json['distance'] as num?)?.toDouble(),
+      distanceUnit: json['distanceUnit'] != null ? DistanceUnit.fromJson(json['distanceUnit'] as String) : null,
+      startSpeed: (json['startSpeed'] as num?)?.toDouble(),
+      endSpeed: (json['endSpeed'] as num?)?.toDouble(),
+      speedUnit: json['speedUnit'] != null ? SpeedUnit.fromJson(json['speedUnit'] as String) : null,
+      isOfficial: json['isOfficial'] as bool? ?? false,
+    );
+  }
 }
 
-const List<OfficialTest> officialTests = [
-  OfficialTest(
+const List<RaceTarget> officialTests = [
+  RaceTarget(
     id: '60ft',
     displayName: '60ft',
     distance: 60.0,
     distanceUnit: DistanceUnit.feet,
   ),
-  OfficialTest(
+  RaceTarget(
     id: '330ft',
     displayName: '330ft',
     distance: 330.0,
     distanceUnit: DistanceUnit.feet,
   ),
-  OfficialTest(
+  RaceTarget(
     id: '0-60mph',
     displayName: '0-60 mph',
     ttsPhrase: 'Sixty',
@@ -185,7 +253,7 @@ const List<OfficialTest> officialTests = [
     endSpeed: 96.56064, // 60 mph in km/h
     speedUnit: SpeedUnit.mph,
   ),
-  OfficialTest(
+  RaceTarget(
     id: '0-100kmh',
     displayName: '0-100 km/h',
     ttsPhrase: 'One hundred',
@@ -193,34 +261,34 @@ const List<OfficialTest> officialTests = [
     endSpeed: 100.0,
     speedUnit: SpeedUnit.kmh,
   ),
-  OfficialTest(
+  RaceTarget(
     id: '1/8mile',
     displayName: '1/8 mile',
     ttsPhrase: 'Eighth mile',
     distance: 0.125,
     distanceUnit: DistanceUnit.mile,
   ),
-  OfficialTest(
+  RaceTarget(
     id: '1000ft',
     displayName: '1000ft',
     distance: 1000.0,
     distanceUnit: DistanceUnit.feet,
   ),
-  OfficialTest(
+  RaceTarget(
     id: '1/4mile',
     displayName: '1/4 mile',
     ttsPhrase: 'Quarter mile',
     distance: 0.25,
     distanceUnit: DistanceUnit.mile,
   ),
-  OfficialTest(
+  RaceTarget(
     id: '1/2mile',
     displayName: '1/2 mile',
     ttsPhrase: 'Half mile',
     distance: 0.5,
     distanceUnit: DistanceUnit.mile,
   ),
-  OfficialTest(
+  RaceTarget(
     id: '0-130mph',
     displayName: '0-130 mph',
     ttsPhrase: 'One thirty',
@@ -228,7 +296,7 @@ const List<OfficialTest> officialTests = [
     endSpeed: 209.21472, // 130 mph in km/h
     speedUnit: SpeedUnit.mph,
   ),
-  OfficialTest(
+  RaceTarget(
     id: '0-200kmh',
     displayName: '0-200 km/h',
     ttsPhrase: 'Two hundred',
@@ -237,19 +305,49 @@ const List<OfficialTest> officialTests = [
     speedUnit: SpeedUnit.kmh,
   ),
   // Interval tests
-  OfficialTest(
+  RaceTarget(
     id: '60-130mph',
     displayName: '60-130 mph',
     startSpeed: 96.56064,
     endSpeed: 209.21472,
     speedUnit: SpeedUnit.mph,
   ),
-  OfficialTest(
+  RaceTarget(
     id: '100-200kmh',
     displayName: '100-200 km/h',
     startSpeed: 100.0,
     endSpeed: 200.0,
     speedUnit: SpeedUnit.kmh,
+  ),
+  RaceTarget(
+    id: '0-300kmh',
+    displayName: '0-300 km/h',
+    ttsPhrase: 'Three hundred',
+    startSpeed: 0.0,
+    endSpeed: 300.0,
+    speedUnit: SpeedUnit.kmh,
+  ),
+  RaceTarget(
+    id: '200-300kmh',
+    displayName: '200-300 km/h',
+    startSpeed: 200.0,
+    endSpeed: 300.0,
+    speedUnit: SpeedUnit.kmh,
+  ),
+  RaceTarget(
+    id: '0-200mph',
+    displayName: '0-200 mph',
+    ttsPhrase: 'Two hundred',
+    startSpeed: 0.0,
+    endSpeed: 321.8688,
+    speedUnit: SpeedUnit.mph,
+  ),
+  RaceTarget(
+    id: '130-200mph',
+    displayName: '130-200 mph',
+    startSpeed: 209.21472,
+    endSpeed: 321.8688,
+    speedUnit: SpeedUnit.mph,
   ),
 ];
 
@@ -260,72 +358,33 @@ double? _getPrecalculatedTime(
   bool useNhraRules = false,
 }) {
   if (useNhraRules) {
-    switch (id) {
-      case '60ft':
-        return m.time60ftRollout;
-      case '330ft':
-        return m.time330ftRollout;
-      case '0-60mph':
-        return m.time0to60mphRollout;
-      case '0-100kmh':
-        return m.time0to100kmhRollout;
-      case '1/8mile':
-        return m.time18MileRollout;
-      case '1000ft':
-        return m.time1000ftRollout;
-      case '1/4mile':
-        return m.time14MileRollout;
-      case '1/2mile':
-        return m.time12MileRollout;
-      case '0-130mph':
-        return (m.time0to130mph != null && m.rolloutTime1ft != null)
-            ? m.time0to130mph! - m.rolloutTime1ft!
-            : null;
-      case '0-200kmh':
-        return (m.time0to200kmh != null && m.rolloutTime1ft != null)
-            ? m.time0to200kmh! - m.rolloutTime1ft!
-            : null;
-      case '60-130mph':
-        return m.time60to130mph;
-      case '100-200kmh':
-        return m.time100to200kmh;
-      default:
-        return null;
+    // 1. Check if we have an explicit legacy rollout key (e.g. '0-60mph_rollout')
+    final legacyRolloutTime = m.targetTimes['${id}_rollout'];
+    if (legacyRolloutTime != null) return legacyRolloutTime;
+
+    // 2. Otherwise, check if we have the base time, and subtract rollout
+    final baseTime = m.targetTimes[id];
+    if (baseTime != null) {
+      // Only apply rollout if it's a standing start target
+      final isStandingStart = officialTests.any(
+        (t) =>
+            t.id == id &&
+            (t.distance != null ||
+                (t.startSpeed != null && t.startSpeed == 0.0)),
+      );
+      if (isStandingStart && m.rolloutTime1ft != null) {
+        return baseTime - m.rolloutTime1ft!;
+      }
+      return baseTime; // Not a standing start, so no rollout
     }
+    return null;
   } else {
-    switch (id) {
-      case '60ft':
-        return m.time60ft;
-      case '330ft':
-        return m.time330ft;
-      case '0-60mph':
-        return m.time0to60mph;
-      case '0-100kmh':
-        return m.time0to100kmh;
-      case '1/8mile':
-        return m.time18Mile;
-      case '1000ft':
-        return m.time1000ft;
-      case '1/4mile':
-        return m.time14Mile;
-      case '1/2mile':
-        return m.time12Mile;
-      case '0-130mph':
-        return m.time0to130mph;
-      case '0-200kmh':
-        return m.time0to200kmh;
-      case '60-130mph':
-        return m.time60to130mph;
-      case '100-200kmh':
-        return m.time100to200kmh;
-      default:
-        return null;
-    }
+    return m.targetTimes[id];
   }
 }
 
 // Convert distance units to meters
-double _convertToMeters(double distance, DistanceUnit unit) {
+double convertToMeters(double distance, DistanceUnit unit) {
   switch (unit) {
     case DistanceUnit.feet:
       return distance * 0.3048;
@@ -392,11 +451,11 @@ double? _findSpeedCrossingTime(
 }
 
 // Calculate run times dynamically from history points
-double? _calculateTimeFromHistory(RaceMetrics metrics, OfficialTest test) {
+double? _calculateTimeFromHistory(RaceMetrics metrics, RaceTarget test) {
   if (metrics.history.isEmpty) return null;
 
   if (test.distance != null && test.distanceUnit != null) {
-    final targetMeters = _convertToMeters(test.distance!, test.distanceUnit!);
+    final targetMeters = convertToMeters(test.distance!, test.distanceUnit!);
     return _findDistanceCrossingTime(metrics.history, targetMeters);
   } else if (test.endSpeed != null) {
     final start = test.startSpeed ?? 0.0;
@@ -417,11 +476,11 @@ double? _calculateTimeFromHistory(RaceMetrics metrics, OfficialTest test) {
   return null;
 }
 
-List<OfficialTest> getCompletedTests(
+List<RaceTarget> getCompletedTests(
   RaceMetrics metrics, {
   bool useNhraRules = false,
 }) {
-  final List<OfficialTest> completed = [];
+  final List<RaceTarget> completed = [];
 
   for (final test in officialTests) {
     final time = getCompletedTimeForCategory(
@@ -576,18 +635,7 @@ double? getTrapSpeedForCategory(
   }
 
   // Fallback to instantaneous trap speed
-  switch (categoryId) {
-    case '1/8mile':
-      return metrics.trap18Mile;
-    case '1000ft':
-      return metrics.trap1000ft;
-    case '1/4mile':
-      return metrics.trap14Mile;
-    case '1/2mile':
-      return metrics.trap12Mile;
-    default:
-      return null;
-  }
+  return metrics.targetSpeeds[categoryId];
 }
 
 String getDisplayLabelForTarget({

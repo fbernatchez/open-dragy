@@ -39,6 +39,7 @@ class PhysicsEngine {
     required double intervalStartSpeed,
     required double intervalEndSpeed,
     double? gpsTimeSeconds,
+    List<RaceTarget> activeTargets = officialTests,
   }) {
     // Calculate current dynamic dt
     double currentDt = _lastValidDt ?? 0.1;
@@ -294,6 +295,7 @@ class PhysicsEngine {
           currentAltitude,
           currentDt,
           smoothedGForce,
+          activeTargets,
         );
       } else {
         // Interval Mode
@@ -323,6 +325,7 @@ class PhysicsEngine {
           intervalStartSpeed: intervalStartSpeed,
           intervalEndSpeed: intervalEndSpeed,
           currentDt: currentDt,
+          activeTargets: activeTargets,
         );
       }
     }
@@ -334,6 +337,7 @@ class PhysicsEngine {
     double currentAltitude,
     double currentDt,
     double smoothedGForce,
+    List<RaceTarget> activeTargets,
   ) {
     final currentSpeedMs = current.speedKmh / 3.6;
     final newSpeedMs = newSpeedKmh / 3.6;
@@ -355,37 +359,10 @@ class PhysicsEngine {
         ),
       );
 
-    // Metrics triggers
-    double? t60ft = current.time60ft;
-    double? t330ft = current.time330ft;
-    double? t0_60mph = current.time0to60mph;
-    double? t0_100kmh = current.time0to100kmh;
-    double? t18 = current.time18Mile;
-    double? trap18 = current.trap18Mile;
-    double? t1000ft = current.time1000ft;
-    double? trap1000 = current.trap1000ft;
-    double? t14 = current.time14Mile;
-    double? trap14 = current.trap14Mile;
-    double? t12 = current.time12Mile;
-    double? trap12 = current.trap12Mile;
-
-    // Rollout triggers
+    final Map<String, double> newTargetTimes = Map.from(current.targetTimes);
+    final Map<String, double> newTargetSpeeds = Map.from(current.targetSpeeds);
     double? rollout1ft = current.rolloutTime1ft;
-    double? t60ftRollout = current.time60ftRollout;
-    double? t330ftRollout = current.time330ftRollout;
-    double? t0_60mphRollout = current.time0to60mphRollout;
-    double? t0_100kmhRollout = current.time0to100kmhRollout;
-    double? t18Rollout = current.time18MileRollout;
-    double? t1000Rollout = current.time1000ftRollout;
-    double? t14Rollout = current.time14MileRollout;
-    double? t12Rollout = current.time12MileRollout;
-
-    // Speed intervals
-    double? t60_130 = current.time60to130mph;
-    double? t100_200 = current.time100to200kmh;
-    double? t0_130mph = current.time0to130mph;
-    double? t0_200kmh = current.time0to200kmh;
-
+    
     final double startAltitude = current.startAltitude ?? currentAltitude;
 
     // 1 ft (0.3048 meters) for rollout trigger point
@@ -399,272 +376,60 @@ class PhysicsEngine {
       }
     }
 
-    // 60 ft (18.288 meters)
-    if (t60ft == null && newDistance >= distance60ft) {
-      double distDiff = newDistance - current.distanceMeters;
-      if (distDiff > 0) {
-        double fraction = (distance60ft - current.distanceMeters) / distDiff;
-        t60ft = current.elapsedTime + (currentDt * fraction);
-      } else {
-        t60ft = newElapsedTime;
+    for (final target in activeTargets) {
+      if (newTargetTimes.containsKey(target.id)) continue;
+
+      if (target.distance != null && target.distanceUnit != null) {
+        double targetDistanceMeters = convertToMeters(target.distance!, target.distanceUnit!);
+
+        if (newDistance >= targetDistanceMeters) {
+          double distDiff = newDistance - current.distanceMeters;
+          if (distDiff > 0) {
+            double fraction = (targetDistanceMeters - current.distanceMeters) / distDiff;
+            newTargetTimes[target.id] = current.elapsedTime + (currentDt * fraction);
+            newTargetSpeeds[target.id] = current.speedKmh + ((newSpeedKmh - current.speedKmh) * fraction);
+          } else {
+            newTargetTimes[target.id] = newElapsedTime;
+            newTargetSpeeds[target.id] = newSpeedKmh;
+          }
+        }
+      } else if (target.endSpeed != null && (target.startSpeed == null || target.startSpeed == 0.0)) {
+        double targetEndSpeedKmh = target.endSpeed!;
+        if (newSpeedKmh >= targetEndSpeedKmh) {
+          double speedDiff = newSpeedKmh - current.speedKmh;
+          if (speedDiff > 0) {
+            double fraction = (targetEndSpeedKmh - current.speedKmh) / speedDiff;
+            newTargetTimes[target.id] = current.elapsedTime + (currentDt * fraction);
+          } else {
+            newTargetTimes[target.id] = newElapsedTime;
+          }
+        }
       }
     }
 
-    // 60 ft Rollout (target: 60ft + 1ft = 18.288 + 0.3048 = 18.5928 meters)
-    if (t60ftRollout == null &&
-        rollout1ft != null &&
-        newDistance >= (distance60ft + 0.3048)) {
-      double distDiff = newDistance - current.distanceMeters;
-      double absTime;
-      if (distDiff > 0) {
-        double fraction =
-            ((distance60ft + 0.3048) - current.distanceMeters) / distDiff;
-        absTime = current.elapsedTime + (currentDt * fraction);
-      } else {
-        absTime = newElapsedTime;
-      }
-      t60ftRollout = absTime - rollout1ft;
-    }
-
-    // 330 ft (100.584 meters)
-    if (t330ft == null && newDistance >= distance330ft) {
-      double distDiff = newDistance - current.distanceMeters;
-      if (distDiff > 0) {
-        double fraction = (distance330ft - current.distanceMeters) / distDiff;
-        t330ft = current.elapsedTime + (currentDt * fraction);
-      } else {
-        t330ft = newElapsedTime;
-      }
-    }
-
-    // 330 ft Rollout (target: distance330ft + 0.3048)
-    if (t330ftRollout == null &&
-        rollout1ft != null &&
-        newDistance >= (distance330ft + 0.3048)) {
-      double distDiff = newDistance - current.distanceMeters;
-      double absTime;
-      if (distDiff > 0) {
-        double fraction =
-            ((distance330ft + 0.3048) - current.distanceMeters) / distDiff;
-        absTime = current.elapsedTime + (currentDt * fraction);
-      } else {
-        absTime = newElapsedTime;
-      }
-      t330ftRollout = absTime - rollout1ft;
-    }
-
-    // 0-60 mph (96.5606 km/h)
-    if (t0_60mph == null && newSpeedKmh >= 96.5606) {
-      double speedDiff = newSpeedKmh - current.speedKmh;
-      if (speedDiff > 0) {
-        double fraction = (96.5606 - current.speedKmh) / speedDiff;
-        t0_60mph = current.elapsedTime + (currentDt * fraction);
-      } else {
-        t0_60mph = newElapsedTime;
-      }
-    }
-
-    // 0-60 mph Rollout
-    if (t0_60mphRollout == null && t0_60mph != null && rollout1ft != null) {
-      t0_60mphRollout = t0_60mph - rollout1ft;
-    }
-
-    // 0-100 km/h
-    if (t0_100kmh == null && newSpeedKmh >= 100.0) {
-      double speedDiff = newSpeedKmh - current.speedKmh;
-      if (speedDiff > 0) {
-        double fraction = (100.0 - current.speedKmh) / speedDiff;
-        t0_100kmh = current.elapsedTime + (currentDt * fraction);
-      } else {
-        t0_100kmh = newElapsedTime;
-      }
-    }
-
-    // 0-100 km/h Rollout
-    if (t0_100kmhRollout == null && t0_100kmh != null && rollout1ft != null) {
-      t0_100kmhRollout = t0_100kmh - rollout1ft;
-    }
-
-    // 0-130 mph (209.2147 km/h)
-    if (t0_130mph == null && newSpeedKmh >= 209.2147) {
-      double speedDiff = newSpeedKmh - current.speedKmh;
-      if (speedDiff > 0) {
-        double fraction = (209.2147 - current.speedKmh) / speedDiff;
-        t0_130mph = current.elapsedTime + (currentDt * fraction);
-      } else {
-        t0_130mph = newElapsedTime;
-      }
-    }
-
-    // 0-200 km/h (200.0 km/h)
-    if (t0_200kmh == null && newSpeedKmh >= 200.0) {
-      double speedDiff = newSpeedKmh - current.speedKmh;
-      if (speedDiff > 0) {
-        double fraction = (200.0 - current.speedKmh) / speedDiff;
-        t0_200kmh = current.elapsedTime + (currentDt * fraction);
-      } else {
-        t0_200kmh = newElapsedTime;
-      }
-    }
-
-    // 1/8 mile (201.168 meters)
-    if (t18 == null && newDistance >= distance18Mile) {
-      double distDiff = newDistance - current.distanceMeters;
-      if (distDiff > 0) {
-        double fraction = (distance18Mile - current.distanceMeters) / distDiff;
-        t18 = current.elapsedTime + (currentDt * fraction);
-        trap18 =
-            current.speedKmh + ((newSpeedKmh - current.speedKmh) * fraction);
-      } else {
-        t18 = newElapsedTime;
-        trap18 = newSpeedKmh;
-      }
-    }
-
-    // 1/8 mile Rollout (target: distance18Mile + 0.3048)
-    if (t18Rollout == null &&
-        rollout1ft != null &&
-        newDistance >= (distance18Mile + 0.3048)) {
-      double distDiff = newDistance - current.distanceMeters;
-      double absTime;
-      if (distDiff > 0) {
-        double fraction =
-            ((distance18Mile + 0.3048) - current.distanceMeters) / distDiff;
-        absTime = current.elapsedTime + (currentDt * fraction);
-      } else {
-        absTime = newElapsedTime;
-      }
-      t18Rollout = absTime - rollout1ft;
-    }
-
-    // 1000 ft (304.8 meters)
-    if (t1000ft == null && newDistance >= distance1000ft) {
-      double distDiff = newDistance - current.distanceMeters;
-      if (distDiff > 0) {
-        double fraction = (distance1000ft - current.distanceMeters) / distDiff;
-        t1000ft = current.elapsedTime + (currentDt * fraction);
-        trap1000 =
-            current.speedKmh + ((newSpeedKmh - current.speedKmh) * fraction);
-      } else {
-        t1000ft = newElapsedTime;
-        trap1000 = newSpeedKmh;
-      }
-    }
-
-    // 1000 ft Rollout (target: distance1000ft + 0.3048)
-    if (t1000Rollout == null &&
-        rollout1ft != null &&
-        newDistance >= (distance1000ft + 0.3048)) {
-      double distDiff = newDistance - current.distanceMeters;
-      double absTime;
-      if (distDiff > 0) {
-        double fraction =
-            ((distance1000ft + 0.3048) - current.distanceMeters) / distDiff;
-        absTime = current.elapsedTime + (currentDt * fraction);
-      } else {
-        absTime = newElapsedTime;
-      }
-      t1000Rollout = absTime - rollout1ft;
-    }
-
-    // 1/4 mile (402.336 meters)
-    if (t14 == null && newDistance >= distance14Mile) {
-      double distDiff = newDistance - current.distanceMeters;
-      if (distDiff > 0) {
-        double fraction = (distance14Mile - current.distanceMeters) / distDiff;
-        t14 = current.elapsedTime + (currentDt * fraction);
-        trap14 =
-            current.speedKmh + ((newSpeedKmh - current.speedKmh) * fraction);
-      } else {
-        t14 = newElapsedTime;
-        trap14 = newSpeedKmh;
-      }
-    }
-
-    // 1/4 mile Rollout (target: distance14Mile + 0.3048)
-    if (t14Rollout == null &&
-        rollout1ft != null &&
-        newDistance >= (distance14Mile + 0.3048)) {
-      double distDiff = newDistance - current.distanceMeters;
-      double absTime;
-      if (distDiff > 0) {
-        double fraction =
-            ((distance14Mile + 0.3048) - current.distanceMeters) / distDiff;
-        absTime = current.elapsedTime + (currentDt * fraction);
-      } else {
-        absTime = newElapsedTime;
-      }
-      t14Rollout = absTime - rollout1ft;
-    }
-
-    // 1/2 mile (804.672 meters)
-    if (t12 == null && newDistance >= distance12Mile) {
-      double distDiff = newDistance - current.distanceMeters;
-      if (distDiff > 0) {
-        double fraction = (distance12Mile - current.distanceMeters) / distDiff;
-        t12 = current.elapsedTime + (currentDt * fraction);
-        trap12 =
-            current.speedKmh + ((newSpeedKmh - current.speedKmh) * fraction);
-      } else {
-        t12 = newElapsedTime;
-        trap12 = newSpeedKmh;
-      }
-    }
-
-    // 1/2 mile Rollout (target: distance12Mile + 0.3048)
-    if (t12Rollout == null &&
-        rollout1ft != null &&
-        newDistance >= (distance12Mile + 0.3048)) {
-      double distDiff = newDistance - current.distanceMeters;
-      double absTime;
-      if (distDiff > 0) {
-        double fraction =
-            ((distance12Mile + 0.3048) - current.distanceMeters) / distDiff;
-        absTime = current.elapsedTime + (currentDt * fraction);
-      } else {
-        absTime = newElapsedTime;
-      }
-      t12Rollout = absTime - rollout1ft;
-    }
-
-    // 60-130 mph interval (96.5606 to 209.2147 km/h)
-    if (t60_130 == null && t0_60mph != null && newSpeedKmh >= 209.2147) {
+    // Real-time calculation for official rolling intervals
+    if (!newTargetTimes.containsKey('60-130mph') && newTargetTimes.containsKey('0-60mph') && newSpeedKmh >= 209.2147) {
       double speedDiff = newSpeedKmh - current.speedKmh;
       if (speedDiff > 0) {
         double fraction = (209.2147 - current.speedKmh) / speedDiff;
         double t130 = current.elapsedTime + (currentDt * fraction);
-        t60_130 = t130 - t0_60mph;
+        newTargetTimes['60-130mph'] = t130 - newTargetTimes['0-60mph']!;
       }
     }
 
-    // 100-200 km/h interval (100.0 to 200.0 km/h)
-    if (t100_200 == null && t0_100kmh != null && newSpeedKmh >= 200.0) {
+    if (!newTargetTimes.containsKey('100-200kmh') && newTargetTimes.containsKey('0-100kmh') && newSpeedKmh >= 200.0) {
       double speedDiff = newSpeedKmh - current.speedKmh;
       if (speedDiff > 0) {
         double fraction = (200.0 - current.speedKmh) / speedDiff;
         double t200 = current.elapsedTime + (currentDt * fraction);
-        t100_200 = t200 - t0_100kmh;
+        newTargetTimes['100-200kmh'] = t200 - newTargetTimes['0-100kmh']!;
       }
     }
 
     // Determine target completion
     bool targetAchieved = false;
     if (current.targetDistance != null && current.targetDistanceUnit != null) {
-      double targetDistanceMeters = current.targetDistance!;
-      switch (current.targetDistanceUnit!) {
-        case DistanceUnit.feet:
-          targetDistanceMeters = current.targetDistance! * 0.3048;
-          break;
-        case DistanceUnit.mile:
-          targetDistanceMeters = current.targetDistance! * 1609.344;
-          break;
-        case DistanceUnit.meter:
-          targetDistanceMeters = current.targetDistance!;
-          break;
-        case DistanceUnit.kilometer:
-          targetDistanceMeters = current.targetDistance! * 1000.0;
-          break;
-      }
+      double targetDistanceMeters = convertToMeters(current.targetDistance!, current.targetDistanceUnit!);
       // Add 1ft (0.3048m) to allow for NHRA rollout calculations to complete
       if (newDistance >= targetDistanceMeters + 0.3048) {
         targetAchieved = true;
@@ -681,31 +446,9 @@ class PhysicsEngine {
       distanceMeters: newDistance,
       elapsedTime: newElapsedTime,
       gForce: smoothedGForce,
-      time60ft: t60ft,
-      time330ft: t330ft,
-      time0to60mph: t0_60mph,
-      time0to100kmh: t0_100kmh,
-      time18Mile: t18,
-      trap18Mile: trap18,
-      time1000ft: t1000ft,
-      trap1000ft: trap1000,
-      time14Mile: t14,
-      trap14Mile: trap14,
-      time12Mile: t12,
-      trap12Mile: trap12,
+      targetTimes: newTargetTimes,
+      targetSpeeds: newTargetSpeeds,
       rolloutTime1ft: rollout1ft,
-      time60ftRollout: t60ftRollout,
-      time330ftRollout: t330ftRollout,
-      time0to60mphRollout: t0_60mphRollout,
-      time0to100kmhRollout: t0_100kmhRollout,
-      time18MileRollout: t18Rollout,
-      time1000ftRollout: t1000Rollout,
-      time14MileRollout: t14Rollout,
-      time12MileRollout: t12Rollout,
-      time60to130mph: t60_130,
-      time100to200kmh: t100_200,
-      time0to130mph: t0_130mph,
-      time0to200kmh: t0_200kmh,
       startAltitude: startAltitude,
       isRunning: !targetAchieved,
       history: newHistory,
@@ -720,6 +463,7 @@ class PhysicsEngine {
     required double intervalStartSpeed,
     required double intervalEndSpeed,
     required double currentDt,
+    required List<RaceTarget> activeTargets,
   }) {
     final currentSpeedMs = current.speedKmh / 3.6;
     final newSpeedMs = newSpeedKmh / 3.6;
@@ -753,35 +497,17 @@ class PhysicsEngine {
       }
     }
 
-    double? t60_130 = current.time60to130mph;
-    double? t100_200 = current.time100to200kmh;
-    double? t0_60mph = current.time0to60mph;
-    double? t0_100kmh = current.time0to100kmh;
-    double? t0_130mph = current.time0to130mph;
-    double? t0_200kmh = current.time0to200kmh;
+    final Map<String, double> newTargetTimes = Map.from(current.targetTimes);
 
-    if (current.targetStartSpeed != null && current.targetEndSpeed != null) {
-      if ((current.targetStartSpeed! - 96.56).abs() < 1.0 &&
-          (current.targetEndSpeed! - 209.21).abs() < 1.0 &&
-          current.targetSpeedUnit == SpeedUnit.mph) {
-        t60_130 = newElapsedTimeCalculated;
-      } else if ((current.targetStartSpeed! - 100.0).abs() < 0.1 &&
-          (current.targetEndSpeed! - 200.0).abs() < 0.1 &&
-          current.targetSpeedUnit == SpeedUnit.kmh) {
-        t100_200 = newElapsedTimeCalculated;
-      } else if (current.targetStartSpeed == 0.0) {
-        if ((current.targetEndSpeed! - 96.56).abs() < 1.0 &&
-            current.targetSpeedUnit == SpeedUnit.mph) {
-          t0_60mph = newElapsedTimeCalculated;
-        } else if ((current.targetEndSpeed! - 100.0).abs() < 0.1 &&
-            current.targetSpeedUnit == SpeedUnit.kmh) {
-          t0_100kmh = newElapsedTimeCalculated;
-        } else if ((current.targetEndSpeed! - 209.21).abs() < 1.0 &&
-            current.targetSpeedUnit == SpeedUnit.mph) {
-          t0_130mph = newElapsedTimeCalculated;
-        } else if ((current.targetEndSpeed! - 200.0).abs() < 0.1 &&
-            current.targetSpeedUnit == SpeedUnit.kmh) {
-          t0_200kmh = newElapsedTimeCalculated;
+    if (targetAchieved) {
+      for (final target in activeTargets) {
+        if (newTargetTimes.containsKey(target.id)) continue;
+        
+        if (target.endSpeed != null && target.startSpeed != null) {
+          if ((current.targetStartSpeed! - target.startSpeed!).abs() < 1.0 &&
+              (current.targetEndSpeed! - target.endSpeed!).abs() < 1.0) {
+             newTargetTimes[target.id] = newElapsedTimeCalculated;
+          }
         }
       }
     }
@@ -791,12 +517,7 @@ class PhysicsEngine {
       distanceMeters: newDistance,
       elapsedTime: newElapsedTimeCalculated,
       gForce: smoothedGForce,
-      time60to130mph: t60_130,
-      time100to200kmh: t100_200,
-      time0to60mph: t0_60mph,
-      time0to100kmh: t0_100kmh,
-      time0to130mph: t0_130mph,
-      time0to200kmh: t0_200kmh,
+      targetTimes: newTargetTimes,
       startAltitude: current.startAltitude,
       isRunning: !targetAchieved,
       history: newHistory,
