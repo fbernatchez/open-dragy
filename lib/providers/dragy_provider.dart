@@ -821,7 +821,9 @@ class DragyProvider extends ChangeNotifier {
   }
 
   void addCustomTarget(RaceTarget target) {
+    if (_customTargets.any((t) => t.id == target.id)) return;
     _customTargets.add(target);
+    _customTargets.sort((a, b) => a.displayName.compareTo(b.displayName));
     _enabledTargets.add(target.id);
     _saveSettings();
     notifyListeners();
@@ -873,6 +875,7 @@ class DragyProvider extends ChangeNotifier {
       _customTargets = (data['customTargets'] as List)
           .map((e) => RaceTarget.fromJson(e as Map<String, dynamic>))
           .toList();
+      _customTargets.sort((a, b) => a.displayName.compareTo(b.displayName));
     } else {
       _customTargets = [];
     }

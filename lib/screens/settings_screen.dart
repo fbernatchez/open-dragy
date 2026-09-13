@@ -7,7 +7,8 @@ import '../services/firmware_service.dart';
 import 'target_selection_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
-  static const String minRecommendedFirmware = FirmwareService.minRecommendedFirmware;
+  static const String minRecommendedFirmware =
+      FirmwareService.minRecommendedFirmware;
 
   static bool isUpdateAvailable(String currentVersion) =>
       FirmwareService.isUpdateAvailable(currentVersion);
@@ -52,6 +53,8 @@ class SettingsScreen extends StatelessWidget {
             value: tempInCelsius,
             onChanged: (v) => dragy.setTempInCelsius(v),
           ),
+
+          _SectionHeader(label: 'Rules'),
           _SettingsToggle(
             icon: Icons.timer_outlined,
             title: 'NHRA Rules',
@@ -61,6 +64,8 @@ class SettingsScreen extends StatelessWidget {
             value: dragy.useNhraRules,
             onChanged: (v) => dragy.setUseNhraRules(v),
           ),
+
+          _SectionHeader(label: 'Media'),
           _SettingsToggle(
             icon: Icons.record_voice_over_outlined,
             title: 'Voice Announcements',
