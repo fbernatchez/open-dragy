@@ -22,6 +22,21 @@ class MockDragyProvider extends ChangeNotifier implements DragyProvider {
   bool isConnected = false;
 
   @override
+  List<RaceTarget> customTargets = [];
+
+  @override
+  List<String> enabledTargets = [];
+
+  @override
+  void addCustomTarget(RaceTarget target) {}
+
+  @override
+  void removeCustomTarget(String targetId) {}
+
+  @override
+  void toggleTargetEnabled(String targetId, bool enabled) {}
+
+  @override
   String get firmwareVersion => "1.0.0-mock";
 
   @override

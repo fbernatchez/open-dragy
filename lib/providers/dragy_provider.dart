@@ -314,8 +314,9 @@ class DragyProvider extends ChangeNotifier {
         }
 
         final wasRunning = _metrics.isRunning;
+        final activeTargetsList = [...officialTests, ..._customTargets];
         final oldTests = _enableTts && wasRunning
-            ? getCompletedTests(_metrics, useNhraRules: _useNhraRules)
+            ? getCompletedTests(_metrics, useNhraRules: _useNhraRules, activeTargets: activeTargetsList)
             : <RaceTarget>[];
 
         double avgGForce = _gForceCount > 0
@@ -340,6 +341,7 @@ class DragyProvider extends ChangeNotifier {
           intervalStartSpeed: intervalStartSpeed,
           intervalEndSpeed: intervalEndSpeed,
           gpsTimeSeconds: pvt.iTOW / 1000.0,
+          activeTargets: [...officialTests, ..._customTargets],
         );
         final isRunning = _metrics.isRunning;
 
@@ -354,8 +356,10 @@ class DragyProvider extends ChangeNotifier {
           final newTests = getCompletedTests(
             _metrics,
             useNhraRules: _useNhraRules,
+            activeTargets: activeTargetsList,
           );
           for (final test in newTests) {
+            if (!_enabledTargets.contains(test.id)) continue;
             if (!oldTests.any((t) => t.id == test.id)) {
               if (!test.enableTts ||
                   test.ttsPhrase == null ||
@@ -612,21 +616,6 @@ class DragyProvider extends ChangeNotifier {
   void toggleSpeedUnit() {
     _isMetric = !_isMetric;
 
-    if (data['enabledTargets'] != null) {
-      _enabledTargets = List<String>.from(data['enabledTargets']);
-    } else {
-      _enabledTargets = officialTests.map((t) => t.id).toList();
-    }
-
-    if (data['customTargets'] != null) {
-      _customTargets = (data['customTargets'] as List)
-          .map((e) => RaceTarget.fromJson(e as Map<String, dynamic>))
-          .toList();
-    } else {
-      _customTargets = [];
-    }
-
-    _syncActiveTargetToUnit();
 
     if (_isMetric) {
       _customIntervalStartSpeed = UnitConverter.mphToKmh(
@@ -665,21 +654,6 @@ class DragyProvider extends ChangeNotifier {
     if (_isMetric != isMetric) {
       _isMetric = isMetric;
   
-    if (data['enabledTargets'] != null) {
-      _enabledTargets = List<String>.from(data['enabledTargets']);
-    } else {
-      _enabledTargets = officialTests.map((t) => t.id).toList();
-    }
-
-    if (data['customTargets'] != null) {
-      _customTargets = (data['customTargets'] as List)
-          .map((e) => RaceTarget.fromJson(e as Map<String, dynamic>))
-          .toList();
-    } else {
-      _customTargets = [];
-    }
-
-    _syncActiveTargetToUnit();
 
       if (_isMetric) {
         _customIntervalStartSpeed = UnitConverter.mphToKmh(

@@ -60,12 +60,16 @@ class RunDetailScreen extends StatelessWidget {
     // Collect reached milestones sorted by completion time ascending
     final List<_ReachedMilestone> reachedMilestones = [];
 
-    // 1. Official completed tests
+    // 1. Official and Custom completed tests
+    final activeTargetsList = [...officialTests, ...dragy.customTargets];
     final completedTests = getCompletedTests(
       metrics,
       useNhraRules: useNhraRules,
+      activeTargets: activeTargetsList,
     );
     for (final test in completedTests) {
+      if (!dragy.enabledTargets.contains(test.id)) continue;
+
       // Filter out speed targets of the opposite unit system to match user's preference
       if (test.speedUnit != null) {
         final isTestMetric = test.speedUnit == SpeedUnit.kmh;
@@ -78,14 +82,15 @@ class RunDetailScreen extends StatelessWidget {
         metrics,
         test.id,
         useNhraRules: useNhraRules,
+        activeTargets: activeTargetsList,
       );
       if (time != null) {
         double sortTime = time;
         if (test.startSpeed != null && test.startSpeed! > 0.0) {
           if (test.speedUnit == SpeedUnit.mph) {
-            sortTime = (metrics.time0to60mph ?? 0.0) + time;
+            sortTime = (metrics.targetTimes['0-60mph'] ?? 0.0) + time;
           } else {
-            sortTime = (metrics.time0to100kmh ?? 0.0) + time;
+            sortTime = (metrics.targetTimes['0-100kmh'] ?? 0.0) + time;
           }
         }
 
@@ -98,6 +103,7 @@ class RunDetailScreen extends StatelessWidget {
               metrics,
               test.id,
               useNhraRules: useNhraRules,
+              activeTargets: activeTargetsList,
             ),
           ),
         );
@@ -166,7 +172,7 @@ class RunDetailScreen extends StatelessWidget {
     String primaryTime = "-.--s";
 
     // Try to find if the run has an active/completed target matching an official test
-    OfficialTest? targetTest;
+    RaceTarget? targetTest;
     for (final test in officialTests) {
       if (test.distance != null &&
           metrics.targetDistance != null &&

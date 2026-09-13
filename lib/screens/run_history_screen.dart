@@ -161,14 +161,28 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
     return [allCategory, ...others];
   }
 
-  double? _getPB(String categoryId, List<SavedRun> runs, bool useNhraRules) {
+  double? _getPB(String categoryId, List<SavedRun> runs, bool useNhraRules, List<HistoryCategory> categories) {
     if (categoryId == 'all') return null;
+
+    final activeTargetsList = [
+      ...officialTests,
+      ...categories.map((c) => RaceTarget(
+        id: c.id,
+        displayName: c.displayName,
+        isOfficial: c.isOfficial,
+        startSpeed: c.startSpeed,
+        endSpeed: c.endSpeed,
+        speedUnit: c.speedUnit,
+      )),
+    ];
+
     double? best;
     for (final run in runs) {
       final val = getCompletedTimeForCategory(
         run.metrics,
         categoryId,
         useNhraRules: useNhraRules,
+        activeTargets: activeTargetsList,
       );
       if (val != null) {
         if (best == null || val < best) {
@@ -435,7 +449,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                       final category = categories[idx];
                       final isSelected = _selectedCategory == category.id;
                       final label = category.displayName;
-                      final pb = _getPB(category.id, runs, useNhraRules);
+                      final pb = _getPB(category.id, runs, useNhraRules, categories);
 
                       String pbText = '-.--s';
                       if (category.id == 'all') {
@@ -679,10 +693,20 @@ class RunHistoryCard extends StatelessWidget {
             ? UnitConverter.kmhToMph(metrics.targetEndSpeed!).round()
             : metrics.targetEndSpeed!.round();
         final customId = 'custom_${start}_${end}_$unit';
+        final customTarget = RaceTarget(
+          id: customId,
+          displayName: customId,
+          startSpeed: metrics.targetStartSpeed,
+          endSpeed: metrics.targetEndSpeed,
+          speedUnit: unitEnum,
+          isOfficial: false,
+        );
+
         final compTime = getCompletedTimeForCategory(
           metrics,
           customId,
           useNhraRules: useNhraRulesSetting,
+          activeTargets: [customTarget],
         );
         primaryTime = compTime != null
             ? "${compTime.toStringAsFixed(2)}s"

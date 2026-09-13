@@ -737,8 +737,15 @@ void main() {
       }
       expect(metrics.isRunning, false);
 
-      // Look up via custom category ID (values in user units, e.g. 0 to 50 mph)
-      final time = getCompletedTimeForCategory(metrics, 'custom_0_50_mph');
+      final customTarget = const RaceTarget(
+        id: 'custom_0_50_mph',
+        displayName: '0-50 mph',
+        startSpeed: 0.0,
+        endSpeed: 80.4672,
+        speedUnit: SpeedUnit.mph,
+        isOfficial: false,
+      );
+      final time = getCompletedTimeForCategory(metrics, 'custom_0_50_mph', activeTargets: [customTarget]);
       expect(time, isNotNull);
       expect(time, closeTo(metrics.elapsedTime, 0.01));
     });
@@ -809,7 +816,15 @@ void main() {
         );
       }
       expect(metricsMph.isRunning, false);
-      final timeMph = getCompletedTimeForCategory(metricsMph, 'custom_0_100_mph');
+      final target100mph = const RaceTarget(
+        id: 'custom_0_100_mph',
+        displayName: '0-100 mph',
+        startSpeed: 0.0,
+        endSpeed: 160.9344,
+        speedUnit: SpeedUnit.mph,
+        isOfficial: false,
+      );
+      final timeMph = getCompletedTimeForCategory(metricsMph, 'custom_0_100_mph', activeTargets: [target100mph]);
       expect(timeMph, isNotNull);
       expect(timeMph, closeTo(metricsMph.elapsedTime, 0.01));
 
@@ -878,7 +893,15 @@ void main() {
         );
       }
       expect(metricsKmh.isRunning, false);
-      final timeKmh = getCompletedTimeForCategory(metricsKmh, 'custom_0_160_kmh');
+      final target160 = const RaceTarget(
+        id: 'custom_0_160_kmh',
+        displayName: '0-160 km/h',
+        startSpeed: 0.0,
+        endSpeed: 160.0,
+        speedUnit: SpeedUnit.kmh,
+        isOfficial: false,
+      );
+      final timeKmh = getCompletedTimeForCategory(metricsKmh, 'custom_0_160_kmh', activeTargets: [target160]);
       expect(timeKmh, isNotNull);
       expect(timeKmh, closeTo(metricsKmh.elapsedTime, 0.01));
     });
@@ -1104,15 +1127,24 @@ void main() {
         ],
       );
 
+      final customTarget = const RaceTarget(
+        id: 'custom_0_50_mph',
+        displayName: '0-50 mph',
+        startSpeed: 0.0,
+        endSpeed: 80.4672,
+        speedUnit: SpeedUnit.mph,
+        isOfficial: false,
+      );
+
       // Without rollout
       expect(
-        getCompletedTimeForCategory(customMetrics, 'custom_0_50_mph', useNhraRules: false),
+        getCompletedTimeForCategory(customMetrics, 'custom_0_50_mph', useNhraRules: false, activeTargets: [customTarget]),
         closeTo(1.89, 0.01), // crossing speed is around 1.89s
       );
 
       // With rollout (should subtract rolloutTime1ft)
       expect(
-        getCompletedTimeForCategory(customMetrics, 'custom_0_50_mph', useNhraRules: true),
+        getCompletedTimeForCategory(customMetrics, 'custom_0_50_mph', useNhraRules: true, activeTargets: [customTarget]),
         closeTo(1.89 - 0.3, 0.01),
       );
 
@@ -1131,7 +1163,7 @@ void main() {
       );
 
       expect(
-        getCompletedTimeForCategory(customMetricsOld, 'custom_0_50_mph', useNhraRules: true),
+        getCompletedTimeForCategory(customMetricsOld, 'custom_0_50_mph', useNhraRules: true, activeTargets: [customTarget]),
         closeTo(1.89, 0.01),
       );
     });

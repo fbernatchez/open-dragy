@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../providers/dragy_provider.dart';
 import '../widgets/firmware_update_dialog.dart';
 import '../services/firmware_service.dart';
+import 'target_selection_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   static const String minRecommendedFirmware = FirmwareService.minRecommendedFirmware;
@@ -77,6 +78,52 @@ class SettingsScreen extends StatelessWidget {
                 : 'Microphone recording is disabled',
             value: dragy.enableAudioRecording,
             onChanged: (v) => dragy.setEnableAudioRecording(v),
+          ),
+
+          _SectionHeader(label: 'Targets'),
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            decoration: BoxDecoration(
+              color: const Color(0xFF111111),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: Colors.white.withOpacity(0.06)),
+            ),
+            child: ListTile(
+              leading: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1565C0).withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.checklist,
+                  color: Color(0xFF42A5F5),
+                  size: 22,
+                ),
+              ),
+              title: Text(
+                'Active Targets',
+                style: GoogleFonts.roboto(
+                  color: Colors.white,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              subtitle: Text(
+                'Select tracking milestones & custom intervals',
+                style: GoogleFonts.roboto(color: Colors.white38, fontSize: 12),
+              ),
+              trailing: const Icon(Icons.chevron_right, color: Colors.white38),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const TargetSelectionScreen(),
+                  ),
+                );
+              },
+            ),
           ),
 
           _SectionHeader(label: 'About'),
