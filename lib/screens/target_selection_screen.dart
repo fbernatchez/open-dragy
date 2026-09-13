@@ -32,7 +32,7 @@ class TargetSelectionScreen extends StatelessWidget {
         onPressed: () => _showAddCustomTargetDialog(context, dragy),
         icon: const Icon(Icons.add, color: Colors.white),
         label: Text(
-          'Add Custom Interval',
+          'Add Custom Target',
           style: GoogleFonts.roboto(
             color: Colors.white,
             fontWeight: FontWeight.bold,
@@ -61,28 +61,32 @@ class TargetSelectionScreen extends StatelessWidget {
           ...[
             Builder(
               builder: (context) {
-                final visibleCustom = dragy.customTargets.where(
-                  (t) =>
-                      (t.distance != null &&
-                          t.distanceUnit ==
-                              (isMetric
-                                  ? DistanceUnit.meter
-                                  : DistanceUnit.feet)) ||
-                      t.speedUnit ==
-                          (isMetric ? SpeedUnit.kmh : SpeedUnit.mph),
-                ).toList();
+                final visibleCustom = dragy.customTargets
+                    .where(
+                      (t) =>
+                          (t.distance != null &&
+                              t.distanceUnit ==
+                                  (isMetric
+                                      ? DistanceUnit.meter
+                                      : DistanceUnit.feet)) ||
+                          t.speedUnit ==
+                              (isMetric ? SpeedUnit.kmh : SpeedUnit.mph),
+                    )
+                    .toList();
                 if (visibleCustom.isEmpty) return const SizedBox.shrink();
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _SectionHeader(label: 'Custom Intervals'),
-                    ...visibleCustom.map((target) => _TargetTile(
-                          target: target,
-                          isEnabled: dragy.enabledTargets.contains(target.id),
-                          onChanged: (val) =>
-                              dragy.toggleTargetEnabled(target.id, val),
-                          onDelete: () => dragy.removeCustomTarget(target.id),
-                        )),
+                    _SectionHeader(label: 'Custom Targets'),
+                    ...visibleCustom.map(
+                      (target) => _TargetTile(
+                        target: target,
+                        isEnabled: dragy.enabledTargets.contains(target.id),
+                        onChanged: (val) =>
+                            dragy.toggleTargetEnabled(target.id, val),
+                        onDelete: () => dragy.removeCustomTarget(target.id),
+                      ),
+                    ),
                   ],
                 );
               },

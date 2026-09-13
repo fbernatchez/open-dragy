@@ -823,10 +823,17 @@ class DragyProvider extends ChangeNotifier {
   void addCustomTarget(RaceTarget target) {
     if (_customTargets.any((t) => t.id == target.id)) return;
     _customTargets.add(target);
-    _customTargets.sort((a, b) => a.displayName.compareTo(b.displayName));
+    _customTargets.sort(_compareCustomTargets);
     _enabledTargets.add(target.id);
     _saveSettings();
     notifyListeners();
+  }
+
+  static int _compareCustomTargets(RaceTarget a, RaceTarget b) {
+    final aIsDistance = a.distance != null ? 0 : 1;
+    final bIsDistance = b.distance != null ? 0 : 1;
+    if (aIsDistance != bIsDistance) return aIsDistance - bIsDistance;
+    return a.displayName.compareTo(b.displayName);
   }
 
   void removeCustomTarget(String targetId) {
@@ -875,7 +882,7 @@ class DragyProvider extends ChangeNotifier {
       _customTargets = (data['customTargets'] as List)
           .map((e) => RaceTarget.fromJson(e as Map<String, dynamic>))
           .toList();
-      _customTargets.sort((a, b) => a.displayName.compareTo(b.displayName));
+      _customTargets.sort(_compareCustomTargets);
     } else {
       _customTargets = [];
     }
