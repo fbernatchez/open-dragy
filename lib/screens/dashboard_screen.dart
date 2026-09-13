@@ -117,8 +117,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     } else {
       double? completedTime;
       if (dragy.runMode == RunMode.interval) {
-        String intervalId = dragy.activeIntervalTarget.id;
-        if (dragy.activeIntervalTarget == RaceIntervalTarget.custom) {
+        String intervalId = dragy.activeIntervalTest.id;
+        if (dragy.activeIntervalTest == RaceIntervalTest.custom) {
           final unit = isMetric ? 'kmh' : 'mph';
           intervalId =
               'custom_${dragy.customIntervalStartSpeed.round()}_${dragy.customIntervalEndSpeed.round()}_$unit';
@@ -260,12 +260,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
       } else if (!metrics.isRunning &&
           metrics.history.isNotEmpty &&
           metrics.elapsedTime > 0 &&
-          metrics.targetStartSpeed != null &&
-          metrics.targetEndSpeed != null) {
-        final label = getDisplayLabelForTarget(
-          startSpeed: metrics.targetStartSpeed,
-          endSpeed: metrics.targetEndSpeed,
-          speedUnit: metrics.targetSpeedUnit,
+          metrics.testStartSpeed != null &&
+          metrics.testEndSpeed != null) {
+        final label = getDisplayLabelForTest(
+          startSpeed: metrics.testStartSpeed,
+          endSpeed: metrics.testEndSpeed,
+          speedUnit: metrics.testSpeedUnit,
           runMode: RunMode.interval,
         );
         reachedMilestones.add(
@@ -669,7 +669,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             ),
                           ),
                           const SizedBox(height: 12),
-                          // Target Selector
+                          // Test Selector
                           if (dragy.runMode == RunMode.drag)
                             Container(
                               padding: const EdgeInsets.symmetric(
@@ -683,8 +683,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 ),
                               ),
                               child: DropdownButtonHideUnderline(
-                                child: DropdownButton<RaceDragTarget>(
-                                  value: dragy.activeDragTarget,
+                                child: DropdownButton<RaceDragTest>(
+                                  value: dragy.activeDragTest,
                                   dropdownColor: Colors.grey.shade900,
                                   icon: const Icon(
                                     Icons.arrow_drop_down,
@@ -697,10 +697,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   ),
                                   onChanged: (val) {
                                     if (val != null) {
-                                      dragy.setActiveDragTarget(val);
+                                      dragy.setactiveDragTest(val);
                                     }
                                   },
-                                  items: RaceDragTarget.values
+                                  items: RaceDragTest.values
                                       .map(
                                         (t) => DropdownMenuItem(
                                           value: t,
@@ -727,9 +727,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     ),
                                   ),
                                   child: DropdownButtonHideUnderline(
-                                    child: DropdownButton<RaceIntervalTarget>(
-                                      key: const Key('intervalTargetDropdown'),
-                                      value: dragy.activeIntervalTarget,
+                                    child: DropdownButton<RaceIntervalTest>(
+                                      key: const Key('intervalTestDropdown'),
+                                      value: dragy.activeIntervalTest,
                                       dropdownColor: Colors.grey.shade900,
                                       icon: const Icon(
                                         Icons.arrow_drop_down,
@@ -742,14 +742,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                       ),
                                       onChanged: (val) {
                                         if (val != null) {
-                                          dragy.setActiveIntervalTarget(val);
+                                          dragy.setactiveIntervalTest(val);
                                         }
                                       },
-                                      items: RaceIntervalTarget.values
+                                      items: RaceIntervalTest.values
                                           .where(
                                             (t) =>
                                                 t ==
-                                                    RaceIntervalTarget.custom ||
+                                                    RaceIntervalTest.custom ||
                                                 (dragy.isMetric
                                                     ? t.id.contains('kmh')
                                                     : t.id.contains('mph')),
@@ -764,8 +764,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     ),
                                   ),
                                 ),
-                                if (dragy.activeIntervalTarget ==
-                                    RaceIntervalTarget.custom) ...[
+                                if (dragy.activeIntervalTest ==
+                                    RaceIntervalTest.custom) ...[
                                   const SizedBox(width: 8),
                                   IconButton(
                                     onPressed: () =>

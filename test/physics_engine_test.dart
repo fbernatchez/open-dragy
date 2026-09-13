@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:open_dragy/services/physics_engine.dart';
 import 'package:open_dragy/models/race_metrics.dart';
-import 'package:open_dragy/models/race_target.dart';
+import 'package:open_dragy/models/race_test.dart';
 
 RaceMetrics _update(
   PhysicsEngine engine,
@@ -14,25 +14,25 @@ RaceMetrics _update(
   required double intervalStartSpeed,
   required double intervalEndSpeed,
 }) {
-  double? targetDistance;
-  DistanceUnit? targetDistanceUnit;
-  double? targetStartSpeed;
-  double? targetEndSpeed;
-  SpeedUnit? targetSpeedUnit;
+  double? testDistance;
+  DistanceUnit? testDistanceUnit;
+  double? testStartSpeed;
+  double? testEndSpeed;
+  SpeedUnit? testSpeedUnit;
 
   if (runMode == RunMode.drag) {
     if (targetLabel == '1/2 mile') {
-      targetDistance = 0.5;
-      targetDistanceUnit = DistanceUnit.mile;
+      testDistance = 0.5;
+      testDistanceUnit = DistanceUnit.mile;
     } else {
-      targetDistance = 0.25;
-      targetDistanceUnit = DistanceUnit.mile;
+      testDistance = 0.25;
+      testDistanceUnit = DistanceUnit.mile;
     }
   } else {
     if (targetLabel == '60-130 mph') {
-      targetStartSpeed = 96.56064;
-      targetEndSpeed = 209.21472;
-      targetSpeedUnit = SpeedUnit.mph;
+      testStartSpeed = 96.56064;
+      testEndSpeed = 209.21472;
+      testSpeedUnit = SpeedUnit.mph;
     }
   }
 
@@ -42,11 +42,11 @@ RaceMetrics _update(
     currentAltitude,
     isArmed: isArmed,
     runMode: runMode,
-    targetDistance: targetDistance,
-    targetDistanceUnit: targetDistanceUnit,
-    targetStartSpeed: targetStartSpeed,
-    targetEndSpeed: targetEndSpeed,
-    targetSpeedUnit: targetSpeedUnit,
+    testDistance: testDistance,
+    testDistanceUnit: testDistanceUnit,
+    testStartSpeed: testStartSpeed,
+    testEndSpeed: testEndSpeed,
+    testSpeedUnit: testSpeedUnit,
     intervalStartSpeed: intervalStartSpeed,
     intervalEndSpeed: intervalEndSpeed,
   );
@@ -353,18 +353,18 @@ void main() {
       }
 
       // Verify that all timers were triggered
-      expect(metrics.targetTimes['60ft'], isNotNull);
-      expect(metrics.targetTimes['0-60mph'], isNotNull);
-      expect(metrics.targetTimes['0-100kmh'], isNotNull);
-      expect(metrics.targetTimes['1/8mile'], isNotNull);
-      expect(metrics.targetTimes['1000ft'], isNotNull);
-      expect(metrics.targetTimes['1/4mile'], isNotNull);
-      expect(metrics.targetTimes['1/2mile'], isNotNull);
-      expect(metrics.targetSpeeds['1/2mile'], isNotNull);
-      expect(metrics.targetTimes['60-130mph'], isNotNull);
-      expect(metrics.targetTimes['100-200kmh'], isNotNull);
-      expect(metrics.targetTimes['0-130mph'], isNotNull);
-      expect(metrics.targetTimes['0-200kmh'], isNotNull);
+      expect(metrics.testTimes['60ft'], isNotNull);
+      expect(metrics.testTimes['0-60mph'], isNotNull);
+      expect(metrics.testTimes['0-100kmh'], isNotNull);
+      expect(metrics.testTimes['1/8mile'], isNotNull);
+      expect(metrics.testTimes['1000ft'], isNotNull);
+      expect(metrics.testTimes['1/4mile'], isNotNull);
+      expect(metrics.testTimes['1/2mile'], isNotNull);
+      expect(metrics.testSpeeds['1/2mile'], isNotNull);
+      expect(metrics.testTimes['60-130mph'], isNotNull);
+      expect(metrics.testTimes['100-200kmh'], isNotNull);
+      expect(metrics.testTimes['0-130mph'], isNotNull);
+      expect(metrics.testTimes['0-200kmh'], isNotNull);
       expect(metrics.isRunning, false); // completed 1/2 mile
     });
 
@@ -433,7 +433,7 @@ void main() {
       );
 
       expect(metrics.isRunning, false);
-      expect(metrics.targetTimes['60-130mph'], isNotNull);
+      expect(metrics.testTimes['60-130mph'], isNotNull);
     });
 
     test('cancels interval run if speed drops', () {
@@ -502,11 +502,11 @@ void main() {
           100.0,
           isArmed: true,
           runMode: RunMode.interval,
-          targetDistance: null,
-          targetDistanceUnit: null,
-          targetStartSpeed: 80.4672,
-          targetEndSpeed: 120.7008,
-          targetSpeedUnit: SpeedUnit.mph,
+          testDistance: null,
+          testDistanceUnit: null,
+          testStartSpeed: 80.4672,
+          testEndSpeed: 120.7008,
+          testSpeedUnit: SpeedUnit.mph,
           intervalStartSpeed: 80.4672,
           intervalEndSpeed: 120.7008,
         );
@@ -536,11 +536,11 @@ void main() {
         100.0,
         isArmed: true,
         runMode: RunMode.interval,
-        targetDistance: null,
-        targetDistanceUnit: null,
-        targetStartSpeed: 0.0,
-        targetEndSpeed: 80.4672,
-        targetSpeedUnit: SpeedUnit.mph,
+        testDistance: null,
+        testDistanceUnit: null,
+        testStartSpeed: 0.0,
+        testEndSpeed: 80.4672,
+        testSpeedUnit: SpeedUnit.mph,
         intervalStartSpeed: 0.0,
         intervalEndSpeed: 80.4672,
       );
@@ -553,11 +553,11 @@ void main() {
         100.0,
         isArmed: true,
         runMode: RunMode.interval,
-        targetDistance: null,
-        targetDistanceUnit: null,
-        targetStartSpeed: 0.0,
-        targetEndSpeed: 80.4672,
-        targetSpeedUnit: SpeedUnit.mph,
+        testDistance: null,
+        testDistanceUnit: null,
+        testStartSpeed: 0.0,
+        testEndSpeed: 80.4672,
+        testSpeedUnit: SpeedUnit.mph,
         intervalStartSpeed: 0.0,
         intervalEndSpeed: 80.4672,
       );
@@ -570,11 +570,11 @@ void main() {
         100.0,
         isArmed: true,
         runMode: RunMode.interval,
-        targetDistance: null,
-        targetDistanceUnit: null,
-        targetStartSpeed: 0.0,
-        targetEndSpeed: 80.4672,
-        targetSpeedUnit: SpeedUnit.mph,
+        testDistance: null,
+        testDistanceUnit: null,
+        testStartSpeed: 0.0,
+        testEndSpeed: 80.4672,
+        testSpeedUnit: SpeedUnit.mph,
         intervalStartSpeed: 0.0,
         intervalEndSpeed: 80.4672,
       );
@@ -590,11 +590,11 @@ void main() {
           100.0,
           isArmed: true,
           runMode: RunMode.interval,
-          targetDistance: null,
-          targetDistanceUnit: null,
-          targetStartSpeed: 0.0,
-          targetEndSpeed: 80.4672,
-          targetSpeedUnit: SpeedUnit.mph,
+          testDistance: null,
+          testDistanceUnit: null,
+          testStartSpeed: 0.0,
+          testEndSpeed: 80.4672,
+          testSpeedUnit: SpeedUnit.mph,
           intervalStartSpeed: 0.0,
           intervalEndSpeed: 80.4672,
         );
@@ -612,11 +612,11 @@ void main() {
         100.0,
         isArmed: true,
         runMode: RunMode.interval,
-        targetDistance: null,
-        targetDistanceUnit: null,
-        targetStartSpeed: 0.0,
-        targetEndSpeed: 80.4672,
-        targetSpeedUnit: SpeedUnit.mph,
+        testDistance: null,
+        testDistanceUnit: null,
+        testStartSpeed: 0.0,
+        testEndSpeed: 80.4672,
+        testSpeedUnit: SpeedUnit.mph,
         intervalStartSpeed: 0.0,
         intervalEndSpeed: 80.4672,
       );
@@ -626,11 +626,11 @@ void main() {
         100.0,
         isArmed: true,
         runMode: RunMode.interval,
-        targetDistance: null,
-        targetDistanceUnit: null,
-        targetStartSpeed: 0.0,
-        targetEndSpeed: 80.4672,
-        targetSpeedUnit: SpeedUnit.mph,
+        testDistance: null,
+        testDistanceUnit: null,
+        testStartSpeed: 0.0,
+        testEndSpeed: 80.4672,
+        testSpeedUnit: SpeedUnit.mph,
         intervalStartSpeed: 0.0,
         intervalEndSpeed: 80.4672,
       );
@@ -640,11 +640,11 @@ void main() {
         100.0,
         isArmed: true,
         runMode: RunMode.interval,
-        targetDistance: null,
-        targetDistanceUnit: null,
-        targetStartSpeed: 0.0,
-        targetEndSpeed: 80.4672,
-        targetSpeedUnit: SpeedUnit.mph,
+        testDistance: null,
+        testDistanceUnit: null,
+        testStartSpeed: 0.0,
+        testEndSpeed: 80.4672,
+        testSpeedUnit: SpeedUnit.mph,
         intervalStartSpeed: 0.0,
         intervalEndSpeed: 80.4672,
       );
@@ -658,11 +658,11 @@ void main() {
           100.0,
           isArmed: true,
           runMode: RunMode.interval,
-          targetDistance: null,
-          targetDistanceUnit: null,
-          targetStartSpeed: 0.0,
-          targetEndSpeed: 80.4672,
-          targetSpeedUnit: SpeedUnit.mph,
+          testDistance: null,
+          testDistanceUnit: null,
+          testStartSpeed: 0.0,
+          testEndSpeed: 80.4672,
+          testSpeedUnit: SpeedUnit.mph,
           intervalStartSpeed: 0.0,
           intervalEndSpeed: 80.4672,
         );
@@ -679,11 +679,11 @@ void main() {
         100.0,
         isArmed: true,
         runMode: RunMode.interval,
-        targetDistance: null,
-        targetDistanceUnit: null,
-        targetStartSpeed: 0.0,
-        targetEndSpeed: 80.4672,
-        targetSpeedUnit: SpeedUnit.mph,
+        testDistance: null,
+        testDistanceUnit: null,
+        testStartSpeed: 0.0,
+        testEndSpeed: 80.4672,
+        testSpeedUnit: SpeedUnit.mph,
         intervalStartSpeed: 0.0,
         intervalEndSpeed: 80.4672,
       );
@@ -693,11 +693,11 @@ void main() {
         100.0,
         isArmed: true,
         runMode: RunMode.interval,
-        targetDistance: null,
-        targetDistanceUnit: null,
-        targetStartSpeed: 0.0,
-        targetEndSpeed: 80.4672,
-        targetSpeedUnit: SpeedUnit.mph,
+        testDistance: null,
+        testDistanceUnit: null,
+        testStartSpeed: 0.0,
+        testEndSpeed: 80.4672,
+        testSpeedUnit: SpeedUnit.mph,
         intervalStartSpeed: 0.0,
         intervalEndSpeed: 80.4672,
       );
@@ -707,11 +707,11 @@ void main() {
         100.0,
         isArmed: true,
         runMode: RunMode.interval,
-        targetDistance: null,
-        targetDistanceUnit: null,
-        targetStartSpeed: 0.0,
-        targetEndSpeed: 80.4672,
-        targetSpeedUnit: SpeedUnit.mph,
+        testDistance: null,
+        testDistanceUnit: null,
+        testStartSpeed: 0.0,
+        testEndSpeed: 80.4672,
+        testSpeedUnit: SpeedUnit.mph,
         intervalStartSpeed: 0.0,
         intervalEndSpeed: 80.4672,
       );
@@ -726,18 +726,18 @@ void main() {
           100.0,
           isArmed: true,
           runMode: RunMode.interval,
-          targetDistance: null,
-          targetDistanceUnit: null,
-          targetStartSpeed: 0.0,
-          targetEndSpeed: 80.4672,
-          targetSpeedUnit: SpeedUnit.mph,
+          testDistance: null,
+          testDistanceUnit: null,
+          testStartSpeed: 0.0,
+          testEndSpeed: 80.4672,
+          testSpeedUnit: SpeedUnit.mph,
           intervalStartSpeed: 0.0,
           intervalEndSpeed: 80.4672,
         );
       }
       expect(metrics.isRunning, false);
 
-      final customTarget = const RaceTarget(
+      final customTest = const RaceTest(
         id: 'custom_0_50_mph',
         displayName: '0-50 mph',
         startSpeed: 0.0,
@@ -745,7 +745,7 @@ void main() {
         speedUnit: SpeedUnit.mph,
         isOfficial: false,
       );
-      final time = getCompletedTimeForCategory(metrics, 'custom_0_50_mph', activeTargets: [customTarget]);
+      final time = getCompletedTimeForCategory(metrics, 'custom_0_50_mph', activeTests: [customTest]);
       expect(time, isNotNull);
       expect(time, closeTo(metrics.elapsedTime, 0.01));
     });
@@ -759,11 +759,11 @@ void main() {
         100.0,
         isArmed: true,
         runMode: RunMode.interval,
-        targetDistance: null,
-        targetDistanceUnit: null,
-        targetStartSpeed: 0.0,
-        targetEndSpeed: 160.9344,
-        targetSpeedUnit: SpeedUnit.mph,
+        testDistance: null,
+        testDistanceUnit: null,
+        testStartSpeed: 0.0,
+        testEndSpeed: 160.9344,
+        testSpeedUnit: SpeedUnit.mph,
         intervalStartSpeed: 0.0,
         intervalEndSpeed: 160.9344,
       );
@@ -773,11 +773,11 @@ void main() {
         100.0,
         isArmed: true,
         runMode: RunMode.interval,
-        targetDistance: null,
-        targetDistanceUnit: null,
-        targetStartSpeed: 0.0,
-        targetEndSpeed: 160.9344,
-        targetSpeedUnit: SpeedUnit.mph,
+        testDistance: null,
+        testDistanceUnit: null,
+        testStartSpeed: 0.0,
+        testEndSpeed: 160.9344,
+        testSpeedUnit: SpeedUnit.mph,
         intervalStartSpeed: 0.0,
         intervalEndSpeed: 160.9344,
       );
@@ -787,11 +787,11 @@ void main() {
         100.0,
         isArmed: true,
         runMode: RunMode.interval,
-        targetDistance: null,
-        targetDistanceUnit: null,
-        targetStartSpeed: 0.0,
-        targetEndSpeed: 160.9344,
-        targetSpeedUnit: SpeedUnit.mph,
+        testDistance: null,
+        testDistanceUnit: null,
+        testStartSpeed: 0.0,
+        testEndSpeed: 160.9344,
+        testSpeedUnit: SpeedUnit.mph,
         intervalStartSpeed: 0.0,
         intervalEndSpeed: 160.9344,
       );
@@ -806,17 +806,17 @@ void main() {
           100.0,
           isArmed: true,
           runMode: RunMode.interval,
-          targetDistance: null,
-          targetDistanceUnit: null,
-          targetStartSpeed: 0.0,
-          targetEndSpeed: 160.9344,
-          targetSpeedUnit: SpeedUnit.mph,
+          testDistance: null,
+          testDistanceUnit: null,
+          testStartSpeed: 0.0,
+          testEndSpeed: 160.9344,
+          testSpeedUnit: SpeedUnit.mph,
           intervalStartSpeed: 0.0,
           intervalEndSpeed: 160.9344,
         );
       }
       expect(metricsMph.isRunning, false);
-      final target100mph = const RaceTarget(
+      final target100mph = const RaceTest(
         id: 'custom_0_100_mph',
         displayName: '0-100 mph',
         startSpeed: 0.0,
@@ -824,7 +824,7 @@ void main() {
         speedUnit: SpeedUnit.mph,
         isOfficial: false,
       );
-      final timeMph = getCompletedTimeForCategory(metricsMph, 'custom_0_100_mph', activeTargets: [target100mph]);
+      final timeMph = getCompletedTimeForCategory(metricsMph, 'custom_0_100_mph', activeTests: [target100mph]);
       expect(timeMph, isNotNull);
       expect(timeMph, closeTo(metricsMph.elapsedTime, 0.01));
 
@@ -836,11 +836,11 @@ void main() {
         100.0,
         isArmed: true,
         runMode: RunMode.interval,
-        targetDistance: null,
-        targetDistanceUnit: null,
-        targetStartSpeed: 0.0,
-        targetEndSpeed: 160.0,
-        targetSpeedUnit: SpeedUnit.kmh,
+        testDistance: null,
+        testDistanceUnit: null,
+        testStartSpeed: 0.0,
+        testEndSpeed: 160.0,
+        testSpeedUnit: SpeedUnit.kmh,
         intervalStartSpeed: 0.0,
         intervalEndSpeed: 160.0,
       );
@@ -850,11 +850,11 @@ void main() {
         100.0,
         isArmed: true,
         runMode: RunMode.interval,
-        targetDistance: null,
-        targetDistanceUnit: null,
-        targetStartSpeed: 0.0,
-        targetEndSpeed: 160.0,
-        targetSpeedUnit: SpeedUnit.kmh,
+        testDistance: null,
+        testDistanceUnit: null,
+        testStartSpeed: 0.0,
+        testEndSpeed: 160.0,
+        testSpeedUnit: SpeedUnit.kmh,
         intervalStartSpeed: 0.0,
         intervalEndSpeed: 160.0,
       );
@@ -864,11 +864,11 @@ void main() {
         100.0,
         isArmed: true,
         runMode: RunMode.interval,
-        targetDistance: null,
-        targetDistanceUnit: null,
-        targetStartSpeed: 0.0,
-        targetEndSpeed: 160.0,
-        targetSpeedUnit: SpeedUnit.kmh,
+        testDistance: null,
+        testDistanceUnit: null,
+        testStartSpeed: 0.0,
+        testEndSpeed: 160.0,
+        testSpeedUnit: SpeedUnit.kmh,
         intervalStartSpeed: 0.0,
         intervalEndSpeed: 160.0,
       );
@@ -883,17 +883,17 @@ void main() {
           100.0,
           isArmed: true,
           runMode: RunMode.interval,
-          targetDistance: null,
-          targetDistanceUnit: null,
-          targetStartSpeed: 0.0,
-          targetEndSpeed: 160.0,
-          targetSpeedUnit: SpeedUnit.kmh,
+          testDistance: null,
+          testDistanceUnit: null,
+          testStartSpeed: 0.0,
+          testEndSpeed: 160.0,
+          testSpeedUnit: SpeedUnit.kmh,
           intervalStartSpeed: 0.0,
           intervalEndSpeed: 160.0,
         );
       }
       expect(metricsKmh.isRunning, false);
-      final target160 = const RaceTarget(
+      final target160 = const RaceTest(
         id: 'custom_0_160_kmh',
         displayName: '0-160 km/h',
         startSpeed: 0.0,
@@ -901,7 +901,7 @@ void main() {
         speedUnit: SpeedUnit.kmh,
         isOfficial: false,
       );
-      final timeKmh = getCompletedTimeForCategory(metricsKmh, 'custom_0_160_kmh', activeTargets: [target160]);
+      final timeKmh = getCompletedTimeForCategory(metricsKmh, 'custom_0_160_kmh', activeTests: [target160]);
       expect(timeKmh, isNotNull);
       expect(timeKmh, closeTo(metricsKmh.elapsedTime, 0.01));
     });
@@ -916,11 +916,11 @@ void main() {
         100.0,
         isArmed: true,
         runMode: RunMode.drag,
-        targetDistance: 0.25,
-        targetDistanceUnit: DistanceUnit.mile,
-        targetStartSpeed: null,
-        targetEndSpeed: null,
-        targetSpeedUnit: null,
+        testDistance: 0.25,
+        testDistanceUnit: DistanceUnit.mile,
+        testStartSpeed: null,
+        testEndSpeed: null,
+        testSpeedUnit: null,
         intervalStartSpeed: 0.0,
         intervalEndSpeed: 0.0,
         gpsTimeSeconds: 999.8,
@@ -932,11 +932,11 @@ void main() {
         100.0,
         isArmed: true,
         runMode: RunMode.drag,
-        targetDistance: 0.25,
-        targetDistanceUnit: DistanceUnit.mile,
-        targetStartSpeed: null,
-        targetEndSpeed: null,
-        targetSpeedUnit: null,
+        testDistance: 0.25,
+        testDistanceUnit: DistanceUnit.mile,
+        testStartSpeed: null,
+        testEndSpeed: null,
+        testSpeedUnit: null,
         intervalStartSpeed: 0.0,
         intervalEndSpeed: 0.0,
         gpsTimeSeconds: 999.9,
@@ -948,11 +948,11 @@ void main() {
         100.0,
         isArmed: true,
         runMode: RunMode.drag,
-        targetDistance: 0.25,
-        targetDistanceUnit: DistanceUnit.mile,
-        targetStartSpeed: null,
-        targetEndSpeed: null,
-        targetSpeedUnit: null,
+        testDistance: 0.25,
+        testDistanceUnit: DistanceUnit.mile,
+        testStartSpeed: null,
+        testEndSpeed: null,
+        testSpeedUnit: null,
         intervalStartSpeed: 0.0,
         intervalEndSpeed: 0.0,
         gpsTimeSeconds: 1000.0,
@@ -965,11 +965,11 @@ void main() {
         100.0,
         isArmed: true,
         runMode: RunMode.drag,
-        targetDistance: 0.25,
-        targetDistanceUnit: DistanceUnit.mile,
-        targetStartSpeed: null,
-        targetEndSpeed: null,
-        targetSpeedUnit: null,
+        testDistance: 0.25,
+        testDistanceUnit: DistanceUnit.mile,
+        testStartSpeed: null,
+        testEndSpeed: null,
+        testSpeedUnit: null,
         intervalStartSpeed: 0.0,
         intervalEndSpeed: 0.0,
         gpsTimeSeconds: 1000.2,
@@ -989,11 +989,11 @@ void main() {
         100.0,
         isArmed: true,
         runMode: RunMode.drag,
-        targetDistance: 0.25,
-        targetDistanceUnit: DistanceUnit.mile,
-        targetStartSpeed: null,
-        targetEndSpeed: null,
-        targetSpeedUnit: null,
+        testDistance: 0.25,
+        testDistanceUnit: DistanceUnit.mile,
+        testStartSpeed: null,
+        testEndSpeed: null,
+        testSpeedUnit: null,
         intervalStartSpeed: 0.0,
         intervalEndSpeed: 0.0,
         gpsTimeSeconds: 1000.5,
@@ -1013,11 +1013,11 @@ void main() {
         100.0,
         isArmed: true,
         runMode: RunMode.interval,
-        targetDistance: null,
-        targetDistanceUnit: null,
-        targetStartSpeed: 0.0,
-        targetEndSpeed: 200.0,
-        targetSpeedUnit: SpeedUnit.kmh,
+        testDistance: null,
+        testDistanceUnit: null,
+        testStartSpeed: 0.0,
+        testEndSpeed: 200.0,
+        testSpeedUnit: SpeedUnit.kmh,
         intervalStartSpeed: 0.0,
         intervalEndSpeed: 200.0,
       );
@@ -1030,11 +1030,11 @@ void main() {
         100.0,
         isArmed: true,
         runMode: RunMode.interval,
-        targetDistance: null,
-        targetDistanceUnit: null,
-        targetStartSpeed: 0.0,
-        targetEndSpeed: 200.0,
-        targetSpeedUnit: SpeedUnit.kmh,
+        testDistance: null,
+        testDistanceUnit: null,
+        testStartSpeed: 0.0,
+        testEndSpeed: 200.0,
+        testSpeedUnit: SpeedUnit.kmh,
         intervalStartSpeed: 0.0,
         intervalEndSpeed: 200.0,
       );
@@ -1047,11 +1047,11 @@ void main() {
         100.0,
         isArmed: true,
         runMode: RunMode.interval,
-        targetDistance: null,
-        targetDistanceUnit: null,
-        targetStartSpeed: 0.0,
-        targetEndSpeed: 200.0,
-        targetSpeedUnit: SpeedUnit.kmh,
+        testDistance: null,
+        testDistanceUnit: null,
+        testStartSpeed: 0.0,
+        testEndSpeed: 200.0,
+        testSpeedUnit: SpeedUnit.kmh,
         intervalStartSpeed: 0.0,
         intervalEndSpeed: 200.0,
       );
@@ -1067,25 +1067,25 @@ void main() {
           100.0,
           isArmed: true,
           runMode: RunMode.interval,
-          targetDistance: null,
-          targetDistanceUnit: null,
-          targetStartSpeed: 0.0,
-          targetEndSpeed: 200.0,
-          targetSpeedUnit: SpeedUnit.kmh,
+          testDistance: null,
+          testDistanceUnit: null,
+          testStartSpeed: 0.0,
+          testEndSpeed: 200.0,
+          testSpeedUnit: SpeedUnit.kmh,
           intervalStartSpeed: 0.0,
           intervalEndSpeed: 200.0,
         );
       }
       expect(metrics.isRunning, false);
-      expect(metrics.targetTimes['0-200kmh'], isNotNull, reason: 'time0to200kmh is null! targetStartSpeed: ${metrics.targetStartSpeed}, targetEndSpeed: ${metrics.targetEndSpeed}, targetSpeedUnit: ${metrics.targetSpeedUnit}, elapsedTime: ${metrics.elapsedTime}, speedKmh: ${metrics.speedKmh}, isRunning: ${metrics.isRunning}');
-      expect(metrics.targetTimes['0-200kmh'], closeTo(metrics.elapsedTime, 0.01));
+      expect(metrics.testTimes['0-200kmh'], isNotNull, reason: 'time0to200kmh is null! testStartSpeed: ${metrics.testStartSpeed}, testEndSpeed: ${metrics.testEndSpeed}, testSpeedUnit: ${metrics.testSpeedUnit}, elapsedTime: ${metrics.elapsedTime}, speedKmh: ${metrics.speedKmh}, isRunning: ${metrics.isRunning}');
+      expect(metrics.testTimes['0-200kmh'], closeTo(metrics.elapsedTime, 0.01));
     });
 
     test('rollout calculation and fallback logic', () {
       // 1. Simulate a run with rollout data
       RaceMetrics metricsWithRollout = RaceMetrics(
         runMode: RunMode.drag,
-        targetTimes: {'0-60mph': 4.5, '0-60mph_rollout': 4.2},
+        testTimes: {'0-60mph': 4.5, '0-60mph_rollout': 4.2},
         rolloutTime1ft: 0.3,
       );
 
@@ -1104,7 +1104,7 @@ void main() {
       // 2. Simulate an old run without rollout data (rolloutTime1ft is null)
       RaceMetrics metricsOldRun = RaceMetrics(
         runMode: RunMode.drag,
-        targetTimes: {'0-60mph': 4.5},
+        testTimes: {'0-60mph': 4.5},
         rolloutTime1ft: null,
       );
 
@@ -1116,9 +1116,9 @@ void main() {
       // 3. Custom category with rollout
       RaceMetrics customMetrics = RaceMetrics(
         runMode: RunMode.interval,
-        targetStartSpeed: 0.0,
-        targetEndSpeed: 80.4672, // 50 mph
-        targetSpeedUnit: SpeedUnit.mph,
+        testStartSpeed: 0.0,
+        testEndSpeed: 80.4672, // 50 mph
+        testSpeedUnit: SpeedUnit.mph,
         rolloutTime1ft: 0.3,
         history: [
           const DataPoint(elapsedTime: 0.0, speedKmh: 0.0, gForce: 0.0),
@@ -1127,7 +1127,7 @@ void main() {
         ],
       );
 
-      final customTarget = const RaceTarget(
+      final customTest = const RaceTest(
         id: 'custom_0_50_mph',
         displayName: '0-50 mph',
         startSpeed: 0.0,
@@ -1138,22 +1138,22 @@ void main() {
 
       // Without rollout
       expect(
-        getCompletedTimeForCategory(customMetrics, 'custom_0_50_mph', useNhraRules: false, activeTargets: [customTarget]),
+        getCompletedTimeForCategory(customMetrics, 'custom_0_50_mph', useNhraRules: false, activeTests: [customTest]),
         closeTo(1.89, 0.01), // crossing speed is around 1.89s
       );
 
       // With rollout (should subtract rolloutTime1ft)
       expect(
-        getCompletedTimeForCategory(customMetrics, 'custom_0_50_mph', useNhraRules: true, activeTargets: [customTarget]),
+        getCompletedTimeForCategory(customMetrics, 'custom_0_50_mph', useNhraRules: true, activeTests: [customTest]),
         closeTo(1.89 - 0.3, 0.01),
       );
 
       // Custom category old run (without rolloutTime1ft)
       RaceMetrics customMetricsOld = RaceMetrics(
         runMode: RunMode.interval,
-        targetStartSpeed: 0.0,
-        targetEndSpeed: 80.4672,
-        targetSpeedUnit: SpeedUnit.mph,
+        testStartSpeed: 0.0,
+        testEndSpeed: 80.4672,
+        testSpeedUnit: SpeedUnit.mph,
         rolloutTime1ft: null,
         history: [
           const DataPoint(elapsedTime: 0.0, speedKmh: 0.0, gForce: 0.0),
@@ -1163,7 +1163,7 @@ void main() {
       );
 
       expect(
-        getCompletedTimeForCategory(customMetricsOld, 'custom_0_50_mph', useNhraRules: true, activeTargets: [customTarget]),
+        getCompletedTimeForCategory(customMetricsOld, 'custom_0_50_mph', useNhraRules: true, activeTests: [customTest]),
         closeTo(1.89, 0.01),
       );
     });

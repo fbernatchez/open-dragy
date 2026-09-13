@@ -61,16 +61,16 @@ class RunDetailScreen extends StatelessWidget {
     final List<_ReachedMilestone> reachedMilestones = [];
 
     // 1. Official and Custom completed tests
-    final activeTargetsList = [...officialTests, ...dragy.customTargets];
+    final activeTestsList = [...officialTests, ...dragy.customTests];
     final completedTests = getCompletedTests(
       metrics,
       useNhraRules: useNhraRules,
-      activeTargets: activeTargetsList,
+      activeTests: activeTestsList,
     );
     for (final test in completedTests) {
-      if (!dragy.enabledTargets.contains(test.id)) continue;
+      if (!dragy.enabledTests.contains(test.id)) continue;
 
-      // Filter out speed targets of the opposite unit system to match user's preference
+      // Filter out speed tests of the opposite unit system to match user's preference
       if (test.speedUnit != null) {
         final isTestMetric = test.speedUnit == SpeedUnit.kmh;
         if (isTestMetric != isMetric) {
@@ -82,15 +82,15 @@ class RunDetailScreen extends StatelessWidget {
         metrics,
         test.id,
         useNhraRules: useNhraRules,
-        activeTargets: activeTargetsList,
+        activeTests: activeTestsList,
       );
       if (time != null) {
         double sortTime = time;
         if (test.startSpeed != null && test.startSpeed! > 0.0) {
           if (test.speedUnit == SpeedUnit.mph) {
-            sortTime = (metrics.targetTimes['0-60mph'] ?? 0.0) + time;
+            sortTime = (metrics.testTimes['0-60mph'] ?? 0.0) + time;
           } else {
-            sortTime = (metrics.targetTimes['0-100kmh'] ?? 0.0) + time;
+            sortTime = (metrics.testTimes['0-100kmh'] ?? 0.0) + time;
           }
         }
 
@@ -103,7 +103,7 @@ class RunDetailScreen extends StatelessWidget {
               metrics,
               test.id,
               useNhraRules: useNhraRules,
-              activeTargets: activeTargetsList,
+              activeTests: activeTestsList,
             ),
           ),
         );
@@ -112,31 +112,31 @@ class RunDetailScreen extends StatelessWidget {
 
     // 2. Custom interval category if it's an interval run and not an official test
     if (metrics.runMode == RunMode.interval &&
-        metrics.targetStartSpeed != null &&
-        metrics.targetEndSpeed != null) {
+        metrics.testStartSpeed != null &&
+        metrics.testEndSpeed != null) {
       bool matchesAny = false;
       for (final test in officialTests) {
         if (test.startSpeed != null &&
-            (metrics.targetStartSpeed! - test.startSpeed!).abs() < 0.1 &&
+            (metrics.testStartSpeed! - test.startSpeed!).abs() < 0.1 &&
             test.endSpeed != null &&
-            (metrics.targetEndSpeed! - test.endSpeed!).abs() < 0.1 &&
-            metrics.targetSpeedUnit == test.speedUnit) {
+            (metrics.testEndSpeed! - test.endSpeed!).abs() < 0.1 &&
+            metrics.testSpeedUnit == test.speedUnit) {
           matchesAny = true;
           break;
         }
       }
       if (!matchesAny) {
-        final runIsMetric = (metrics.targetSpeedUnit ?? SpeedUnit.kmh) == SpeedUnit.kmh;
+        final runIsMetric = (metrics.testSpeedUnit ?? SpeedUnit.kmh) == SpeedUnit.kmh;
         if (runIsMetric == isMetric) {
-          final unitEnum = metrics.targetSpeedUnit ?? (isMetric ? SpeedUnit.kmh : SpeedUnit.mph);
+          final unitEnum = metrics.testSpeedUnit ?? (isMetric ? SpeedUnit.kmh : SpeedUnit.mph);
           final unit = unitEnum.name;
           final isRunMetric = unitEnum == SpeedUnit.kmh;
           final startSpeed = !isRunMetric
-              ? UnitConverter.kmhToMph(metrics.targetStartSpeed!).round()
-              : metrics.targetStartSpeed!.round();
+              ? UnitConverter.kmhToMph(metrics.testStartSpeed!).round()
+              : metrics.testStartSpeed!.round();
           final endSpeed = !isRunMetric
-              ? UnitConverter.kmhToMph(metrics.targetEndSpeed!).round()
-              : metrics.targetEndSpeed!.round();
+              ? UnitConverter.kmhToMph(metrics.testEndSpeed!).round()
+              : metrics.testEndSpeed!.round();
           final customId = 'custom_${startSpeed}_${endSpeed}_$unit';
           final compTime = getCompletedTimeForCategory(
             metrics,
@@ -144,10 +144,10 @@ class RunDetailScreen extends StatelessWidget {
             useNhraRules: useNhraRules,
           );
           if (compTime != null) {
-            final label = getDisplayLabelForTarget(
-              startSpeed: metrics.targetStartSpeed,
-              endSpeed: metrics.targetEndSpeed,
-              speedUnit: metrics.targetSpeedUnit,
+            final label = getDisplayLabelForTest(
+              startSpeed: metrics.testStartSpeed,
+              endSpeed: metrics.testEndSpeed,
+              speedUnit: metrics.testSpeedUnit,
               runMode: RunMode.interval,
             );
             reachedMilestones.add(
@@ -172,56 +172,56 @@ class RunDetailScreen extends StatelessWidget {
     String primaryTime = "-.--s";
 
     // Try to find if the run has an active/completed target matching an official test
-    RaceTarget? targetTest;
+    RaceTest? matchedTest;
     for (final test in officialTests) {
       if (test.distance != null &&
-          metrics.targetDistance != null &&
-          (test.distance! - metrics.targetDistance!).abs() < 0.001 &&
-          test.distanceUnit == metrics.targetDistanceUnit) {
-        targetTest = test;
+          metrics.testDistance != null &&
+          (test.distance! - metrics.testDistance!).abs() < 0.001 &&
+          test.distanceUnit == metrics.testDistanceUnit) {
+        matchedTest = test;
         break;
       } else if (test.startSpeed != null &&
-          metrics.targetStartSpeed != null &&
-          (test.startSpeed! - metrics.targetStartSpeed!).abs() < 0.1 &&
+          metrics.testStartSpeed != null &&
+          (test.startSpeed! - metrics.testStartSpeed!).abs() < 0.1 &&
           test.endSpeed != null &&
-          metrics.targetEndSpeed != null &&
-          (test.endSpeed! - metrics.targetEndSpeed!).abs() < 0.1 &&
-          test.speedUnit == metrics.targetSpeedUnit) {
-        targetTest = test;
+          metrics.testEndSpeed != null &&
+          (test.endSpeed! - metrics.testEndSpeed!).abs() < 0.1 &&
+          test.speedUnit == metrics.testSpeedUnit) {
+        matchedTest = test;
         break;
       }
     }
 
     double? completedTime;
-    if (targetTest != null) {
+    if (matchedTest != null) {
       completedTime = getCompletedTimeForCategory(
         metrics,
-        targetTest.id,
+        matchedTest.id,
         useNhraRules: useNhraRules,
       );
       if (completedTime != null) {
-        primaryLabel = "${targetTest.displayName} Time";
+        primaryLabel = "${matchedTest.displayName} Time";
       }
     } else if (metrics.runMode == RunMode.interval &&
-        metrics.targetStartSpeed != null &&
-        metrics.targetEndSpeed != null) {
+        metrics.testStartSpeed != null &&
+        metrics.testEndSpeed != null) {
       // Custom interval target
-      final label = getDisplayLabelForTarget(
-        startSpeed: metrics.targetStartSpeed,
-        endSpeed: metrics.targetEndSpeed,
-        speedUnit: metrics.targetSpeedUnit,
+      final label = getDisplayLabelForTest(
+        startSpeed: metrics.testStartSpeed,
+        endSpeed: metrics.testEndSpeed,
+        speedUnit: metrics.testSpeedUnit,
         runMode: RunMode.interval,
       );
       primaryLabel = "$label Time";
-      final unitEnum = metrics.targetSpeedUnit ?? (isMetric ? SpeedUnit.kmh : SpeedUnit.mph);
+      final unitEnum = metrics.testSpeedUnit ?? (isMetric ? SpeedUnit.kmh : SpeedUnit.mph);
       final unit = unitEnum.name;
       final isRunMetric = unitEnum == SpeedUnit.kmh;
       final startSpeed = !isRunMetric
-          ? UnitConverter.kmhToMph(metrics.targetStartSpeed!).round()
-          : metrics.targetStartSpeed!.round();
+          ? UnitConverter.kmhToMph(metrics.testStartSpeed!).round()
+          : metrics.testStartSpeed!.round();
       final endSpeed = !isRunMetric
-          ? UnitConverter.kmhToMph(metrics.targetEndSpeed!).round()
-          : metrics.targetEndSpeed!.round();
+          ? UnitConverter.kmhToMph(metrics.testEndSpeed!).round()
+          : metrics.testEndSpeed!.round();
       final customId = 'custom_${startSpeed}_${endSpeed}_$unit';
       completedTime = getCompletedTimeForCategory(
         metrics,
@@ -279,7 +279,7 @@ class RunDetailScreen extends StatelessWidget {
 
     final String fullLabel =
         (useNhraRules &&
-            (metrics.runMode == RunMode.drag || metrics.targetStartSpeed == 0.0))
+            (metrics.runMode == RunMode.drag || metrics.testStartSpeed == 0.0))
         ? "$primaryLabel (NHRA rules)"
         : primaryLabel;
 
@@ -492,13 +492,13 @@ class RunDetailScreen extends StatelessWidget {
                       Row(
                         children: [
                           const Icon(
-                            Icons.terrain_outlined,
+                            Icons.summarize_outlined,
                             color: Color(0xFFFFBF00),
                             size: 18,
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            'Elevation & Slope Profile',
+                            'Run Summary',
                             style: GoogleFonts.roboto(
                               color: Colors.white70,
                               fontWeight: FontWeight.bold,
@@ -508,6 +508,12 @@ class RunDetailScreen extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 16),
+                      _ProfileStatRow(
+                        label: 'Total Distance',
+                        value: isMetric
+                            ? '${metrics.distanceMeters.round()} m'
+                            : '${UnitConverter.metersToFeet(metrics.distanceMeters).round()} ft',
+                      ),
                       _ProfileStatRow(
                         label: 'Start Altitude',
                         value: '${displayStartAlt.toStringAsFixed(1)} $altUnit',

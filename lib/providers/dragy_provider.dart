@@ -14,13 +14,13 @@ import '../services/settings_service.dart';
 import '../services/weather_service.dart';
 import '../utils/unit_converter.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import '../models/race_target.dart';
+import '../models/race_test.dart';
 import '../services/tts_service.dart';
 import '../services/audio_recording_service.dart';
 import '../services/firmware_service.dart';
 import 'dart:io';
 
-export '../models/race_target.dart';
+export '../models/race_test.dart';
 
 class DragyProvider extends ChangeNotifier {
   final BleService _bleService = BleService();
@@ -72,8 +72,8 @@ class DragyProvider extends ChangeNotifier {
   bool _isMetric = false;
   bool get isMetric => _isMetric;
 
-  RaceDragTarget _activeDragTarget = RaceDragTarget.quarterMile;
-  RaceDragTarget get activeDragTarget => _activeDragTarget;
+  RaceDragTest _activeDragTest = RaceDragTest.quarterMile;
+  RaceDragTest get activeDragTest => _activeDragTest;
 
   // --- Settings ---
   bool _tempInCelsius = true;
@@ -97,9 +97,9 @@ class DragyProvider extends ChangeNotifier {
 
   double _launchChartOffset = 0.0;
 
-  RaceIntervalTarget _activeIntervalTarget =
-      RaceIntervalTarget.sixtyToOneThirtyMph;
-  RaceIntervalTarget get activeIntervalTarget => _activeIntervalTarget;
+  RaceIntervalTest _activeIntervalTest =
+      RaceIntervalTest.sixtyToOneThirtyMph;
+  RaceIntervalTest get activeIntervalTest => _activeIntervalTest;
 
   double _customIntervalStartSpeed = 100.0;
   double get customIntervalStartSpeed => _customIntervalStartSpeed;
@@ -107,28 +107,28 @@ class DragyProvider extends ChangeNotifier {
   double _customIntervalEndSpeed = 200.0;
   double get customIntervalEndSpeed => _customIntervalEndSpeed;
 
-  List<String> _enabledTargets = officialTests.map((t) => t.id).toList();
-  List<String> get enabledTargets => List.unmodifiable(_enabledTargets);
+  List<String> _enabledTests = officialTests.map((t) => t.id).toList();
+  List<String> get enabledTests => List.unmodifiable(_enabledTests);
 
-  List<RaceTarget> _customTargets = [];
-  List<RaceTarget> get customTargets => List.unmodifiable(_customTargets);
+  List<RaceTest> _customTests = [];
+  List<RaceTest> get customTests => List.unmodifiable(_customTests);
 
   double get intervalStartSpeed {
-    if (_activeIntervalTarget == RaceIntervalTarget.custom) {
+    if (_activeIntervalTest == RaceIntervalTest.custom) {
       return _isMetric
           ? _customIntervalStartSpeed
           : UnitConverter.mphToKmh(_customIntervalStartSpeed);
     }
-    return _activeIntervalTarget.startSpeedKmh ?? 0.0;
+    return _activeIntervalTest.startSpeedKmh ?? 0.0;
   }
 
   double get intervalEndSpeed {
-    if (_activeIntervalTarget == RaceIntervalTarget.custom) {
+    if (_activeIntervalTest == RaceIntervalTest.custom) {
       return _isMetric
           ? _customIntervalEndSpeed
           : UnitConverter.mphToKmh(_customIntervalEndSpeed);
     }
-    return _activeIntervalTarget.endSpeedKmh ?? 0.0;
+    return _activeIntervalTest.endSpeedKmh ?? 0.0;
   }
 
   double get customIntervalStartSpeedUserUnit {
@@ -139,39 +139,39 @@ class DragyProvider extends ChangeNotifier {
     return _customIntervalEndSpeed;
   }
 
-  String get activeDragTargetLabel {
-    return _activeDragTarget.label;
+  String get activeDragTestLabel {
+    return _activeDragTest.label;
   }
 
-  String get activeIntervalTargetLabel {
-    if (_activeIntervalTarget == RaceIntervalTarget.custom) {
+  String get activeIntervalTestLabel {
+    if (_activeIntervalTest == RaceIntervalTest.custom) {
       final start = _customIntervalStartSpeed.round();
       final end = _customIntervalEndSpeed.round();
       final unit = _isMetric ? 'km/h' : 'mph';
       return '$start-$end $unit';
     } else {
-      return _activeIntervalTarget.label;
+      return _activeIntervalTest.label;
     }
   }
 
-  double? get targetDistance =>
-      _runMode == RunMode.drag ? _activeDragTarget.distance : null;
+  double? get testDistance =>
+      _runMode == RunMode.drag ? _activeDragTest.distance : null;
 
-  DistanceUnit? get targetDistanceUnit =>
-      _runMode == RunMode.drag ? _activeDragTarget.distanceUnit : null;
+  DistanceUnit? get testDistanceUnit =>
+      _runMode == RunMode.drag ? _activeDragTest.distanceUnit : null;
 
-  double? get targetStartSpeed =>
+  double? get testStartSpeed =>
       _runMode == RunMode.interval ? intervalStartSpeed : null;
 
-  double? get targetEndSpeed =>
+  double? get testEndSpeed =>
       _runMode == RunMode.interval ? intervalEndSpeed : null;
 
-  SpeedUnit? get targetSpeedUnit {
+  SpeedUnit? get testSpeedUnit {
     if (_runMode != RunMode.interval) return null;
-    if (_activeIntervalTarget == RaceIntervalTarget.custom) {
+    if (_activeIntervalTest == RaceIntervalTest.custom) {
       return _isMetric ? SpeedUnit.kmh : SpeedUnit.mph;
     }
-    return _activeIntervalTarget.speedUnit ??
+    return _activeIntervalTest.speedUnit ??
         (_isMetric ? SpeedUnit.kmh : SpeedUnit.mph);
   }
 
@@ -216,7 +216,7 @@ class DragyProvider extends ChangeNotifier {
       baseTime += clampedDelta;
     }
 
-    if (_useNhraRules && (_runMode == RunMode.drag || targetStartSpeed == 0.0)) {
+    if (_useNhraRules && (_runMode == RunMode.drag || testStartSpeed == 0.0)) {
       if (_metrics.rolloutTime1ft != null) {
         return max(0.0, baseTime - _metrics.rolloutTime1ft!);
       } else {
@@ -314,10 +314,10 @@ class DragyProvider extends ChangeNotifier {
         }
 
         final wasRunning = _metrics.isRunning;
-        final activeTargetsList = [...officialTests, ..._customTargets];
+        final activeTestsList = [...officialTests, ..._customTests];
         final oldTests = _enableTts && wasRunning
-            ? getCompletedTests(_metrics, useNhraRules: _useNhraRules, activeTargets: activeTargetsList)
-            : <RaceTarget>[];
+            ? getCompletedTests(_metrics, useNhraRules: _useNhraRules, activeTests: activeTestsList)
+            : <RaceTest>[];
 
         double avgGForce = _gForceCount > 0
             ? _gForceAccumulator / _gForceCount
@@ -333,15 +333,15 @@ class DragyProvider extends ChangeNotifier {
           _altitude,
           isArmed: _isArmed,
           runMode: _runMode,
-          targetDistance: targetDistance,
-          targetDistanceUnit: targetDistanceUnit,
-          targetStartSpeed: targetStartSpeed,
-          targetEndSpeed: targetEndSpeed,
-          targetSpeedUnit: targetSpeedUnit,
+          testDistance: testDistance,
+          testDistanceUnit: testDistanceUnit,
+          testStartSpeed: testStartSpeed,
+          testEndSpeed: testEndSpeed,
+          testSpeedUnit: testSpeedUnit,
           intervalStartSpeed: intervalStartSpeed,
           intervalEndSpeed: intervalEndSpeed,
           gpsTimeSeconds: pvt.iTOW / 1000.0,
-          activeTargets: [...officialTests, ..._customTargets],
+          activeTests: [...officialTests, ..._customTests],
         );
         final isRunning = _metrics.isRunning;
 
@@ -356,10 +356,10 @@ class DragyProvider extends ChangeNotifier {
           final newTests = getCompletedTests(
             _metrics,
             useNhraRules: _useNhraRules,
-            activeTargets: activeTargetsList,
+            activeTests: activeTestsList,
           );
           for (final test in newTests) {
-            if (!_enabledTargets.contains(test.id)) continue;
+            if (!_enabledTests.contains(test.id)) continue;
             if (!oldTests.any((t) => t.id == test.id)) {
               if (!test.enableTts ||
                   test.ttsPhrase == null ||
@@ -636,9 +636,9 @@ class DragyProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void setActiveDragTarget(RaceDragTarget target) {
-    if (_activeDragTarget != target) {
-      _activeDragTarget = target;
+  void setactiveDragTest(RaceDragTest target) {
+    if (_activeDragTest != target) {
+      _activeDragTest = target;
       _isArmed = false; // Disarm on target change
       _audioService.abort();
       _metrics = _physicsEngine.reset();
@@ -675,44 +675,44 @@ class DragyProvider extends ChangeNotifier {
     }
   }
 
-  void _syncActiveTargetToUnit() {
+  void _syncActiveTestToUnit() {
     if (_isMetric) {
-      if (_activeIntervalTarget == RaceIntervalTarget.sixtyToOneThirtyMph) {
-        _activeIntervalTarget = RaceIntervalTarget.oneHundredToTwoHundredKmh;
-      } else if (_activeIntervalTarget == RaceIntervalTarget.zeroToSixtyMph) {
-        _activeIntervalTarget = RaceIntervalTarget.zeroToOneHundredKmh;
-      } else if (_activeIntervalTarget ==
-          RaceIntervalTarget.fiftyToSeventyFiveMph) {
-        _activeIntervalTarget = RaceIntervalTarget.eightyToOneTwentyKmh;
-      } else if (_activeIntervalTarget ==
-          RaceIntervalTarget.zeroToOneThirtyMph) {
-        _activeIntervalTarget = RaceIntervalTarget.zeroToTwoHundredKmh;
-      } else if (_activeIntervalTarget ==
-          RaceIntervalTarget.sixtyToOneHundredMph) {
-        _activeIntervalTarget = RaceIntervalTarget.oneHundredToOneSixtyKmh;
-      } else if (_activeIntervalTarget ==
-          RaceIntervalTarget.zeroToOneHundredMph) {
-        _activeIntervalTarget = RaceIntervalTarget.zeroToOneSixtyKmh;
+      if (_activeIntervalTest == RaceIntervalTest.sixtyToOneThirtyMph) {
+        _activeIntervalTest = RaceIntervalTest.oneHundredToTwoHundredKmh;
+      } else if (_activeIntervalTest == RaceIntervalTest.zeroToSixtyMph) {
+        _activeIntervalTest = RaceIntervalTest.zeroToOneHundredKmh;
+      } else if (_activeIntervalTest ==
+          RaceIntervalTest.fiftyToSeventyFiveMph) {
+        _activeIntervalTest = RaceIntervalTest.eightyToOneTwentyKmh;
+      } else if (_activeIntervalTest ==
+          RaceIntervalTest.zeroToOneThirtyMph) {
+        _activeIntervalTest = RaceIntervalTest.zeroToTwoHundredKmh;
+      } else if (_activeIntervalTest ==
+          RaceIntervalTest.sixtyToOneHundredMph) {
+        _activeIntervalTest = RaceIntervalTest.oneHundredToOneSixtyKmh;
+      } else if (_activeIntervalTest ==
+          RaceIntervalTest.zeroToOneHundredMph) {
+        _activeIntervalTest = RaceIntervalTest.zeroToOneSixtyKmh;
       }
     } else {
-      if (_activeIntervalTarget ==
-          RaceIntervalTarget.oneHundredToTwoHundredKmh) {
-        _activeIntervalTarget = RaceIntervalTarget.sixtyToOneThirtyMph;
-      } else if (_activeIntervalTarget ==
-          RaceIntervalTarget.zeroToOneHundredKmh) {
-        _activeIntervalTarget = RaceIntervalTarget.zeroToSixtyMph;
-      } else if (_activeIntervalTarget ==
-          RaceIntervalTarget.eightyToOneTwentyKmh) {
-        _activeIntervalTarget = RaceIntervalTarget.fiftyToSeventyFiveMph;
-      } else if (_activeIntervalTarget ==
-          RaceIntervalTarget.zeroToTwoHundredKmh) {
-        _activeIntervalTarget = RaceIntervalTarget.zeroToOneThirtyMph;
-      } else if (_activeIntervalTarget ==
-          RaceIntervalTarget.oneHundredToOneSixtyKmh) {
-        _activeIntervalTarget = RaceIntervalTarget.sixtyToOneHundredMph;
-      } else if (_activeIntervalTarget ==
-          RaceIntervalTarget.zeroToOneSixtyKmh) {
-        _activeIntervalTarget = RaceIntervalTarget.zeroToOneHundredMph;
+      if (_activeIntervalTest ==
+          RaceIntervalTest.oneHundredToTwoHundredKmh) {
+        _activeIntervalTest = RaceIntervalTest.sixtyToOneThirtyMph;
+      } else if (_activeIntervalTest ==
+          RaceIntervalTest.zeroToOneHundredKmh) {
+        _activeIntervalTest = RaceIntervalTest.zeroToSixtyMph;
+      } else if (_activeIntervalTest ==
+          RaceIntervalTest.eightyToOneTwentyKmh) {
+        _activeIntervalTest = RaceIntervalTest.fiftyToSeventyFiveMph;
+      } else if (_activeIntervalTest ==
+          RaceIntervalTest.zeroToTwoHundredKmh) {
+        _activeIntervalTest = RaceIntervalTest.zeroToOneThirtyMph;
+      } else if (_activeIntervalTest ==
+          RaceIntervalTest.oneHundredToOneSixtyKmh) {
+        _activeIntervalTest = RaceIntervalTest.sixtyToOneHundredMph;
+      } else if (_activeIntervalTest ==
+          RaceIntervalTest.zeroToOneSixtyKmh) {
+        _activeIntervalTest = RaceIntervalTest.zeroToOneHundredMph;
       }
     }
   }
@@ -785,9 +785,9 @@ class DragyProvider extends ChangeNotifier {
     }
   }
 
-  void setActiveIntervalTarget(RaceIntervalTarget target) {
-    if (_activeIntervalTarget != target) {
-      _activeIntervalTarget = target;
+  void setactiveIntervalTest(RaceIntervalTest target) {
+    if (_activeIntervalTest != target) {
+      _activeIntervalTest = target;
       _isArmed = false; // Disarm on target change
       _audioService.abort();
       _metrics = _physicsEngine.reset();
@@ -808,37 +808,50 @@ class DragyProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void toggleTargetEnabled(String targetId, bool enabled) {
+  void toggleTestEnabled(String targetId, bool enabled) {
     if (enabled) {
-      if (!_enabledTargets.contains(targetId)) {
-        _enabledTargets.add(targetId);
+      if (!_enabledTests.contains(targetId)) {
+        _enabledTests.add(targetId);
       }
     } else {
-      _enabledTargets.remove(targetId);
+      _enabledTests.remove(targetId);
     }
     _saveSettings();
     notifyListeners();
   }
 
-  void addCustomTarget(RaceTarget target) {
-    if (_customTargets.any((t) => t.id == target.id)) return;
-    _customTargets.add(target);
-    _customTargets.sort(_compareCustomTargets);
-    _enabledTargets.add(target.id);
+  void addCustomTest(RaceTest target) {
+    if (_customTests.any((t) => t.id == target.id)) return;
+    _customTests.add(target);
+    _customTests.sort(_comparecustomTests);
+    _enabledTests.add(target.id);
     _saveSettings();
     notifyListeners();
   }
 
-  static int _compareCustomTargets(RaceTarget a, RaceTarget b) {
-    final aIsDistance = a.distance != null ? 0 : 1;
-    final bIsDistance = b.distance != null ? 0 : 1;
-    if (aIsDistance != bIsDistance) return aIsDistance - bIsDistance;
-    return a.displayName.compareTo(b.displayName);
+  static int _comparecustomTests(RaceTest a, RaceTest b) {
+    final aIsDistance = a.distance != null;
+    final bIsDistance = b.distance != null;
+    if (aIsDistance != bIsDistance) return aIsDistance ? 1 : -1;
+
+    if (aIsDistance) {
+      return a.distance!.compareTo(b.distance!);
+    }
+
+    final startA = a.startSpeed ?? 0.0;
+    final startB = b.startSpeed ?? 0.0;
+    if (startA != startB) {
+      return startA.compareTo(startB);
+    }
+    
+    final endA = a.endSpeed ?? 0.0;
+    final endB = b.endSpeed ?? 0.0;
+    return endA.compareTo(endB);
   }
 
-  void removeCustomTarget(String targetId) {
-    _customTargets.removeWhere((t) => t.id == targetId);
-    _enabledTargets.remove(targetId);
+  void removeCustomTest(String targetId) {
+    _customTests.removeWhere((t) => t.id == targetId);
+    _enabledTests.remove(targetId);
     _saveSettings();
     notifyListeners();
   }
@@ -855,16 +868,16 @@ class DragyProvider extends ChangeNotifier {
         ? (RunMode.values.asNameMap()[modeStr] ?? RunMode.drag)
         : RunMode.drag;
 
-    final dragTargetName = data['activeDragTarget'] as String?;
-    _activeDragTarget = RaceDragTarget.values.firstWhere(
-      (e) => e.name == dragTargetName,
-      orElse: () => RaceDragTarget.quarterMile,
+    final dragTestName = data['activeDragTest'] as String?;
+    _activeDragTest = RaceDragTest.values.firstWhere(
+      (e) => e.name == dragTestName,
+      orElse: () => RaceDragTest.quarterMile,
     );
 
-    final intervalTargetName = data['activeIntervalTarget'] as String?;
-    _activeIntervalTarget = RaceIntervalTarget.values.firstWhere(
-      (e) => e.name == intervalTargetName,
-      orElse: () => RaceIntervalTarget.sixtyToOneThirtyMph,
+    final intervalTestName = data['activeIntervalTest'] as String?;
+    _activeIntervalTest = RaceIntervalTest.values.firstWhere(
+      (e) => e.name == intervalTestName,
+      orElse: () => RaceIntervalTest.sixtyToOneThirtyMph,
     );
 
     _customIntervalStartSpeed =
@@ -872,22 +885,22 @@ class DragyProvider extends ChangeNotifier {
     _customIntervalEndSpeed =
         (data['customIntervalEndSpeed'] as num?)?.toDouble() ?? 200.0;
 
-    if (data['enabledTargets'] != null) {
-      _enabledTargets = List<String>.from(data['enabledTargets']);
+    if (data['enabledTests'] != null) {
+      _enabledTests = List<String>.from(data['enabledTests']);
     } else {
-      _enabledTargets = officialTests.map((t) => t.id).toList();
+      _enabledTests = officialTests.map((t) => t.id).toList();
     }
 
-    if (data['customTargets'] != null) {
-      _customTargets = (data['customTargets'] as List)
-          .map((e) => RaceTarget.fromJson(e as Map<String, dynamic>))
+    if (data['customTests'] != null) {
+      _customTests = (data['customTests'] as List)
+          .map((e) => RaceTest.fromJson(e as Map<String, dynamic>))
           .toList();
-      _customTargets.sort(_compareCustomTargets);
+      _customTests.sort(_comparecustomTests);
     } else {
-      _customTargets = [];
+      _customTests = [];
     }
 
-    _syncActiveTargetToUnit();
+    _syncActiveTestToUnit();
 
     notifyListeners();
   }
@@ -900,12 +913,12 @@ class DragyProvider extends ChangeNotifier {
       'enableTts': _enableTts,
       'enableAudioRecording': _enableAudioRecording,
       'runMode': _runMode.name,
-      'activeDragTarget': _activeDragTarget.name,
-      'activeIntervalTarget': _activeIntervalTarget.name,
+      'activeDragTest': _activeDragTest.name,
+      'activeIntervalTest': _activeIntervalTest.name,
       'customIntervalStartSpeed': _customIntervalStartSpeed.round(),
       'customIntervalEndSpeed': _customIntervalEndSpeed.round(),
-      'enabledTargets': _enabledTargets,
-      'customTargets': _customTargets.map((t) => t.toJson()).toList(),
+      'enabledTests': _enabledTests,
+      'customTests': _customTests.map((t) => t.toJson()).toList(),
     });
   }
 

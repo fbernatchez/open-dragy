@@ -22,19 +22,19 @@ class MockDragyProvider extends ChangeNotifier implements DragyProvider {
   bool isConnected = false;
 
   @override
-  List<RaceTarget> customTargets = [];
+  List<RaceTest> customTests = [];
 
   @override
-  List<String> enabledTargets = [];
+  List<String> enabledTests = [];
 
   @override
-  void addCustomTarget(RaceTarget target) {}
+  void addCustomTest(RaceTest Test) {}
 
   @override
-  void removeCustomTarget(String targetId) {}
+  void removeCustomTest(String TestId) {}
 
   @override
-  void toggleTargetEnabled(String targetId, bool enabled) {}
+  void toggleTestEnabled(String TestId, bool enabled) {}
 
   @override
   String get firmwareVersion => "1.0.0-mock";
@@ -121,7 +121,7 @@ class MockDragyProvider extends ChangeNotifier implements DragyProvider {
   RunMode runMode = RunMode.drag;
 
   @override
-  RaceIntervalTarget activeIntervalTarget = RaceIntervalTarget.sixtyToOneThirtyMph;
+  RaceIntervalTest activeIntervalTest = RaceIntervalTest.sixtyToOneThirtyMph;
 
   @override
   double customIntervalStartSpeed = 100.0;
@@ -142,38 +142,38 @@ class MockDragyProvider extends ChangeNotifier implements DragyProvider {
   double get customIntervalEndSpeedUserUnit => 200.0;
 
   @override
-  String get activeDragTargetLabel => activeDragTarget.label;
+  String get activeDragTestLabel => activeDragTest.label;
 
   @override
-  String get activeIntervalTargetLabel => activeIntervalTarget.label;
+  String get activeIntervalTestLabel => activeIntervalTest.label;
 
   @override
-  double? get targetDistance {
+  double? get testDistance {
     if (runMode != RunMode.drag) return null;
-    switch (activeDragTarget) {
-      case RaceDragTarget.sixtyFeet: return 60.0;
-      case RaceDragTarget.threeHundredThirtyFeet: return 330.0;
-      case RaceDragTarget.eighthMile: return 0.125;
-      case RaceDragTarget.thousandFeet: return 1000.0;
-      case RaceDragTarget.quarterMile: return 0.25;
-      case RaceDragTarget.halfMile: return 0.5;
+    switch (activeDragTest) {
+      case RaceDragTest.sixtyFeet: return 60.0;
+      case RaceDragTest.threeHundredThirtyFeet: return 330.0;
+      case RaceDragTest.eighthMile: return 0.125;
+      case RaceDragTest.thousandFeet: return 1000.0;
+      case RaceDragTest.quarterMile: return 0.25;
+      case RaceDragTest.halfMile: return 0.5;
     }
   }
 
   @override
-  DistanceUnit? get targetDistanceUnit =>
-      runMode == RunMode.drag ? activeDragTarget.distanceUnit : null;
+  DistanceUnit? get testDistanceUnit =>
+      runMode == RunMode.drag ? activeDragTest.distanceUnit : null;
 
   @override
-  double? get targetStartSpeed => runMode == RunMode.interval ? intervalStartSpeed : null;
+  double? get testStartSpeed => runMode == RunMode.interval ? intervalStartSpeed : null;
 
   @override
-  double? get targetEndSpeed => runMode == RunMode.interval ? intervalEndSpeed : null;
+  double? get testEndSpeed => runMode == RunMode.interval ? intervalEndSpeed : null;
 
   @override
-  SpeedUnit? get targetSpeedUnit {
+  SpeedUnit? get testSpeedUnit {
     if (runMode != RunMode.interval) return null;
-    return activeIntervalTarget.speedUnit ??
+    return activeIntervalTest.speedUnit ??
         (isMetric ? SpeedUnit.kmh : SpeedUnit.mph);
   }
 
@@ -193,8 +193,8 @@ class MockDragyProvider extends ChangeNotifier implements DragyProvider {
   }
 
   @override
-  void setActiveIntervalTarget(RaceIntervalTarget target) {
-    activeIntervalTarget = target;
+  void setactiveIntervalTest(RaceIntervalTest Test) {
+    activeIntervalTest = Test;
     notifyListeners();
   }
 
@@ -215,11 +215,11 @@ class MockDragyProvider extends ChangeNotifier implements DragyProvider {
   }
 
   @override
-  RaceDragTarget activeDragTarget = RaceDragTarget.quarterMile;
+  RaceDragTest activeDragTest = RaceDragTest.quarterMile;
 
   @override
-  void setActiveDragTarget(RaceDragTarget target) {
-    activeDragTarget = target;
+  void setactiveDragTest(RaceDragTest Test) {
+    activeDragTest = Test;
     notifyListeners();
   }
 
@@ -433,7 +433,7 @@ void main() {
       metrics: RaceMetrics(
         speedKmh: 0.0,
         isRunning: false,
-        targetTimes: {'1/4mile': 12.34},
+        testTimes: {'1/4mile': 12.34},
         runMode: RunMode.drag,
       ),
       satellites: 8,
@@ -458,10 +458,10 @@ void main() {
         speedKmh: 0.0,
         distanceMeters: 402.336,
         elapsedTime: 11.45,
-        targetTimes: {'0-60mph': 3.42, '1/4mile': 11.45},
+        testTimes: {'0-60mph': 3.42, '1/4mile': 11.45},
         runMode: RunMode.drag,
-        targetDistance: 0.25,
-        targetDistanceUnit: DistanceUnit.mile,
+        testDistance: 0.25,
+        testDistanceUnit: DistanceUnit.mile,
         history: [],
       ),
     );
@@ -474,11 +474,11 @@ void main() {
         speedKmh: 0.0,
         distanceMeters: 100.0,
         elapsedTime: 2.92,
-        targetTimes: {'0-60mph': 2.92},
+        testTimes: {'0-60mph': 2.92},
         runMode: RunMode.drag,
-        targetStartSpeed: 0.0,
-        targetEndSpeed: 96.56064,
-        targetSpeedUnit: SpeedUnit.mph,
+        testStartSpeed: 0.0,
+        testEndSpeed: 96.56064,
+        testSpeedUnit: SpeedUnit.mph,
         history: [],
       ),
     );
@@ -492,9 +492,9 @@ void main() {
         distanceMeters: 150.0,
         elapsedTime: 2.15,
         runMode: RunMode.interval,
-        targetStartSpeed: 48.28032,
-        targetEndSpeed: 80.4672,
-        targetSpeedUnit: SpeedUnit.mph,
+        testStartSpeed: 48.28032,
+        testEndSpeed: 80.4672,
+        testSpeedUnit: SpeedUnit.mph,
         history: const [
           DataPoint(elapsedTime: -0.01, speedKmh: 47.28032, gForce: 0.0, altitude: 100.0),
           DataPoint(elapsedTime: 0.0, speedKmh: 48.28032, gForce: 0.0, altitude: 100.0),
@@ -527,7 +527,7 @@ void main() {
     // 3. Verify PB for "1/4 mile" shows "11.45s"
     expect(find.text('11.45s'), findsNWidgets(2));
 
-    // 4. Verify custom rolling target run is displayed in the list
+    // 4. Verify custom rolling Test run is displayed in the list
     expect(find.text('30-50 mph'), findsNWidgets(2));
     expect(find.text('2.15s'), findsNWidgets(2));
 
@@ -573,9 +573,9 @@ void main() {
         distanceMeters: 100.0,
         elapsedTime: 3.50,
         runMode: RunMode.interval,
-        targetStartSpeed: 80.0,
-        targetEndSpeed: 120.0,
-        targetSpeedUnit: SpeedUnit.kmh,
+        testStartSpeed: 80.0,
+        testEndSpeed: 120.0,
+        testSpeedUnit: SpeedUnit.kmh,
         history: const [
           DataPoint(elapsedTime: 0.0, speedKmh: 80.0, gForce: 0.0, altitude: 100.0),
           DataPoint(elapsedTime: 3.50, speedKmh: 120.0, gForce: 0.0, altitude: 100.0),
@@ -590,11 +590,11 @@ void main() {
         speedKmh: 0.0,
         distanceMeters: 200.0,
         elapsedTime: 7.20,
-        targetTimes: {'60-130mph': 7.20},
+        testTimes: {'60-130mph': 7.20},
         runMode: RunMode.interval,
-        targetStartSpeed: 96.56064,
-        targetEndSpeed: 209.21472,
-        targetSpeedUnit: SpeedUnit.mph,
+        testStartSpeed: 96.56064,
+        testEndSpeed: 209.21472,
+        testSpeedUnit: SpeedUnit.mph,
         history: const [
           DataPoint(elapsedTime: 0.0, speedKmh: 96.56064, gForce: 0.0, altitude: 100.0),
           DataPoint(elapsedTime: 7.20, speedKmh: 209.21472, gForce: 0.0, altitude: 100.0),
@@ -712,14 +712,14 @@ void main() {
     expect(find.text('ACTIVE'), findsOneWidget);
   });
 
-  testWidgets('Dashboard rolling target dropdown filtering by unit setting test', (WidgetTester tester) async {
+  testWidgets('Dashboard rolling Test dropdown filtering by unit setting test', (WidgetTester tester) async {
     final mockProvider = MockDragyProvider();
     mockProvider.isConnected = true;
     mockProvider.runMode = RunMode.interval;
 
     // 1. Imperial units (isMetric = false)
     mockProvider.isMetric = false;
-    mockProvider.activeIntervalTarget = RaceIntervalTarget.sixtyToOneThirtyMph;
+    mockProvider.activeIntervalTest = RaceIntervalTest.sixtyToOneThirtyMph;
 
     await tester.pumpWidget(
       ChangeNotifierProvider<DragyProvider>.value(
@@ -737,30 +737,30 @@ void main() {
 
     // Introspect the DropdownButton's items directly -- no need to open the overlay.
     // This tests the exact same filter logic without fragile overlay interactions.
-    DropdownButton<RaceIntervalTarget> getDropdown() {
-      return tester.widget<DropdownButton<RaceIntervalTarget>>(
-        find.byKey(const Key('intervalTargetDropdown')),
+    DropdownButton<RaceIntervalTest> getDropdown() {
+      return tester.widget<DropdownButton<RaceIntervalTest>>(
+        find.byKey(const Key('intervalTestDropdown')),
       );
     }
 
     final imperialItems = getDropdown().items!.map((i) => i.value).toList();
-    // Imperial targets only
-    expect(imperialItems.contains(RaceIntervalTarget.zeroToSixtyMph), isTrue);
-    expect(imperialItems.contains(RaceIntervalTarget.zeroToOneHundredMph), isTrue);
-    expect(imperialItems.contains(RaceIntervalTarget.zeroToOneThirtyMph), isTrue);
-    expect(imperialItems.contains(RaceIntervalTarget.fiftyToSeventyFiveMph), isTrue);
-    expect(imperialItems.contains(RaceIntervalTarget.sixtyToOneHundredMph), isTrue);
-    expect(imperialItems.contains(RaceIntervalTarget.sixtyToOneThirtyMph), isTrue);
-    expect(imperialItems.contains(RaceIntervalTarget.custom), isTrue);
-    // Metric targets must be absent
-    expect(imperialItems.contains(RaceIntervalTarget.zeroToOneHundredKmh), isFalse);
-    expect(imperialItems.contains(RaceIntervalTarget.zeroToOneSixtyKmh), isFalse);
-    expect(imperialItems.contains(RaceIntervalTarget.eightyToOneTwentyKmh), isFalse);
-    expect(imperialItems.contains(RaceIntervalTarget.oneHundredToTwoHundredKmh), isFalse);
+    // Imperial Tests only
+    expect(imperialItems.contains(RaceIntervalTest.zeroToSixtyMph), isTrue);
+    expect(imperialItems.contains(RaceIntervalTest.zeroToOneHundredMph), isTrue);
+    expect(imperialItems.contains(RaceIntervalTest.zeroToOneThirtyMph), isTrue);
+    expect(imperialItems.contains(RaceIntervalTest.fiftyToSeventyFiveMph), isTrue);
+    expect(imperialItems.contains(RaceIntervalTest.sixtyToOneHundredMph), isTrue);
+    expect(imperialItems.contains(RaceIntervalTest.sixtyToOneThirtyMph), isTrue);
+    expect(imperialItems.contains(RaceIntervalTest.custom), isTrue);
+    // Metric Tests must be absent
+    expect(imperialItems.contains(RaceIntervalTest.zeroToOneHundredKmh), isFalse);
+    expect(imperialItems.contains(RaceIntervalTest.zeroToOneSixtyKmh), isFalse);
+    expect(imperialItems.contains(RaceIntervalTest.eightyToOneTwentyKmh), isFalse);
+    expect(imperialItems.contains(RaceIntervalTest.oneHundredToTwoHundredKmh), isFalse);
 
     // 2. Switch to metric
     mockProvider.isMetric = true;
-    mockProvider.activeIntervalTarget = RaceIntervalTarget.oneHundredToTwoHundredKmh;
+    mockProvider.activeIntervalTest = RaceIntervalTest.oneHundredToTwoHundredKmh;
     mockProvider.notifyListeners();
     await tester.pumpAndSettle();
 
@@ -769,18 +769,18 @@ void main() {
     expect(find.text('60-130 mph'), findsNothing);
 
     final metricItems = getDropdown().items!.map((i) => i.value).toList();
-    // Metric targets only
-    expect(metricItems.contains(RaceIntervalTarget.zeroToOneHundredKmh), isTrue);
-    expect(metricItems.contains(RaceIntervalTarget.zeroToOneSixtyKmh), isTrue);
-    expect(metricItems.contains(RaceIntervalTarget.zeroToTwoHundredKmh), isTrue);
-    expect(metricItems.contains(RaceIntervalTarget.eightyToOneTwentyKmh), isTrue);
-    expect(metricItems.contains(RaceIntervalTarget.oneHundredToTwoHundredKmh), isTrue);
-    expect(metricItems.contains(RaceIntervalTarget.custom), isTrue);
-    // Imperial targets must be absent
-    expect(metricItems.contains(RaceIntervalTarget.zeroToSixtyMph), isFalse);
-    expect(metricItems.contains(RaceIntervalTarget.zeroToOneHundredMph), isFalse);
-    expect(metricItems.contains(RaceIntervalTarget.fiftyToSeventyFiveMph), isFalse);
-    expect(metricItems.contains(RaceIntervalTarget.sixtyToOneThirtyMph), isFalse);
+    // Metric Tests only
+    expect(metricItems.contains(RaceIntervalTest.zeroToOneHundredKmh), isTrue);
+    expect(metricItems.contains(RaceIntervalTest.zeroToOneSixtyKmh), isTrue);
+    expect(metricItems.contains(RaceIntervalTest.zeroToTwoHundredKmh), isTrue);
+    expect(metricItems.contains(RaceIntervalTest.eightyToOneTwentyKmh), isTrue);
+    expect(metricItems.contains(RaceIntervalTest.oneHundredToTwoHundredKmh), isTrue);
+    expect(metricItems.contains(RaceIntervalTest.custom), isTrue);
+    // Imperial Tests must be absent
+    expect(metricItems.contains(RaceIntervalTest.zeroToSixtyMph), isFalse);
+    expect(metricItems.contains(RaceIntervalTest.zeroToOneHundredMph), isFalse);
+    expect(metricItems.contains(RaceIntervalTest.fiftyToSeventyFiveMph), isFalse);
+    expect(metricItems.contains(RaceIntervalTest.sixtyToOneThirtyMph), isFalse);
   });
 
   testWidgets('RunDetailScreen displays telemetry chart with data', (WidgetTester tester) async {
@@ -794,7 +794,7 @@ void main() {
         speedKmh: 0.0,
         distanceMeters: 402.336,
         elapsedTime: 12.5,
-        targetTimes: {'1/4mile': 12.5},
+        testTimes: {'1/4mile': 12.5},
         history: const [
           DataPoint(elapsedTime: 0.0, speedKmh: 0.0, gForce: 0.0, altitude: 100.0),
           DataPoint(elapsedTime: 2.0, speedKmh: 50.0, gForce: 0.8, altitude: 101.0),

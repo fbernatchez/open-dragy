@@ -81,41 +81,41 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
       }
 
       if (run.metrics.runMode == RunMode.interval &&
-          run.metrics.targetStartSpeed != null &&
-          run.metrics.targetEndSpeed != null) {
+          run.metrics.testStartSpeed != null &&
+          run.metrics.testEndSpeed != null) {
         bool matchesAny = false;
         for (final test in officialTests) {
           if (test.startSpeed != null &&
-              (run.metrics.targetStartSpeed! - test.startSpeed!).abs() < 0.1 &&
+              (run.metrics.testStartSpeed! - test.startSpeed!).abs() < 0.1 &&
               test.endSpeed != null &&
-              (run.metrics.targetEndSpeed! - test.endSpeed!).abs() < 0.1 &&
-              run.metrics.targetSpeedUnit == test.speedUnit) {
+              (run.metrics.testEndSpeed! - test.endSpeed!).abs() < 0.1 &&
+              run.metrics.testSpeedUnit == test.speedUnit) {
             matchesAny = true;
             break;
           }
         }
 
         if (!matchesAny) {
-          final runIsMetric = (run.metrics.targetSpeedUnit ?? SpeedUnit.kmh) == SpeedUnit.kmh;
+          final runIsMetric = (run.metrics.testSpeedUnit ?? SpeedUnit.kmh) == SpeedUnit.kmh;
           if (runIsMetric != isMetric) continue;
 
           final unitEnum =
-              run.metrics.targetSpeedUnit ?? (isMetric ? SpeedUnit.kmh : SpeedUnit.mph);
+              run.metrics.testSpeedUnit ?? (isMetric ? SpeedUnit.kmh : SpeedUnit.mph);
           final unit = unitEnum.name;
           final isRunMetric = unitEnum == SpeedUnit.kmh;
           final start = !isRunMetric
-              ? UnitConverter.kmhToMph(run.metrics.targetStartSpeed!).round()
-              : run.metrics.targetStartSpeed!.round();
+              ? UnitConverter.kmhToMph(run.metrics.testStartSpeed!).round()
+              : run.metrics.testStartSpeed!.round();
           final end = !isRunMetric
-              ? UnitConverter.kmhToMph(run.metrics.targetEndSpeed!).round()
-              : run.metrics.targetEndSpeed!.round();
+              ? UnitConverter.kmhToMph(run.metrics.testEndSpeed!).round()
+              : run.metrics.testEndSpeed!.round();
           final customId = 'custom_${start}_${end}_$unit';
           if (!seenIds.contains(customId)) {
             seenIds.add(customId);
-            final label = getDisplayLabelForTarget(
-              startSpeed: run.metrics.targetStartSpeed,
-              endSpeed: run.metrics.targetEndSpeed,
-              speedUnit: run.metrics.targetSpeedUnit,
+            final label = getDisplayLabelForTest(
+              startSpeed: run.metrics.testStartSpeed,
+              endSpeed: run.metrics.testEndSpeed,
+              speedUnit: run.metrics.testSpeedUnit,
               runMode: RunMode.interval,
             );
             categories.add(
@@ -123,8 +123,8 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                 id: customId,
                 displayName: label,
                 isOfficial: false,
-                startSpeed: run.metrics.targetStartSpeed,
-                endSpeed: run.metrics.targetEndSpeed,
+                startSpeed: run.metrics.testStartSpeed,
+                endSpeed: run.metrics.testEndSpeed,
                 speedUnit: unitEnum,
               ),
             );
@@ -164,9 +164,9 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
   double? _getPB(String categoryId, List<SavedRun> runs, bool useNhraRules, List<HistoryCategory> categories) {
     if (categoryId == 'all') return null;
 
-    final activeTargetsList = [
+    final activeTestsList = [
       ...officialTests,
-      ...categories.map((c) => RaceTarget(
+      ...categories.map((c) => RaceTest(
         id: c.id,
         displayName: c.displayName,
         isOfficial: c.isOfficial,
@@ -182,7 +182,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
         run.metrics,
         categoryId,
         useNhraRules: useNhraRules,
-        activeTargets: activeTargetsList,
+        activeTests: activeTestsList,
       );
       if (val != null) {
         if (best == null || val < best) {
@@ -202,7 +202,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
     if (categoryId == 'all') {
       return runs.where((run) {
         if (run.metrics.runMode == RunMode.interval) {
-          final runIsMetric = (run.metrics.targetSpeedUnit ?? SpeedUnit.kmh) == SpeedUnit.kmh;
+          final runIsMetric = (run.metrics.testSpeedUnit ?? SpeedUnit.kmh) == SpeedUnit.kmh;
           return runIsMetric == isMetric;
         }
         return true;
@@ -674,30 +674,30 @@ class RunHistoryCard extends StatelessWidget {
 
       if (maxTime < 0 &&
           metrics.runMode == RunMode.interval &&
-          metrics.targetStartSpeed != null &&
-          metrics.targetEndSpeed != null) {
-        primaryLabel = getDisplayLabelForTarget(
-          startSpeed: metrics.targetStartSpeed,
-          endSpeed: metrics.targetEndSpeed,
-          speedUnit: metrics.targetSpeedUnit,
+          metrics.testStartSpeed != null &&
+          metrics.testEndSpeed != null) {
+        primaryLabel = getDisplayLabelForTest(
+          startSpeed: metrics.testStartSpeed,
+          endSpeed: metrics.testEndSpeed,
+          speedUnit: metrics.testSpeedUnit,
           runMode: RunMode.interval,
         );
         final unitEnum =
-            metrics.targetSpeedUnit ?? (isMetric ? SpeedUnit.kmh : SpeedUnit.mph);
+            metrics.testSpeedUnit ?? (isMetric ? SpeedUnit.kmh : SpeedUnit.mph);
         final unit = unitEnum.name;
         final isRunMetric = unitEnum == SpeedUnit.kmh;
         final start = !isRunMetric
-            ? UnitConverter.kmhToMph(metrics.targetStartSpeed!).round()
-            : metrics.targetStartSpeed!.round();
+            ? UnitConverter.kmhToMph(metrics.testStartSpeed!).round()
+            : metrics.testStartSpeed!.round();
         final end = !isRunMetric
-            ? UnitConverter.kmhToMph(metrics.targetEndSpeed!).round()
-            : metrics.targetEndSpeed!.round();
+            ? UnitConverter.kmhToMph(metrics.testEndSpeed!).round()
+            : metrics.testEndSpeed!.round();
         final customId = 'custom_${start}_${end}_$unit';
-        final customTarget = RaceTarget(
+        final customTest = RaceTest(
           id: customId,
           displayName: customId,
-          startSpeed: metrics.targetStartSpeed,
-          endSpeed: metrics.targetEndSpeed,
+          startSpeed: metrics.testStartSpeed,
+          endSpeed: metrics.testEndSpeed,
           speedUnit: unitEnum,
           isOfficial: false,
         );
@@ -706,7 +706,7 @@ class RunHistoryCard extends StatelessWidget {
           metrics,
           customId,
           useNhraRules: useNhraRulesSetting,
-          activeTargets: [customTarget],
+          activeTests: [customTest],
         );
         primaryTime = compTime != null
             ? "${compTime.toStringAsFixed(2)}s"

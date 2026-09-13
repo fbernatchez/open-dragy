@@ -1,4 +1,4 @@
-import 'package:open_dragy/models/race_target.dart';
+import 'package:open_dragy/models/race_test.dart';
 
 import '../models/race_metrics.dart';
 
@@ -31,15 +31,15 @@ class PhysicsEngine {
     double currentAltitude, {
     required bool isArmed,
     required RunMode runMode,
-    required double? targetDistance,
-    required DistanceUnit? targetDistanceUnit,
-    required double? targetStartSpeed,
-    required double? targetEndSpeed,
-    required SpeedUnit? targetSpeedUnit,
+    required double? testDistance,
+    required DistanceUnit? testDistanceUnit,
+    required double? testStartSpeed,
+    required double? testEndSpeed,
+    required SpeedUnit? testSpeedUnit,
     required double intervalStartSpeed,
     required double intervalEndSpeed,
     double? gpsTimeSeconds,
-    List<RaceTarget> activeTargets = officialTests,
+    List<RaceTest> activeTests = officialTests,
   }) {
     // Calculate current dynamic dt
     double currentDt = _lastValidDt ?? 0.1;
@@ -138,11 +138,11 @@ class PhysicsEngine {
                 ? current.startAltitude
                 : currentAltitude,
             runMode: RunMode.drag,
-            targetDistance: targetDistance,
-            targetDistanceUnit: targetDistanceUnit,
-            targetStartSpeed: targetStartSpeed,
-            targetEndSpeed: targetEndSpeed,
-            targetSpeedUnit: targetSpeedUnit,
+            testDistance: testDistance,
+            testDistanceUnit: testDistanceUnit,
+            testStartSpeed: testStartSpeed,
+            testEndSpeed: testEndSpeed,
+            testSpeedUnit: testSpeedUnit,
           );
         }
 
@@ -152,11 +152,11 @@ class PhysicsEngine {
           newSpeedKmh,
           currentAltitude,
           runMode: RunMode.drag,
-          targetDistance: targetDistance,
-          targetDistanceUnit: targetDistanceUnit,
-          targetStartSpeed: targetStartSpeed,
-          targetEndSpeed: targetEndSpeed,
-          targetSpeedUnit: targetSpeedUnit,
+          testDistance: testDistance,
+          testDistanceUnit: testDistanceUnit,
+          testStartSpeed: testStartSpeed,
+          testEndSpeed: testEndSpeed,
+          testSpeedUnit: testSpeedUnit,
           currentDt: currentDt,
         );
         if (triggered != null) {
@@ -176,11 +176,11 @@ class PhysicsEngine {
               ? current.startAltitude
               : currentAltitude,
           runMode: RunMode.drag,
-          targetDistance: targetDistance,
-          targetDistanceUnit: targetDistanceUnit,
-          targetStartSpeed: targetStartSpeed,
-          targetEndSpeed: targetEndSpeed,
-          targetSpeedUnit: targetSpeedUnit,
+          testDistance: testDistance,
+          testDistanceUnit: testDistanceUnit,
+          testStartSpeed: testStartSpeed,
+          testEndSpeed: testEndSpeed,
+          testSpeedUnit: testSpeedUnit,
         );
       } else {
         // Interval Mode
@@ -190,11 +190,11 @@ class PhysicsEngine {
             newSpeedKmh,
             currentAltitude,
             runMode: RunMode.interval,
-            targetDistance: targetDistance,
-            targetDistanceUnit: targetDistanceUnit,
-            targetStartSpeed: targetStartSpeed,
-            targetEndSpeed: targetEndSpeed,
-            targetSpeedUnit: targetSpeedUnit,
+            testDistance: testDistance,
+            testDistanceUnit: testDistanceUnit,
+            testStartSpeed: testStartSpeed,
+            testEndSpeed: testEndSpeed,
+            testSpeedUnit: testSpeedUnit,
             currentDt: currentDt,
           );
           if (triggered != null) {
@@ -225,11 +225,11 @@ class PhysicsEngine {
                 gForce: smoothedGForce,
                 startAltitude: currentAltitude,
                 runMode: RunMode.interval,
-                targetDistance: targetDistance,
-                targetDistanceUnit: targetDistanceUnit,
-                targetStartSpeed: targetStartSpeed,
-                targetEndSpeed: targetEndSpeed,
-                targetSpeedUnit: targetSpeedUnit,
+                testDistance: testDistance,
+                testDistanceUnit: testDistanceUnit,
+                testStartSpeed: testStartSpeed,
+                testEndSpeed: testEndSpeed,
+                testSpeedUnit: testSpeedUnit,
                 history: [
                   DataPoint(
                     elapsedTime: 0.0,
@@ -264,11 +264,11 @@ class PhysicsEngine {
               ? current.startAltitude
               : currentAltitude,
           runMode: RunMode.interval,
-          targetDistance: targetDistance,
-          targetDistanceUnit: targetDistanceUnit,
-          targetStartSpeed: targetStartSpeed,
-          targetEndSpeed: targetEndSpeed,
-          targetSpeedUnit: targetSpeedUnit,
+          testDistance: testDistance,
+          testDistanceUnit: testDistanceUnit,
+          testStartSpeed: testStartSpeed,
+          testEndSpeed: testEndSpeed,
+          testSpeedUnit: testSpeedUnit,
         );
       }
     } else {
@@ -295,14 +295,14 @@ class PhysicsEngine {
           currentAltitude,
           currentDt,
           smoothedGForce,
-          activeTargets,
+          activeTests,
         );
       } else {
         // Interval Mode
         // Auto-cancel logic: if speed drops below starting speed - 10 km/h for 2 seconds, cancel the run
         final double cancelThreshold = intervalStartSpeed == 0.0
             ? 3.0
-            : (intervalStartSpeed - 10.0).clamp(0.0, 300.0);
+            : (intervalStartSpeed - 10.0).clamp(0.0, double.infinity);
         if (newSpeedKmh < cancelThreshold) {
           _stoppedTicks++;
           if (_stoppedTicks >= 20) {
@@ -325,7 +325,7 @@ class PhysicsEngine {
           intervalStartSpeed: intervalStartSpeed,
           intervalEndSpeed: intervalEndSpeed,
           currentDt: currentDt,
-          activeTargets: activeTargets,
+          activeTests: activeTests,
         );
       }
     }
@@ -337,7 +337,7 @@ class PhysicsEngine {
     double currentAltitude,
     double currentDt,
     double smoothedGForce,
-    List<RaceTarget> activeTargets,
+    List<RaceTest> activeTests,
   ) {
     final currentSpeedMs = current.speedKmh / 3.6;
     final newSpeedMs = newSpeedKmh / 3.6;
@@ -359,8 +359,8 @@ class PhysicsEngine {
         ),
       );
 
-    final Map<String, double> newTargetTimes = Map.from(current.targetTimes);
-    final Map<String, double> newTargetSpeeds = Map.from(current.targetSpeeds);
+    final Map<String, double> newtestTimes = Map.from(current.testTimes);
+    final Map<String, double> newtestSpeeds = Map.from(current.testSpeeds);
     double? rollout1ft = current.rolloutTime1ft;
     
     final double startAltitude = current.startAltitude ?? currentAltitude;
@@ -376,68 +376,76 @@ class PhysicsEngine {
       }
     }
 
-    for (final target in activeTargets) {
-      if (newTargetTimes.containsKey(target.id)) continue;
+    for (final test in activeTests) {
+      if (newtestTimes.containsKey(test.id)) continue;
 
-      if (target.distance != null && target.distanceUnit != null) {
-        double targetDistanceMeters = convertToMeters(target.distance!, target.distanceUnit!);
+      if (test.distance != null && test.distanceUnit != null) {
+        double testDistanceMeters = convertToMeters(test.distance!, test.distanceUnit!);
 
-        if (newDistance >= targetDistanceMeters) {
+        if (newDistance >= testDistanceMeters) {
           double distDiff = newDistance - current.distanceMeters;
           if (distDiff > 0) {
-            double fraction = (targetDistanceMeters - current.distanceMeters) / distDiff;
-            newTargetTimes[target.id] = current.elapsedTime + (currentDt * fraction);
-            newTargetSpeeds[target.id] = current.speedKmh + ((newSpeedKmh - current.speedKmh) * fraction);
+            double fraction = (testDistanceMeters - current.distanceMeters) / distDiff;
+            newtestTimes[test.id] = current.elapsedTime + (currentDt * fraction);
+            newtestSpeeds[test.id] = current.speedKmh + ((newSpeedKmh - current.speedKmh) * fraction);
           } else {
-            newTargetTimes[target.id] = newElapsedTime;
-            newTargetSpeeds[target.id] = newSpeedKmh;
+            newtestTimes[test.id] = newElapsedTime;
+            newtestSpeeds[test.id] = newSpeedKmh;
           }
         }
-      } else if (target.endSpeed != null && (target.startSpeed == null || target.startSpeed == 0.0)) {
-        double targetEndSpeedKmh = target.endSpeed!;
-        if (newSpeedKmh >= targetEndSpeedKmh) {
+      } else if (test.endSpeed != null && (test.startSpeed == null || test.startSpeed == 0.0)) {
+        double testEndSpeedKmh = test.endSpeed!;
+        if (newSpeedKmh >= testEndSpeedKmh) {
           double speedDiff = newSpeedKmh - current.speedKmh;
           if (speedDiff > 0) {
-            double fraction = (targetEndSpeedKmh - current.speedKmh) / speedDiff;
-            newTargetTimes[target.id] = current.elapsedTime + (currentDt * fraction);
+            double fraction = (testEndSpeedKmh - current.speedKmh) / speedDiff;
+            newtestTimes[test.id] = current.elapsedTime + (currentDt * fraction);
           } else {
-            newTargetTimes[target.id] = newElapsedTime;
+            newtestTimes[test.id] = newElapsedTime;
           }
         }
-      }
-    }
+      } else if (test.endSpeed != null && test.startSpeed != null && test.startSpeed! > 0.0) {
+        double testStartSpeedKmh = test.startSpeed!;
+        double testEndSpeedKmh = test.endSpeed!;
+        String startKey = '${test.id}_start';
 
-    // Real-time calculation for official rolling intervals
-    if (!newTargetTimes.containsKey('60-130mph') && newTargetTimes.containsKey('0-60mph') && newSpeedKmh >= 209.2147) {
-      double speedDiff = newSpeedKmh - current.speedKmh;
-      if (speedDiff > 0) {
-        double fraction = (209.2147 - current.speedKmh) / speedDiff;
-        double t130 = current.elapsedTime + (currentDt * fraction);
-        newTargetTimes['60-130mph'] = t130 - newTargetTimes['0-60mph']!;
-      }
-    }
+        // Track start crossing
+        if (!newtestTimes.containsKey(startKey) && newSpeedKmh >= testStartSpeedKmh) {
+          double speedDiff = newSpeedKmh - current.speedKmh;
+          if (speedDiff > 0) {
+            double fraction = (testStartSpeedKmh - current.speedKmh) / speedDiff;
+            newtestTimes[startKey] = current.elapsedTime + (currentDt * fraction);
+          } else {
+            newtestTimes[startKey] = newElapsedTime;
+          }
+        }
 
-    if (!newTargetTimes.containsKey('100-200kmh') && newTargetTimes.containsKey('0-100kmh') && newSpeedKmh >= 200.0) {
-      double speedDiff = newSpeedKmh - current.speedKmh;
-      if (speedDiff > 0) {
-        double fraction = (200.0 - current.speedKmh) / speedDiff;
-        double t200 = current.elapsedTime + (currentDt * fraction);
-        newTargetTimes['100-200kmh'] = t200 - newTargetTimes['0-100kmh']!;
+        // Check if we crossed the end speed (and already have the start time)
+        if (newtestTimes.containsKey(startKey) && !newtestTimes.containsKey(test.id) && newSpeedKmh >= testEndSpeedKmh) {
+          double speedDiff = newSpeedKmh - current.speedKmh;
+          if (speedDiff > 0) {
+            double fraction = (testEndSpeedKmh - current.speedKmh) / speedDiff;
+            double tEnd = current.elapsedTime + (currentDt * fraction);
+            newtestTimes[test.id] = tEnd - newtestTimes[startKey]!;
+          } else {
+            newtestTimes[test.id] = newElapsedTime - newtestTimes[startKey]!;
+          }
+        }
       }
     }
 
     // Determine target completion
-    bool targetAchieved = false;
-    if (current.targetDistance != null && current.targetDistanceUnit != null) {
-      double targetDistanceMeters = convertToMeters(current.targetDistance!, current.targetDistanceUnit!);
+    bool testAchieved = false;
+    if (current.testDistance != null && current.testDistanceUnit != null) {
+      double testDistanceMeters = convertToMeters(current.testDistance!, current.testDistanceUnit!);
       // Add 1ft (0.3048m) to allow for NHRA rollout calculations to complete
-      if (newDistance >= targetDistanceMeters + 0.3048) {
-        targetAchieved = true;
+      if (newDistance >= testDistanceMeters + 0.3048) {
+        testAchieved = true;
       }
-    } else if (current.targetEndSpeed != null &&
-        current.targetStartSpeed == 0.0) {
-      if (newSpeedKmh >= current.targetEndSpeed!) {
-        targetAchieved = true;
+    } else if (current.testEndSpeed != null &&
+        current.testStartSpeed == 0.0) {
+      if (newSpeedKmh >= current.testEndSpeed!) {
+        testAchieved = true;
       }
     }
 
@@ -446,11 +454,11 @@ class PhysicsEngine {
       distanceMeters: newDistance,
       elapsedTime: newElapsedTime,
       gForce: smoothedGForce,
-      targetTimes: newTargetTimes,
-      targetSpeeds: newTargetSpeeds,
+      testTimes: newtestTimes,
+      testSpeeds: newtestSpeeds,
       rolloutTime1ft: rollout1ft,
       startAltitude: startAltitude,
-      isRunning: !targetAchieved,
+      isRunning: !testAchieved,
       history: newHistory,
     );
   }
@@ -463,7 +471,7 @@ class PhysicsEngine {
     required double intervalStartSpeed,
     required double intervalEndSpeed,
     required double currentDt,
-    required List<RaceTarget> activeTargets,
+    required List<RaceTest> activeTests,
   }) {
     final currentSpeedMs = current.speedKmh / 3.6;
     final newSpeedMs = newSpeedKmh / 3.6;
@@ -485,11 +493,11 @@ class PhysicsEngine {
         ),
       );
 
-    bool targetAchieved = false;
+    bool testAchieved = false;
     double newElapsedTimeCalculated = newElapsedTime;
 
     if (newSpeedKmh >= intervalEndSpeed) {
-      targetAchieved = true;
+      testAchieved = true;
       double speedDiff = newSpeedKmh - current.speedKmh;
       if (speedDiff > 0) {
         double fraction = (intervalEndSpeed - current.speedKmh) / speedDiff;
@@ -497,16 +505,16 @@ class PhysicsEngine {
       }
     }
 
-    final Map<String, double> newTargetTimes = Map.from(current.targetTimes);
+    final Map<String, double> newtestTimes = Map.from(current.testTimes);
 
-    if (targetAchieved) {
-      for (final target in activeTargets) {
-        if (newTargetTimes.containsKey(target.id)) continue;
+    if (testAchieved) {
+      for (final test in activeTests) {
+        if (newtestTimes.containsKey(test.id)) continue;
         
-        if (target.endSpeed != null && target.startSpeed != null) {
-          if ((current.targetStartSpeed! - target.startSpeed!).abs() < 1.0 &&
-              (current.targetEndSpeed! - target.endSpeed!).abs() < 1.0) {
-             newTargetTimes[target.id] = newElapsedTimeCalculated;
+        if (test.endSpeed != null && test.startSpeed != null) {
+          if ((current.testStartSpeed! - test.startSpeed!).abs() < 1.0 &&
+              (current.testEndSpeed! - test.endSpeed!).abs() < 1.0) {
+             newtestTimes[test.id] = newElapsedTimeCalculated;
           }
         }
       }
@@ -517,9 +525,9 @@ class PhysicsEngine {
       distanceMeters: newDistance,
       elapsedTime: newElapsedTimeCalculated,
       gForce: smoothedGForce,
-      targetTimes: newTargetTimes,
+      testTimes: newtestTimes,
       startAltitude: current.startAltitude,
-      isRunning: !targetAchieved,
+      isRunning: !testAchieved,
       history: newHistory,
     );
   }
@@ -529,11 +537,11 @@ class PhysicsEngine {
     double newSpeedKmh,
     double currentAltitude, {
     required RunMode runMode,
-    required double? targetDistance,
-    required DistanceUnit? targetDistanceUnit,
-    required double? targetStartSpeed,
-    required double? targetEndSpeed,
-    required SpeedUnit? targetSpeedUnit,
+    required double? testDistance,
+    required DistanceUnit? testDistanceUnit,
+    required double? testStartSpeed,
+    required double? testEndSpeed,
+    required SpeedUnit? testSpeedUnit,
     required double currentDt,
   }) {
     if (newSpeedKmh > launchCommitThreshold && _preRunBuffer.length >= 2) {
@@ -604,11 +612,11 @@ class PhysicsEngine {
           gForce: current.gForce,
           startAltitude: currentAltitude,
           runMode: runMode,
-          targetDistance: targetDistance,
-          targetDistanceUnit: targetDistanceUnit,
-          targetStartSpeed: targetStartSpeed,
-          targetEndSpeed: targetEndSpeed,
-          targetSpeedUnit: targetSpeedUnit,
+          testDistance: testDistance,
+          testDistanceUnit: testDistanceUnit,
+          testStartSpeed: testStartSpeed,
+          testEndSpeed: testEndSpeed,
+          testSpeedUnit: testSpeedUnit,
           history: initialHistory,
         );
 

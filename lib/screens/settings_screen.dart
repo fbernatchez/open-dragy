@@ -4,7 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../providers/dragy_provider.dart';
 import '../widgets/firmware_update_dialog.dart';
 import '../services/firmware_service.dart';
-import 'target_selection_screen.dart';
+import 'test_selection_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   static const String minRecommendedFirmware =
@@ -85,7 +85,7 @@ class SettingsScreen extends StatelessWidget {
             onChanged: (v) => dragy.setEnableAudioRecording(v),
           ),
 
-          _SectionHeader(label: 'Targets'),
+          _SectionHeader(label: 'Tests'),
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
             decoration: BoxDecoration(
@@ -108,7 +108,7 @@ class SettingsScreen extends StatelessWidget {
                 ),
               ),
               title: Text(
-                'Active Targets',
+                'Active Tests',
                 style: GoogleFonts.roboto(
                   color: Colors.white,
                   fontSize: 15,
@@ -116,7 +116,7 @@ class SettingsScreen extends StatelessWidget {
                 ),
               ),
               subtitle: Text(
-                'Select tracking milestones & custom intervals',
+                'Select which tests to track',
                 style: GoogleFonts.roboto(color: Colors.white38, fontSize: 12),
               ),
               trailing: const Icon(Icons.chevron_right, color: Colors.white38),
@@ -124,7 +124,7 @@ class SettingsScreen extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const TargetSelectionScreen(),
+                    builder: (context) => const TestSelectionScreen(),
                   ),
                 );
               },

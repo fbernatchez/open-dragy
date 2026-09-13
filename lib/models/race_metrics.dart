@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 
-import 'package:open_dragy/models/race_target.dart';
+import 'package:open_dragy/models/race_test.dart';
 
 class DataPoint {
   final double elapsedTime;
@@ -43,8 +43,8 @@ class RaceMetrics {
   final double elapsedTime;
 
   // Timers and Speeds
-  final Map<String, double> targetTimes;
-  final Map<String, double> targetSpeeds;
+  final Map<String, double> testTimes;
+  final Map<String, double> testSpeeds;
 
   // Global rollout timer (needed for NHRA calculations)
   final double? rolloutTime1ft;
@@ -54,11 +54,11 @@ class RaceMetrics {
 
   // Mode & Target Info
   final RunMode? runMode;
-  final double? targetDistance;
-  final DistanceUnit? targetDistanceUnit;
-  final double? targetStartSpeed;
-  final double? targetEndSpeed;
-  final SpeedUnit? targetSpeedUnit;
+  final double? testDistance;
+  final DistanceUnit? testDistanceUnit;
+  final double? testStartSpeed;
+  final double? testEndSpeed;
+  final SpeedUnit? testSpeedUnit;
 
   final bool isRunning;
   final List<DataPoint> history;
@@ -74,36 +74,36 @@ class RaceMetrics {
     this.distanceMeters = 0.0,
     this.gForce = 0.0,
     this.elapsedTime = 0.0,
-    Map<String, double>? targetTimes,
-    Map<String, double>? targetSpeeds,
+    Map<String, double>? testTimes,
+    Map<String, double>? testSpeeds,
     this.rolloutTime1ft,
     this.startAltitude,
     this.runMode,
-    this.targetDistance,
-    this.targetDistanceUnit,
-    this.targetStartSpeed,
-    this.targetEndSpeed,
-    this.targetSpeedUnit,
+    this.testDistance,
+    this.testDistanceUnit,
+    this.testStartSpeed,
+    this.testEndSpeed,
+    this.testSpeedUnit,
     this.isRunning = false,
     this.history = const [],
-  })  : targetTimes = targetTimes ?? const {},
-        targetSpeeds = targetSpeeds ?? const {};
+  })  : testTimes = testTimes ?? const {},
+        testSpeeds = testSpeeds ?? const {};
 
   RaceMetrics copyWith({
     double? speedKmh,
     double? distanceMeters,
     double? gForce,
     double? elapsedTime,
-    Map<String, double>? targetTimes,
-    Map<String, double>? targetSpeeds,
+    Map<String, double>? testTimes,
+    Map<String, double>? testSpeeds,
     double? rolloutTime1ft,
     double? startAltitude,
     RunMode? runMode,
-    double? targetDistance,
-    DistanceUnit? targetDistanceUnit,
-    double? targetStartSpeed,
-    double? targetEndSpeed,
-    SpeedUnit? targetSpeedUnit,
+    double? testDistance,
+    DistanceUnit? testDistanceUnit,
+    double? testStartSpeed,
+    double? testEndSpeed,
+    SpeedUnit? testSpeedUnit,
     bool? isRunning,
     List<DataPoint>? history,
   }) {
@@ -112,16 +112,16 @@ class RaceMetrics {
       distanceMeters: distanceMeters ?? this.distanceMeters,
       gForce: gForce ?? this.gForce,
       elapsedTime: elapsedTime ?? this.elapsedTime,
-      targetTimes: targetTimes ?? this.targetTimes,
-      targetSpeeds: targetSpeeds ?? this.targetSpeeds,
+      testTimes: testTimes ?? this.testTimes,
+      testSpeeds: testSpeeds ?? this.testSpeeds,
       rolloutTime1ft: rolloutTime1ft ?? this.rolloutTime1ft,
       startAltitude: startAltitude ?? this.startAltitude,
       runMode: runMode ?? this.runMode,
-      targetDistance: targetDistance ?? this.targetDistance,
-      targetDistanceUnit: targetDistanceUnit ?? this.targetDistanceUnit,
-      targetStartSpeed: targetStartSpeed ?? this.targetStartSpeed,
-      targetEndSpeed: targetEndSpeed ?? this.targetEndSpeed,
-      targetSpeedUnit: targetSpeedUnit ?? this.targetSpeedUnit,
+      testDistance: testDistance ?? this.testDistance,
+      testDistanceUnit: testDistanceUnit ?? this.testDistanceUnit,
+      testStartSpeed: testStartSpeed ?? this.testStartSpeed,
+      testEndSpeed: testEndSpeed ?? this.testEndSpeed,
+      testSpeedUnit: testSpeedUnit ?? this.testSpeedUnit,
       isRunning: isRunning ?? this.isRunning,
       history: history ?? this.history,
     );
@@ -133,25 +133,25 @@ class RaceMetrics {
       'distanceMeters': distanceMeters,
       'gForce': gForce,
       'elapsedTime': elapsedTime,
-      'targetTimes': targetTimes,
-      'targetSpeeds': targetSpeeds,
+      'testTimes': testTimes,
+      'testSpeeds': testSpeeds,
       'rolloutTime1ft': rolloutTime1ft,
       'startAltitude': startAltitude,
       'runMode': runMode?.name,
-      'targetDistance': targetDistance,
-      'targetDistanceUnit': targetDistanceUnit?.name,
-      'targetStartSpeed': targetStartSpeed,
-      'targetEndSpeed': targetEndSpeed,
-      'targetSpeedUnit': targetSpeedUnit?.name,
+      'testDistance': testDistance,
+      'testDistanceUnit': testDistanceUnit?.name,
+      'testStartSpeed': testStartSpeed,
+      'testEndSpeed': testEndSpeed,
+      'testSpeedUnit': testSpeedUnit?.name,
       'history': history.map((e) => e.toJson()).toList(),
     };
   }
 
   factory RaceMetrics.fromJson(Map<String, dynamic> json) {
     // Migration for legacy hardcoded target properties
-    Map<String, double> migratedTargetTimes = {};
-    if (json.containsKey('targetTimes')) {
-      migratedTargetTimes = Map<String, double>.from(json['targetTimes']);
+    Map<String, double> migratedtestTimes = {};
+    if (json.containsKey('testTimes')) {
+      migratedtestTimes = Map<String, double>.from(json['testTimes']);
     } else {
       final legacyTimeKeys = {
         '60ft': 'time60ft',
@@ -177,14 +177,14 @@ class RaceMetrics {
       };
       for (final entry in legacyTimeKeys.entries) {
         if (json[entry.value] != null) {
-          migratedTargetTimes[entry.key] = (json[entry.value] as num).toDouble();
+          migratedtestTimes[entry.key] = (json[entry.value] as num).toDouble();
         }
       }
     }
 
-    Map<String, double> migratedTargetSpeeds = {};
-    if (json.containsKey('targetSpeeds')) {
-      migratedTargetSpeeds = Map<String, double>.from(json['targetSpeeds']);
+    Map<String, double> migratedtestSpeeds = {};
+    if (json.containsKey('testSpeeds')) {
+      migratedtestSpeeds = Map<String, double>.from(json['testSpeeds']);
     } else {
       final legacySpeedKeys = {
         '1/8mile': 'trap18Mile',
@@ -194,7 +194,7 @@ class RaceMetrics {
       };
       for (final entry in legacySpeedKeys.entries) {
         if (json[entry.value] != null) {
-          migratedTargetSpeeds[entry.key] = (json[entry.value] as num).toDouble();
+          migratedtestSpeeds[entry.key] = (json[entry.value] as num).toDouble();
         }
       }
     }
@@ -204,8 +204,8 @@ class RaceMetrics {
       distanceMeters: (json['distanceMeters'] as num).toDouble(),
       gForce: (json['gForce'] as num).toDouble(),
       elapsedTime: (json['elapsedTime'] as num).toDouble(),
-      targetTimes: migratedTargetTimes,
-      targetSpeeds: migratedTargetSpeeds,
+      testTimes: migratedtestTimes,
+      testSpeeds: migratedtestSpeeds,
       rolloutTime1ft: json['rolloutTime1ft'] != null
           ? (json['rolloutTime1ft'] as num).toDouble()
           : null,
@@ -215,20 +215,20 @@ class RaceMetrics {
       runMode: json['runMode'] != null
           ? RunMode.values.asNameMap()[json['runMode']]
           : null,
-      targetDistance: json['targetDistance'] != null
-          ? (json['targetDistance'] as num).toDouble()
+      testDistance: json['testDistance'] != null
+          ? (json['testDistance'] as num).toDouble()
           : null,
-      targetDistanceUnit: json['targetDistanceUnit'] != null
-          ? DistanceUnit.values.asNameMap()[json['targetDistanceUnit']]
+      testDistanceUnit: json['testDistanceUnit'] != null
+          ? DistanceUnit.values.asNameMap()[json['testDistanceUnit']]
           : null,
-      targetStartSpeed: json['targetStartSpeed'] != null
-          ? (json['targetStartSpeed'] as num).toDouble()
+      testStartSpeed: json['testStartSpeed'] != null
+          ? (json['testStartSpeed'] as num).toDouble()
           : null,
-      targetEndSpeed: json['targetEndSpeed'] != null
-          ? (json['targetEndSpeed'] as num).toDouble()
+      testEndSpeed: json['testEndSpeed'] != null
+          ? (json['testEndSpeed'] as num).toDouble()
           : null,
-      targetSpeedUnit: json['targetSpeedUnit'] != null
-          ? SpeedUnit.values.asNameMap()[json['targetSpeedUnit']]
+      testSpeedUnit: json['testSpeedUnit'] != null
+          ? SpeedUnit.values.asNameMap()[json['testSpeedUnit']]
           : null,
       isRunning: false,
       history: (json['history'] as List? ?? [])
