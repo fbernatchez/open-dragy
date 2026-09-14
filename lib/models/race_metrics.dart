@@ -86,8 +86,8 @@ class RaceMetrics {
     this.testSpeedUnit,
     this.isRunning = false,
     this.history = const [],
-  })  : testTimes = testTimes ?? const {},
-        testSpeeds = testSpeeds ?? const {};
+  }) : testTimes = testTimes ?? const {},
+       testSpeeds = testSpeeds ?? const {};
 
   RaceMetrics copyWith({
     double? speedKmh,
@@ -215,20 +215,20 @@ class RaceMetrics {
       runMode: json['runMode'] != null
           ? RunMode.values.asNameMap()[json['runMode']]
           : null,
-      testDistance: json['testDistance'] != null
-          ? (json['testDistance'] as num).toDouble()
+      testDistance: (json['testDistance'] ?? json['targetDistance']) != null
+          ? ((json['testDistance'] ?? json['targetDistance']) as num).toDouble()
           : null,
-      testDistanceUnit: json['testDistanceUnit'] != null
-          ? DistanceUnit.values.asNameMap()[json['testDistanceUnit']]
+      testDistanceUnit: (json['testDistanceUnit'] ?? json['targetDistanceUnit']) != null
+          ? DistanceUnit.values.asNameMap()[(json['testDistanceUnit'] ?? json['targetDistanceUnit'])]
           : null,
-      testStartSpeed: json['testStartSpeed'] != null
-          ? (json['testStartSpeed'] as num).toDouble()
+      testStartSpeed: (json['testStartSpeed'] ?? json['targetStartSpeed']) != null
+          ? ((json['testStartSpeed'] ?? json['targetStartSpeed']) as num).toDouble()
           : null,
-      testEndSpeed: json['testEndSpeed'] != null
-          ? (json['testEndSpeed'] as num).toDouble()
+      testEndSpeed: (json['testEndSpeed'] ?? json['targetEndSpeed']) != null
+          ? ((json['testEndSpeed'] ?? json['targetEndSpeed']) as num).toDouble()
           : null,
-      testSpeedUnit: json['testSpeedUnit'] != null
-          ? SpeedUnit.values.asNameMap()[json['testSpeedUnit']]
+      testSpeedUnit: (json['testSpeedUnit'] ?? json['targetSpeedUnit']) != null
+          ? SpeedUnit.values.asNameMap()[(json['testSpeedUnit'] ?? json['targetSpeedUnit'])]
           : null,
       isRunning: false,
       history: (json['history'] as List? ?? [])

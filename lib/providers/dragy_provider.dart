@@ -97,8 +97,7 @@ class DragyProvider extends ChangeNotifier {
 
   double _launchChartOffset = 0.0;
 
-  RaceIntervalTest _activeIntervalTest =
-      RaceIntervalTest.sixtyToOneThirtyMph;
+  RaceIntervalTest _activeIntervalTest = RaceIntervalTest.sixtyToOneThirtyMph;
   RaceIntervalTest get activeIntervalTest => _activeIntervalTest;
 
   double _customIntervalStartSpeed = 100.0;
@@ -106,7 +105,6 @@ class DragyProvider extends ChangeNotifier {
 
   double _customIntervalEndSpeed = 200.0;
   double get customIntervalEndSpeed => _customIntervalEndSpeed;
-
 
   List<RaceTest> _customTests = [];
   List<RaceTest> get customTests => List.unmodifiable(_customTests);
@@ -314,7 +312,11 @@ class DragyProvider extends ChangeNotifier {
         final wasRunning = _metrics.isRunning;
         final activeTestsList = [...officialTests, ..._customTests];
         final oldTests = _enableTts && wasRunning
-            ? getCompletedTests(_metrics, useNhraRules: _useNhraRules, activeTests: activeTestsList)
+            ? getCompletedTests(
+                _metrics,
+                useNhraRules: _useNhraRules,
+                activeTests: activeTestsList,
+              )
             : <RaceTest>[];
 
         double avgGForce = _gForceCount > 0
@@ -613,7 +615,6 @@ class DragyProvider extends ChangeNotifier {
   void toggleSpeedUnit() {
     _isMetric = !_isMetric;
 
-
     if (_isMetric) {
       _customIntervalStartSpeed = UnitConverter.mphToKmh(
         _customIntervalStartSpeed,
@@ -650,7 +651,6 @@ class DragyProvider extends ChangeNotifier {
   void setMetric(bool isMetric) {
     if (_isMetric != isMetric) {
       _isMetric = isMetric;
-  
 
       if (_isMetric) {
         _customIntervalStartSpeed = UnitConverter.mphToKmh(
@@ -681,38 +681,30 @@ class DragyProvider extends ChangeNotifier {
       } else if (_activeIntervalTest ==
           RaceIntervalTest.fiftyToSeventyFiveMph) {
         _activeIntervalTest = RaceIntervalTest.eightyToOneTwentyKmh;
-      } else if (_activeIntervalTest ==
-          RaceIntervalTest.zeroToOneThirtyMph) {
+      } else if (_activeIntervalTest == RaceIntervalTest.zeroToOneThirtyMph) {
         _activeIntervalTest = RaceIntervalTest.zeroToTwoHundredKmh;
-      } else if (_activeIntervalTest ==
-          RaceIntervalTest.sixtyToOneHundredMph) {
+      } else if (_activeIntervalTest == RaceIntervalTest.sixtyToOneHundredMph) {
         _activeIntervalTest = RaceIntervalTest.oneHundredToOneSixtyKmh;
-      } else if (_activeIntervalTest ==
-          RaceIntervalTest.zeroToOneHundredMph) {
+      } else if (_activeIntervalTest == RaceIntervalTest.zeroToOneHundredMph) {
         _activeIntervalTest = RaceIntervalTest.zeroToOneSixtyKmh;
       } else if (_activeIntervalTest == RaceIntervalTest.sixtyToZeroMph) {
         _activeIntervalTest = RaceIntervalTest.oneHundredToZeroKmh;
       }
     } else {
-      if (_activeIntervalTest ==
-          RaceIntervalTest.oneHundredToTwoHundredKmh) {
+      if (_activeIntervalTest == RaceIntervalTest.oneHundredToTwoHundredKmh) {
         _activeIntervalTest = RaceIntervalTest.sixtyToOneThirtyMph;
-      } else if (_activeIntervalTest ==
-          RaceIntervalTest.zeroToOneHundredKmh) {
+      } else if (_activeIntervalTest == RaceIntervalTest.zeroToOneHundredKmh) {
         _activeIntervalTest = RaceIntervalTest.zeroToSixtyMph;
-      } else if (_activeIntervalTest ==
-          RaceIntervalTest.eightyToOneTwentyKmh) {
+      } else if (_activeIntervalTest == RaceIntervalTest.eightyToOneTwentyKmh) {
         _activeIntervalTest = RaceIntervalTest.fiftyToSeventyFiveMph;
-      } else if (_activeIntervalTest ==
-          RaceIntervalTest.zeroToTwoHundredKmh) {
+      } else if (_activeIntervalTest == RaceIntervalTest.zeroToTwoHundredKmh) {
         _activeIntervalTest = RaceIntervalTest.zeroToOneThirtyMph;
       } else if (_activeIntervalTest == RaceIntervalTest.oneHundredToZeroKmh) {
         _activeIntervalTest = RaceIntervalTest.sixtyToZeroMph;
       } else if (_activeIntervalTest ==
           RaceIntervalTest.oneHundredToOneSixtyKmh) {
         _activeIntervalTest = RaceIntervalTest.sixtyToOneHundredMph;
-      } else if (_activeIntervalTest ==
-          RaceIntervalTest.zeroToOneSixtyKmh) {
+      } else if (_activeIntervalTest == RaceIntervalTest.zeroToOneSixtyKmh) {
         _activeIntervalTest = RaceIntervalTest.zeroToOneHundredMph;
       }
     }
@@ -831,7 +823,7 @@ class DragyProvider extends ChangeNotifier {
     if (startA != startB) {
       return startA.compareTo(startB);
     }
-    
+
     final endA = a.endSpeed ?? 0.0;
     final endB = b.endSpeed ?? 0.0;
     return endA.compareTo(endB);

@@ -40,7 +40,10 @@ class MockDragyProvider extends ChangeNotifier implements DragyProvider {
   String get firmwareVersion => "1.0.0-mock";
 
   @override
-  Future<void> performFirmwareUpdate(String requestedVersion, void Function(double) onProgress) async {}
+  Future<void> performFirmwareUpdate(
+    String requestedVersion,
+    void Function(double) onProgress,
+  ) async {}
 
   @override
   bool enableAudioRecording = false;
@@ -96,12 +99,8 @@ class MockDragyProvider extends ChangeNotifier implements DragyProvider {
   @override
   void resetRace() {}
 
-
-
   @override
   double altitude = 0.0;
-
-
 
   @override
   List<SavedRun> savedRuns = [];
@@ -151,12 +150,18 @@ class MockDragyProvider extends ChangeNotifier implements DragyProvider {
   double? get testDistance {
     if (runMode != RunMode.drag) return null;
     switch (activeDragTest) {
-      case RaceDragTest.sixtyFeet: return 60.0;
-      case RaceDragTest.threeHundredThirtyFeet: return 330.0;
-      case RaceDragTest.eighthMile: return 0.125;
-      case RaceDragTest.thousandFeet: return 1000.0;
-      case RaceDragTest.quarterMile: return 0.25;
-      case RaceDragTest.halfMile: return 0.5;
+      case RaceDragTest.sixtyFeet:
+        return 60.0;
+      case RaceDragTest.threeHundredThirtyFeet:
+        return 330.0;
+      case RaceDragTest.eighthMile:
+        return 0.125;
+      case RaceDragTest.thousandFeet:
+        return 1000.0;
+      case RaceDragTest.quarterMile:
+        return 0.25;
+      case RaceDragTest.halfMile:
+        return 0.5;
     }
   }
 
@@ -165,10 +170,12 @@ class MockDragyProvider extends ChangeNotifier implements DragyProvider {
       runMode == RunMode.drag ? activeDragTest.distanceUnit : null;
 
   @override
-  double? get testStartSpeed => runMode == RunMode.interval ? intervalStartSpeed : null;
+  double? get testStartSpeed =>
+      runMode == RunMode.interval ? intervalStartSpeed : null;
 
   @override
-  double? get testEndSpeed => runMode == RunMode.interval ? intervalEndSpeed : null;
+  double? get testEndSpeed =>
+      runMode == RunMode.interval ? intervalEndSpeed : null;
 
   @override
   SpeedUnit? get testSpeedUnit {
@@ -223,7 +230,6 @@ class MockDragyProvider extends ChangeNotifier implements DragyProvider {
     notifyListeners();
   }
 
-
   // --- Settings ---
   @override
   bool tempInCelsius = true;
@@ -256,7 +262,11 @@ class MockDragyProvider extends ChangeNotifier implements DragyProvider {
   void setEnableTts(bool value) {}
 
   @override
-  Future<void> updateRunVehicle(String runId, String? vehicleId, String? vehicleName) async {}
+  Future<void> updateRunVehicle(
+    String runId,
+    String? vehicleId,
+    String? vehicleName,
+  ) async {}
 
   // --- Garage ---
   @override
@@ -322,23 +332,24 @@ class MockDragyProvider extends ChangeNotifier implements DragyProvider {
   }
 }
 
-
 void main() {
   testWidgets('Dashboard basic smoke test', (WidgetTester tester) async {
     tester.view.physicalSize = const Size(1080, 1920);
     tester.view.devicePixelRatio = 1.0;
-    
+
     // Initialize Hive in a temporary directory for the test context
     final tempDir = Directory.systemTemp.createTempSync();
     Hive.init(tempDir.path);
-    
+
     await tester.pumpWidget(const OpenDragyApp());
 
     expect(find.text('OpenDragy'), findsOneWidget);
     expect(find.byIcon(Icons.bluetooth_disabled), findsOneWidget);
   });
 
-  testWidgets('Dashboard dynamic status messages test', (WidgetTester tester) async {
+  testWidgets('Dashboard dynamic status messages test', (
+    WidgetTester tester,
+  ) async {
     tester.view.physicalSize = const Size(1080, 1920);
     tester.view.devicePixelRatio = 1.0;
 
@@ -347,9 +358,7 @@ void main() {
     await tester.pumpWidget(
       ChangeNotifierProvider<DragyProvider>.value(
         value: mockProvider,
-        child: const MaterialApp(
-          home: DashboardScreen(),
-        ),
+        child: const MaterialApp(home: DashboardScreen()),
       ),
     );
 
@@ -361,7 +370,11 @@ void main() {
     // 2a. Connected & Stationary, GPS not ready (0 satellites, 0.0 hdop)
     mockProvider.updateState(
       isConnected: true,
-      metrics: RaceMetrics(speedKmh: 0.0, isRunning: false, runMode: RunMode.drag),
+      metrics: RaceMetrics(
+        speedKmh: 0.0,
+        isRunning: false,
+        runMode: RunMode.drag,
+      ),
       satellites: 0,
       hdop: 0.0,
     );
@@ -371,7 +384,11 @@ void main() {
     // 2b. Connected & Stationary, GPS ready (8 satellites, 1.2 hdop)
     mockProvider.updateState(
       isConnected: true,
-      metrics: RaceMetrics(speedKmh: 0.0, isRunning: false, runMode: RunMode.drag),
+      metrics: RaceMetrics(
+        speedKmh: 0.0,
+        isRunning: false,
+        runMode: RunMode.drag,
+      ),
       satellites: 8,
       hdop: 1.2,
     );
@@ -381,7 +398,11 @@ void main() {
     // 3. Connected & Moving (Disarmed) State
     mockProvider.updateState(
       isConnected: true,
-      metrics: RaceMetrics(speedKmh: 10.0, isRunning: false, runMode: RunMode.drag),
+      metrics: RaceMetrics(
+        speedKmh: 10.0,
+        isRunning: false,
+        runMode: RunMode.drag,
+      ),
       satellites: 8,
       hdop: 1.2,
     );
@@ -395,7 +416,11 @@ void main() {
     mockProvider.runMode = RunMode.drag;
     mockProvider.updateState(
       isConnected: true,
-      metrics: RaceMetrics(speedKmh: 15.0, isRunning: false, runMode: RunMode.drag),
+      metrics: RaceMetrics(
+        speedKmh: 15.0,
+        isRunning: false,
+        runMode: RunMode.drag,
+      ),
       satellites: 8,
       hdop: 1.2,
     );
@@ -405,7 +430,11 @@ void main() {
     // 3c. Connected, Armed, and Stationary (Awaiting Launch) State in drag mode
     mockProvider.updateState(
       isConnected: true,
-      metrics: RaceMetrics(speedKmh: 0.0, isRunning: false, runMode: RunMode.drag),
+      metrics: RaceMetrics(
+        speedKmh: 0.0,
+        isRunning: false,
+        runMode: RunMode.drag,
+      ),
       satellites: 8,
       hdop: 1.2,
     );
@@ -417,7 +446,11 @@ void main() {
     // 4. Running State (Live Elapsed Time)
     mockProvider.updateState(
       isConnected: true,
-      metrics: RaceMetrics(speedKmh: 50.0, isRunning: true, runMode: RunMode.drag),
+      metrics: RaceMetrics(
+        speedKmh: 50.0,
+        isRunning: true,
+        runMode: RunMode.drag,
+      ),
       liveElapsedTime: 3.45,
       satellites: 8,
       hdop: 1.2,
@@ -443,12 +476,14 @@ void main() {
     expect(find.text('12.34s'), findsNWidgets(2));
   });
 
-  testWidgets('RunHistoryScreen filtering and PB test', (WidgetTester tester) async {
+  testWidgets('RunHistoryScreen filtering and PB test', (
+    WidgetTester tester,
+  ) async {
     tester.view.physicalSize = const Size(1080, 1920);
     tester.view.devicePixelRatio = 1.0;
 
     final mockProvider = MockDragyProvider();
-    
+
     // Set up mock runs:
     // Run 1: has both 0-60 mph and 1/4 mile
     final run1 = SavedRun(
@@ -496,10 +531,30 @@ void main() {
         testEndSpeed: 50.0,
         testSpeedUnit: SpeedUnit.mph,
         history: const [
-          DataPoint(elapsedTime: -0.01, speedKmh: 47.28032, gForce: 0.0, altitude: 100.0),
-          DataPoint(elapsedTime: 0.0, speedKmh: 48.28032, gForce: 0.0, altitude: 100.0),
-          DataPoint(elapsedTime: 2.15, speedKmh: 80.4672, gForce: 0.0, altitude: 100.0),
-          DataPoint(elapsedTime: 2.16, speedKmh: 81.4672, gForce: 0.0, altitude: 100.0),
+          DataPoint(
+            elapsedTime: -0.01,
+            speedKmh: 47.28032,
+            gForce: 0.0,
+            altitude: 100.0,
+          ),
+          DataPoint(
+            elapsedTime: 0.0,
+            speedKmh: 48.28032,
+            gForce: 0.0,
+            altitude: 100.0,
+          ),
+          DataPoint(
+            elapsedTime: 2.15,
+            speedKmh: 80.4672,
+            gForce: 0.0,
+            altitude: 100.0,
+          ),
+          DataPoint(
+            elapsedTime: 2.16,
+            speedKmh: 81.4672,
+            gForce: 0.0,
+            altitude: 100.0,
+          ),
         ],
       ),
     );
@@ -510,9 +565,7 @@ void main() {
     await tester.pumpWidget(
       ChangeNotifierProvider<DragyProvider>.value(
         value: mockProvider,
-        child: const MaterialApp(
-          home: RunHistoryScreen(),
-        ),
+        child: const MaterialApp(home: RunHistoryScreen()),
       ),
     );
 
@@ -555,85 +608,114 @@ void main() {
     expect(find.byType(RunHistoryCard), findsNWidgets(2));
 
     // 10. Verify that both card details show 0-60 mph and their respective times
-    expect(find.text('2.92s'), findsNWidgets(2)); // One in category PB chip, one in Run 2 card
-    expect(find.text('3.42s'), findsOneWidget);   // One in Run 1 card (not in category PB chip since PB is 2.92s)
+    expect(
+      find.text('2.92s'),
+      findsNWidgets(2),
+    ); // One in category PB chip, one in Run 2 card
+    expect(
+      find.text('3.42s'),
+      findsOneWidget,
+    ); // One in Run 1 card (not in category PB chip since PB is 2.92s)
   });
 
-  testWidgets('RunHistoryScreen correctly filters interval runs between metric and imperial', (WidgetTester tester) async {
-    tester.view.physicalSize = const Size(1080, 1920);
-    tester.view.devicePixelRatio = 1.0;
+  testWidgets(
+    'RunHistoryScreen correctly filters interval runs between metric and imperial',
+    (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1080, 1920);
+      tester.view.devicePixelRatio = 1.0;
 
-    final mockProvider = MockDragyProvider();
+      final mockProvider = MockDragyProvider();
 
-    final metricIntervalRun = SavedRun(
-      id: 'metric_run',
-      dateTime: DateTime.now().subtract(const Duration(minutes: 10)),
-      metrics: RaceMetrics(
-        speedKmh: 0.0,
-        distanceMeters: 100.0,
-        elapsedTime: 3.50,
-        runMode: RunMode.interval,
-        testStartSpeed: 80.0,
-        testEndSpeed: 120.0,
-        testSpeedUnit: SpeedUnit.kmh,
-        history: const [
-          DataPoint(elapsedTime: 0.0, speedKmh: 80.0, gForce: 0.0, altitude: 100.0),
-          DataPoint(elapsedTime: 3.50, speedKmh: 120.0, gForce: 0.0, altitude: 100.0),
-        ],
-      ),
-    );
-
-    final imperialIntervalRun = SavedRun(
-      id: 'imperial_run',
-      dateTime: DateTime.now().subtract(const Duration(minutes: 5)),
-      metrics: RaceMetrics(
-        speedKmh: 0.0,
-        distanceMeters: 200.0,
-        elapsedTime: 7.20,
-        testTimes: {'60-130mph': 7.20},
-        runMode: RunMode.interval,
-        testStartSpeed: 96.56064,
-        testEndSpeed: 209.21472,
-        testSpeedUnit: SpeedUnit.mph,
-        history: const [
-          DataPoint(elapsedTime: 0.0, speedKmh: 96.56064, gForce: 0.0, altitude: 100.0),
-          DataPoint(elapsedTime: 7.20, speedKmh: 209.21472, gForce: 0.0, altitude: 100.0),
-        ],
-      ),
-    );
-
-    mockProvider.savedRuns = [metricIntervalRun, imperialIntervalRun];
-    mockProvider.isMetric = false;
-
-    await tester.pumpWidget(
-      ChangeNotifierProvider<DragyProvider>.value(
-        value: mockProvider,
-        child: const MaterialApp(
-          home: RunHistoryScreen(),
+      final metricIntervalRun = SavedRun(
+        id: 'metric_run',
+        dateTime: DateTime.now().subtract(const Duration(minutes: 10)),
+        metrics: RaceMetrics(
+          speedKmh: 0.0,
+          distanceMeters: 100.0,
+          elapsedTime: 3.50,
+          runMode: RunMode.interval,
+          testStartSpeed: 80.0,
+          testEndSpeed: 120.0,
+          testSpeedUnit: SpeedUnit.kmh,
+          history: const [
+            DataPoint(
+              elapsedTime: 0.0,
+              speedKmh: 80.0,
+              gForce: 0.0,
+              altitude: 100.0,
+            ),
+            DataPoint(
+              elapsedTime: 3.50,
+              speedKmh: 120.0,
+              gForce: 0.0,
+              altitude: 100.0,
+            ),
+          ],
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
+      );
 
-    // In Imperial mode:
-    // Only imperialIntervalRun should be visible (1 run)
-    expect(find.byType(RunHistoryCard), findsOneWidget);
-    expect(find.text('60-130 mph'), findsWidgets);
-    expect(find.text('80-120 km/h'), findsNothing);
+      final imperialIntervalRun = SavedRun(
+        id: 'imperial_run',
+        dateTime: DateTime.now().subtract(const Duration(minutes: 5)),
+        metrics: RaceMetrics(
+          speedKmh: 0.0,
+          distanceMeters: 200.0,
+          elapsedTime: 7.20,
+          testTimes: {'60-130mph': 7.20},
+          runMode: RunMode.interval,
+          testStartSpeed: 96.56064,
+          testEndSpeed: 209.21472,
+          testSpeedUnit: SpeedUnit.mph,
+          history: const [
+            DataPoint(
+              elapsedTime: 0.0,
+              speedKmh: 96.56064,
+              gForce: 0.0,
+              altitude: 100.0,
+            ),
+            DataPoint(
+              elapsedTime: 7.20,
+              speedKmh: 209.21472,
+              gForce: 0.0,
+              altitude: 100.0,
+            ),
+          ],
+        ),
+      );
 
-    // Switch to Metric mode:
-    mockProvider.isMetric = true;
-    mockProvider.notifyListeners();
-    await tester.pumpAndSettle();
+      mockProvider.savedRuns = [metricIntervalRun, imperialIntervalRun];
+      mockProvider.isMetric = false;
 
-    // In Metric mode:
-    // Only metricIntervalRun should be visible (1 run)
-    expect(find.byType(RunHistoryCard), findsOneWidget);
-    expect(find.text('80-120 km/h'), findsWidgets);
-    expect(find.text('60-130 mph'), findsNothing);
-  });
+      await tester.pumpWidget(
+        ChangeNotifierProvider<DragyProvider>.value(
+          value: mockProvider,
+          child: const MaterialApp(home: RunHistoryScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
 
-  testWidgets('SettingsScreen displays toggles and triggers actions', (WidgetTester tester) async {
+      // In Imperial mode:
+      // Only imperialIntervalRun should be visible (1 run)
+      expect(find.byType(RunHistoryCard), findsOneWidget);
+      expect(find.text('60-130 mph'), findsWidgets);
+      expect(find.text('80-120 km/h'), findsNothing);
+
+      // Switch to Metric mode:
+      mockProvider.isMetric = true;
+      mockProvider.notifyListeners();
+      await tester.pumpAndSettle();
+
+      // In Metric mode:
+      // Only metricIntervalRun should be visible (1 run)
+      expect(find.byType(RunHistoryCard), findsOneWidget);
+      expect(find.text('80-120 km/h'), findsWidgets);
+      expect(find.text('60-130 mph'), findsNothing);
+    },
+  );
+
+  testWidgets('SettingsScreen displays toggles and triggers actions', (
+    WidgetTester tester,
+  ) async {
     final mockProvider = MockDragyProvider();
     mockProvider.isMetric = false; // metric = false
     mockProvider.tempInCelsius = true;
@@ -641,9 +723,7 @@ void main() {
     await tester.pumpWidget(
       ChangeNotifierProvider<DragyProvider>.value(
         value: mockProvider,
-        child: const MaterialApp(
-          home: SettingsScreen(),
-        ),
+        child: const MaterialApp(home: SettingsScreen()),
       ),
     );
 
@@ -678,32 +758,35 @@ void main() {
     expect(find.text('App: 1.0.0-mock'), findsOneWidget);
   });
 
-  testWidgets('GarageScreen displays empty state and lists vehicles', (WidgetTester tester) async {
+  testWidgets('GarageScreen displays empty state and lists vehicles', (
+    WidgetTester tester,
+  ) async {
     final mockProvider = MockDragyProvider();
 
     // 1. Empty garage
     await tester.pumpWidget(
       ChangeNotifierProvider<DragyProvider>.value(
         value: mockProvider,
-        child: const MaterialApp(
-          home: GarageScreen(),
-        ),
+        child: const MaterialApp(home: GarageScreen()),
       ),
     );
 
     expect(find.text('Your garage is empty.'), findsOneWidget);
 
     // 2. Add vehicle and display
-    final vehicle = Vehicle(id: 'v1', make: 'Ford', model: 'Mustang', year: 2020);
+    final vehicle = Vehicle(
+      id: 'v1',
+      make: 'Ford',
+      model: 'Mustang',
+      year: 2020,
+    );
     mockProvider.vehicles = [vehicle];
     mockProvider.activeVehicleId = 'v1';
 
     await tester.pumpWidget(
       ChangeNotifierProvider<DragyProvider>.value(
         value: mockProvider,
-        child: const MaterialApp(
-          home: GarageScreen(),
-        ),
+        child: const MaterialApp(home: GarageScreen()),
       ),
     );
     await tester.pumpAndSettle();
@@ -712,7 +795,9 @@ void main() {
     expect(find.text('ACTIVE'), findsOneWidget);
   });
 
-  testWidgets('Dashboard rolling Test dropdown filtering by unit setting test', (WidgetTester tester) async {
+  testWidgets('Dashboard rolling Test dropdown filtering by unit setting test', (
+    WidgetTester tester,
+  ) async {
     final mockProvider = MockDragyProvider();
     mockProvider.isConnected = true;
     mockProvider.runMode = RunMode.interval;
@@ -724,9 +809,7 @@ void main() {
     await tester.pumpWidget(
       ChangeNotifierProvider<DragyProvider>.value(
         value: mockProvider,
-        child: const MaterialApp(
-          home: DashboardScreen(),
-        ),
+        child: const MaterialApp(home: DashboardScreen()),
       ),
     );
     await tester.pumpAndSettle();
@@ -746,21 +829,43 @@ void main() {
     final imperialItems = getDropdown().items!.map((i) => i.value).toList();
     // Imperial Tests only
     expect(imperialItems.contains(RaceIntervalTest.zeroToSixtyMph), isTrue);
-    expect(imperialItems.contains(RaceIntervalTest.zeroToOneHundredMph), isTrue);
+    expect(
+      imperialItems.contains(RaceIntervalTest.zeroToOneHundredMph),
+      isTrue,
+    );
     expect(imperialItems.contains(RaceIntervalTest.zeroToOneThirtyMph), isTrue);
-    expect(imperialItems.contains(RaceIntervalTest.fiftyToSeventyFiveMph), isTrue);
-    expect(imperialItems.contains(RaceIntervalTest.sixtyToOneHundredMph), isTrue);
-    expect(imperialItems.contains(RaceIntervalTest.sixtyToOneThirtyMph), isTrue);
+    expect(
+      imperialItems.contains(RaceIntervalTest.fiftyToSeventyFiveMph),
+      isTrue,
+    );
+    expect(
+      imperialItems.contains(RaceIntervalTest.sixtyToOneHundredMph),
+      isTrue,
+    );
+    expect(
+      imperialItems.contains(RaceIntervalTest.sixtyToOneThirtyMph),
+      isTrue,
+    );
     expect(imperialItems.contains(RaceIntervalTest.custom), isTrue);
     // Metric Tests must be absent
-    expect(imperialItems.contains(RaceIntervalTest.zeroToOneHundredKmh), isFalse);
+    expect(
+      imperialItems.contains(RaceIntervalTest.zeroToOneHundredKmh),
+      isFalse,
+    );
     expect(imperialItems.contains(RaceIntervalTest.zeroToOneSixtyKmh), isFalse);
-    expect(imperialItems.contains(RaceIntervalTest.eightyToOneTwentyKmh), isFalse);
-    expect(imperialItems.contains(RaceIntervalTest.oneHundredToTwoHundredKmh), isFalse);
+    expect(
+      imperialItems.contains(RaceIntervalTest.eightyToOneTwentyKmh),
+      isFalse,
+    );
+    expect(
+      imperialItems.contains(RaceIntervalTest.oneHundredToTwoHundredKmh),
+      isFalse,
+    );
 
     // 2. Switch to metric
     mockProvider.isMetric = true;
-    mockProvider.activeIntervalTest = RaceIntervalTest.oneHundredToTwoHundredKmh;
+    mockProvider.activeIntervalTest =
+        RaceIntervalTest.oneHundredToTwoHundredKmh;
     mockProvider.notifyListeners();
     await tester.pumpAndSettle();
 
@@ -774,16 +879,24 @@ void main() {
     expect(metricItems.contains(RaceIntervalTest.zeroToOneSixtyKmh), isTrue);
     expect(metricItems.contains(RaceIntervalTest.zeroToTwoHundredKmh), isTrue);
     expect(metricItems.contains(RaceIntervalTest.eightyToOneTwentyKmh), isTrue);
-    expect(metricItems.contains(RaceIntervalTest.oneHundredToTwoHundredKmh), isTrue);
+    expect(
+      metricItems.contains(RaceIntervalTest.oneHundredToTwoHundredKmh),
+      isTrue,
+    );
     expect(metricItems.contains(RaceIntervalTest.custom), isTrue);
     // Imperial Tests must be absent
     expect(metricItems.contains(RaceIntervalTest.zeroToSixtyMph), isFalse);
     expect(metricItems.contains(RaceIntervalTest.zeroToOneHundredMph), isFalse);
-    expect(metricItems.contains(RaceIntervalTest.fiftyToSeventyFiveMph), isFalse);
+    expect(
+      metricItems.contains(RaceIntervalTest.fiftyToSeventyFiveMph),
+      isFalse,
+    );
     expect(metricItems.contains(RaceIntervalTest.sixtyToOneThirtyMph), isFalse);
   });
 
-  testWidgets('RunDetailScreen displays telemetry chart with data', (WidgetTester tester) async {
+  testWidgets('RunDetailScreen displays telemetry chart with data', (
+    WidgetTester tester,
+  ) async {
     final mockProvider = MockDragyProvider();
     mockProvider.isMetric = false;
 
@@ -796,11 +909,36 @@ void main() {
         elapsedTime: 12.5,
         testTimes: {'1/4mile': 12.5},
         history: const [
-          DataPoint(elapsedTime: 0.0, speedKmh: 0.0, gForce: 0.0, altitude: 100.0),
-          DataPoint(elapsedTime: 2.0, speedKmh: 50.0, gForce: 0.8, altitude: 101.0),
-          DataPoint(elapsedTime: 2.20, speedKmh: 52.0, gForce: 0.8, altitude: 101.1),
-          DataPoint(elapsedTime: 5.0, speedKmh: 100.0, gForce: 0.5, altitude: 102.0),
-          DataPoint(elapsedTime: 10.0, speedKmh: 150.0, gForce: 0.3, altitude: 103.0),
+          DataPoint(
+            elapsedTime: 0.0,
+            speedKmh: 0.0,
+            gForce: 0.0,
+            altitude: 100.0,
+          ),
+          DataPoint(
+            elapsedTime: 2.0,
+            speedKmh: 50.0,
+            gForce: 0.8,
+            altitude: 101.0,
+          ),
+          DataPoint(
+            elapsedTime: 2.20,
+            speedKmh: 52.0,
+            gForce: 0.8,
+            altitude: 101.1,
+          ),
+          DataPoint(
+            elapsedTime: 5.0,
+            speedKmh: 100.0,
+            gForce: 0.5,
+            altitude: 102.0,
+          ),
+          DataPoint(
+            elapsedTime: 10.0,
+            speedKmh: 150.0,
+            gForce: 0.3,
+            altitude: 103.0,
+          ),
         ],
       ),
     );
@@ -808,9 +946,7 @@ void main() {
     await tester.pumpWidget(
       ChangeNotifierProvider<DragyProvider>.value(
         value: mockProvider,
-        child: MaterialApp(
-          home: RunDetailScreen(run: run),
-        ),
+        child: MaterialApp(home: RunDetailScreen(run: run)),
       ),
     );
     await tester.pumpAndSettle();
@@ -833,7 +969,9 @@ void main() {
     expect(find.text('+9.8'), findsOneWidget);
   });
 
-  testWidgets('RunDetailScreen displays fallback when no telemetry data', (WidgetTester tester) async {
+  testWidgets('RunDetailScreen displays fallback when no telemetry data', (
+    WidgetTester tester,
+  ) async {
     final mockProvider = MockDragyProvider();
 
     final run = SavedRun(
@@ -851,73 +989,76 @@ void main() {
     await tester.pumpWidget(
       ChangeNotifierProvider<DragyProvider>.value(
         value: mockProvider,
-        child: MaterialApp(
-          home: RunDetailScreen(run: run),
-        ),
+        child: MaterialApp(home: RunDetailScreen(run: run)),
       ),
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('No telemetry data recorded for this run.'), findsOneWidget);
+    expect(
+      find.text('No telemetry data recorded for this run.'),
+      findsOneWidget,
+    );
   });
 
-  test('SavedRun and RaceMetrics JSON deserialization handles dynamic maps from Hive', () {
-    final Map<dynamic, dynamic> hiveRawData = {
-      'id': 'run_123',
-      'dateTime': '2026-06-04T18:00:00.000',
-      'metrics': {
-        'speedKmh': 100.0,
-        'distanceMeters': 400.0,
-        'gForce': 0.5,
-        'elapsedTime': 10.0,
-        'time14Mile': 10.0,
-        'runMode': 'drag',
-        'history': [
-          {
-            'elapsedTime': 0.0,
-            'speedKmh': 0.0,
-            'gForce': 0.0,
-            'altitude': 100.0,
-          },
-          {
-            'elapsedTime': 5.0,
-            'speedKmh': 50.0,
-            'gForce': 0.5,
-            'altitude': 101.0,
-          }
-        ],
-      },
-      'notes': 'Test run',
-      'temperature': 20.0,
-      'humidity': 50.0,
-      'vehicleId': 'v1',
-      'vehicleName': 'My Car',
-    };
+  test(
+    'SavedRun and RaceMetrics JSON deserialization handles dynamic maps from Hive',
+    () {
+      final Map<dynamic, dynamic> hiveRawData = {
+        'id': 'run_123',
+        'dateTime': '2026-06-04T18:00:00.000',
+        'metrics': {
+          'speedKmh': 100.0,
+          'distanceMeters': 400.0,
+          'gForce': 0.5,
+          'elapsedTime': 10.0,
+          'time14Mile': 10.0,
+          'runMode': 'drag',
+          'history': [
+            {
+              'elapsedTime': 0.0,
+              'speedKmh': 0.0,
+              'gForce': 0.0,
+              'altitude': 100.0,
+            },
+            {
+              'elapsedTime': 5.0,
+              'speedKmh': 50.0,
+              'gForce': 0.5,
+              'altitude': 101.0,
+            },
+          ],
+        },
+        'notes': 'Test run',
+        'temperature': 20.0,
+        'humidity': 50.0,
+        'vehicleId': 'v1',
+        'vehicleName': 'My Car',
+      };
 
-    final savedRunMap = Map<String, dynamic>.from(hiveRawData);
-    final savedRun = SavedRun.fromJson(savedRunMap);
+      final savedRunMap = Map<String, dynamic>.from(hiveRawData);
+      final savedRun = SavedRun.fromJson(savedRunMap);
 
-    expect(savedRun.id, 'run_123');
-    expect(savedRun.metrics.speedKmh, 100.0);
-    expect(savedRun.metrics.runMode, RunMode.drag);
-    expect(savedRun.metrics.history.length, 2);
-    expect(savedRun.metrics.history[1].speedKmh, 50.0);
-  });
+      expect(savedRun.id, 'run_123');
+      expect(savedRun.metrics.speedKmh, 100.0);
+      expect(savedRun.metrics.runMode, RunMode.drag);
+      expect(savedRun.metrics.history.length, 2);
+      expect(savedRun.metrics.history[1].speedKmh, 50.0);
+    },
+  );
 
   test('DragyProvider settings serialization test', () {
     double customIntervalStartSpeed = 100.0;
     double customIntervalEndSpeed = 200.0;
-    
+
     final savedMap = {
       'isMetric': false,
       'customIntervalStartSpeed': customIntervalStartSpeed.round(),
       'customIntervalEndSpeed': customIntervalEndSpeed.round(),
     };
-    
+
     expect(savedMap['customIntervalStartSpeed'], 100);
     expect(savedMap['customIntervalEndSpeed'], 200);
     expect(savedMap['customIntervalStartSpeed'] is int, true);
     expect(savedMap['customIntervalEndSpeed'] is int, true);
   });
 }
-
