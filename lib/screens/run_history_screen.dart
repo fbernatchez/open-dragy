@@ -82,50 +82,6 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
           );
         }
       }
-
-      if (run.metrics.runMode == RunMode.interval &&
-          run.metrics.testStartSpeed != null &&
-          run.metrics.testEndSpeed != null) {
-        bool matchesAny = false;
-        final isMph = (run.metrics.testSpeedUnit ?? SpeedUnit.kmh) == SpeedUnit.mph;
-        final startKmh = isMph
-            ? UnitConverter.mphToKmh(run.metrics.testStartSpeed!)
-            : run.metrics.testStartSpeed!;
-        final endKmh = isMph
-            ? UnitConverter.mphToKmh(run.metrics.testEndSpeed!)
-            : run.metrics.testEndSpeed!;
-
-        for (final test in officialTests) {
-          if (test.startSpeed != null &&
-              (startKmh - test.startSpeed!).abs() < 1.0 &&
-              test.endSpeed != null &&
-              (endKmh - test.endSpeed!).abs() < 1.0 &&
-              run.metrics.testSpeedUnit == test.speedUnit) {
-            matchesAny = true;
-            break;
-          }
-        }
-
-        if (!matchesAny) {
-          final runIsMetric = (run.metrics.testSpeedUnit ?? SpeedUnit.kmh) == SpeedUnit.kmh;
-          if (runIsMetric != isMetric) continue;
-
-          final customTest = buildCustomIntervalTest(run.metrics);
-          if (customTest != null && !seenIds.contains(customTest.id)) {
-            seenIds.add(customTest.id);
-            categories.add(
-              HistoryCategory(
-                id: customTest.id,
-                displayName: customTest.displayName,
-                isOfficial: false,
-                startSpeed: customTest.startSpeed,
-                endSpeed: customTest.endSpeed,
-                speedUnit: customTest.speedUnit,
-              ),
-            );
-          }
-        }
-      }
     }
 
     final allCategory = categories.first;
@@ -156,20 +112,8 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
     return [allCategory, ...others];
   }
 
-  double? _getPB(String categoryId, List<SavedRun> runs, bool useNhraRules, List<HistoryCategory> categories) {
+  double? _getPB(String categoryId, List<SavedRun> runs, bool useNhraRules) {
     if (categoryId == 'all') return null;
-
-    final activeTestsList = [
-      ...officialTests,
-      ...categories.map((c) => RaceTest(
-        id: c.id,
-        displayName: c.displayName,
-        isOfficial: c.isOfficial,
-        startSpeed: c.startSpeed,
-        endSpeed: c.endSpeed,
-        speedUnit: c.speedUnit,
-      )),
-    ];
 
     double? best;
     for (final run in runs) {
@@ -177,7 +121,6 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
         run.metrics,
         categoryId,
         useNhraRules: useNhraRules,
-        activeTests: activeTestsList,
       );
       if (val != null) {
         if (best == null || val < best) {
@@ -444,7 +387,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                       final category = categories[idx];
                       final isSelected = _selectedCategory == category.id;
                       final label = category.displayName;
-                      final pb = _getPB(category.id, runs, useNhraRules, categories);
+                      final pb = _getPB(category.id, runs, useNhraRules);
 
                       String pbText = '-.--s';
                       if (category.id == 'all') {
