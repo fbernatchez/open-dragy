@@ -115,11 +115,19 @@ class RunDetailScreen extends StatelessWidget {
         metrics.testStartSpeed != null &&
         metrics.testEndSpeed != null) {
       bool matchesAny = false;
+      final isMph = (metrics.testSpeedUnit ?? SpeedUnit.kmh) == SpeedUnit.mph;
+      final startKmh = isMph
+          ? UnitConverter.mphToKmh(metrics.testStartSpeed!)
+          : metrics.testStartSpeed!;
+      final endKmh = isMph
+          ? UnitConverter.mphToKmh(metrics.testEndSpeed!)
+          : metrics.testEndSpeed!;
+
       for (final test in officialTests) {
         if (test.startSpeed != null &&
-            (metrics.testStartSpeed! - test.startSpeed!).abs() < 0.1 &&
+            (startKmh - test.startSpeed!).abs() < 1.0 &&
             test.endSpeed != null &&
-            (metrics.testEndSpeed! - test.endSpeed!).abs() < 0.1 &&
+            (endKmh - test.endSpeed!).abs() < 1.0 &&
             metrics.testSpeedUnit == test.speedUnit) {
           matchesAny = true;
           break;
@@ -166,6 +174,14 @@ class RunDetailScreen extends StatelessWidget {
 
     // Try to find if the run has an active/completed target matching an official test
     RaceTest? matchedTest;
+    final isMph = (metrics.testSpeedUnit ?? SpeedUnit.kmh) == SpeedUnit.mph;
+    final startKmh = metrics.testStartSpeed != null
+        ? (isMph ? UnitConverter.mphToKmh(metrics.testStartSpeed!) : metrics.testStartSpeed!)
+        : null;
+    final endKmh = metrics.testEndSpeed != null
+        ? (isMph ? UnitConverter.mphToKmh(metrics.testEndSpeed!) : metrics.testEndSpeed!)
+        : null;
+
     for (final test in officialTests) {
       if (test.distance != null &&
           metrics.testDistance != null &&
@@ -174,11 +190,11 @@ class RunDetailScreen extends StatelessWidget {
         matchedTest = test;
         break;
       } else if (test.startSpeed != null &&
-          metrics.testStartSpeed != null &&
-          (test.startSpeed! - metrics.testStartSpeed!).abs() < 0.1 &&
+          startKmh != null &&
+          (test.startSpeed! - startKmh).abs() < 1.0 &&
           test.endSpeed != null &&
-          metrics.testEndSpeed != null &&
-          (test.endSpeed! - metrics.testEndSpeed!).abs() < 0.1 &&
+          endKmh != null &&
+          (test.endSpeed! - endKmh).abs() < 1.0 &&
           test.speedUnit == metrics.testSpeedUnit) {
         matchedTest = test;
         break;

@@ -215,19 +215,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
           }
         }
 
+        final time = getCompletedTimeForCategory(
+          metrics,
+          test.id,
+          useNhraRules: dragy.useNhraRules,
+        )!;
         reachedMilestones.add(
           _ReachedMilestone(
             label: test.displayName,
-            time: getCompletedTimeForCategory(
-              metrics,
-              test.id,
-              useNhraRules: dragy.useNhraRules,
-            )!,
-            sortTime: getCompletedTimeForCategory(
-              metrics,
-              test.id,
-              useNhraRules: dragy.useNhraRules,
-            )!,
+            time: time,
+            sortTime: time,
             trapSpeed: getTrapSpeedForCategory(
               metrics,
               test.id,

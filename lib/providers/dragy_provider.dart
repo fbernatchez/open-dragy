@@ -159,11 +159,21 @@ class DragyProvider extends ChangeNotifier {
   DistanceUnit? get testDistanceUnit =>
       _runMode == RunMode.drag ? _activeDragTest.distanceUnit : null;
 
-  double? get testStartSpeed =>
-      _runMode == RunMode.interval ? intervalStartSpeed : null;
+  double? get testStartSpeed {
+    if (_runMode != RunMode.interval) return null;
+    if (_activeIntervalTest == RaceIntervalTest.custom) {
+      return _customIntervalStartSpeed;
+    }
+    return _activeIntervalTest.startSpeedUserUnit;
+  }
 
-  double? get testEndSpeed =>
-      _runMode == RunMode.interval ? intervalEndSpeed : null;
+  double? get testEndSpeed {
+    if (_runMode != RunMode.interval) return null;
+    if (_activeIntervalTest == RaceIntervalTest.custom) {
+      return _customIntervalEndSpeed;
+    }
+    return _activeIntervalTest.endSpeedUserUnit;
+  }
 
   SpeedUnit? get testSpeedUnit {
     if (_runMode != RunMode.interval) return null;

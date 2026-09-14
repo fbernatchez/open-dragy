@@ -74,7 +74,10 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
             HistoryCategory(
               id: test.id,
               displayName: test.displayName,
-              isOfficial: true,
+              isOfficial: test.isOfficial,
+              startSpeed: test.startSpeed,
+              endSpeed: test.endSpeed,
+              speedUnit: test.speedUnit,
             ),
           );
         }
@@ -84,11 +87,19 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
           run.metrics.testStartSpeed != null &&
           run.metrics.testEndSpeed != null) {
         bool matchesAny = false;
+        final isMph = (run.metrics.testSpeedUnit ?? SpeedUnit.kmh) == SpeedUnit.mph;
+        final startKmh = isMph
+            ? UnitConverter.mphToKmh(run.metrics.testStartSpeed!)
+            : run.metrics.testStartSpeed!;
+        final endKmh = isMph
+            ? UnitConverter.mphToKmh(run.metrics.testEndSpeed!)
+            : run.metrics.testEndSpeed!;
+
         for (final test in officialTests) {
           if (test.startSpeed != null &&
-              (run.metrics.testStartSpeed! - test.startSpeed!).abs() < 0.1 &&
+              (startKmh - test.startSpeed!).abs() < 1.0 &&
               test.endSpeed != null &&
-              (run.metrics.testEndSpeed! - test.endSpeed!).abs() < 0.1 &&
+              (endKmh - test.endSpeed!).abs() < 1.0 &&
               run.metrics.testSpeedUnit == test.speedUnit) {
             matchesAny = true;
             break;
@@ -648,6 +659,7 @@ class RunHistoryCard extends StatelessWidget {
           metrics,
           test.id,
           useNhraRules: useNhraRulesSetting,
+          activeTests: completed,
         );
         if (t != null && t > maxTime) {
           maxTime = t;

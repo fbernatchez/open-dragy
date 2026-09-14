@@ -120,6 +120,22 @@ enum RaceIntervalTest {
     this.startSpeedKmh,
     this.endSpeedKmh,
   );
+
+  double? get startSpeedUserUnit {
+    if (startSpeedKmh == null) return null;
+    if (speedUnit == SpeedUnit.mph) {
+      return UnitConverter.kmhToMph(startSpeedKmh!).roundToDouble();
+    }
+    return startSpeedKmh;
+  }
+
+  double? get endSpeedUserUnit {
+    if (endSpeedKmh == null) return null;
+    if (speedUnit == SpeedUnit.mph) {
+      return UnitConverter.kmhToMph(endSpeedKmh!).roundToDouble();
+    }
+    return endSpeedKmh;
+  }
 }
 
 class RaceTest {
@@ -509,6 +525,21 @@ List<RaceTest> getCompletedTests(
     }
   }
 
+  if (metrics.runMode == RunMode.interval) {
+    final customTest = buildCustomIntervalTest(metrics);
+    if (customTest != null && !completed.any((t) => t.id == customTest.id)) {
+      final time = getCompletedTimeForCategory(
+        metrics,
+        customTest.id,
+        useNhraRules: useNhraRules,
+        activeTests: [...activeTests, customTest],
+      );
+      if (time != null) {
+        completed.add(customTest);
+      }
+    }
+  }
+
   return completed;
 }
 
@@ -559,7 +590,15 @@ double? getCompletedTimeForCategory(
 }) {
   final useRollout = useNhraRules && metrics.rolloutTime1ft != null;
 
-  // 1. Check if it matches a target definition
+  // 1. Fast path: Direct lookup in precalculated testTimes
+  final precalculated = _getPrecalculatedTime(
+    metrics,
+    categoryId,
+    useNhraRules: useRollout,
+  );
+  if (precalculated != null) return precalculated;
+
+  // 2. Fallback: Calculate dynamically from history if target definition exists
   for (final test in activeTests) {
     if (test.id == categoryId) {
       // Standing start tests require either drag mode or an interval run that started from 0.
@@ -570,15 +609,6 @@ double? getCompletedTimeForCategory(
         }
       }
 
-      // Fast path: Check standard precalculated fields
-      final precalculated = _getPrecalculatedTime(
-        metrics,
-        test.id,
-        useNhraRules: useRollout,
-      );
-      if (precalculated != null) return precalculated;
-
-      // Fallback: Calculate dynamically from history coordinates
       return _calculateTimeFromHistory(metrics, test, useNhraRules: useRollout);
     }
   }
@@ -773,13 +803,11 @@ String getDisplayLabelForTest({
       final unit = speedUnit is SpeedUnit
           ? speedUnit.name
           : speedUnit?.toString();
+      final start = startSpeed.round();
+      final end = endSpeed.round();
       if (unit == 'mph') {
-        final start = UnitConverter.kmhToMph(startSpeed).round();
-        final end = UnitConverter.kmhToMph(endSpeed).round();
         return '$start-$end mph';
       } else {
-        final start = startSpeed.round();
-        final end = endSpeed.round();
         return '$start-$end km/h';
       }
     }

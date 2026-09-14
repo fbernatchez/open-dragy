@@ -173,12 +173,16 @@ class MockDragyProvider extends ChangeNotifier implements DragyProvider {
       runMode == RunMode.drag ? activeDragTest.distanceUnit : null;
 
   @override
-  double? get testStartSpeed =>
-      runMode == RunMode.interval ? intervalStartSpeed : null;
+  double? get testStartSpeed {
+    if (runMode != RunMode.interval) return null;
+    return activeIntervalTest.startSpeedUserUnit;
+  }
 
   @override
-  double? get testEndSpeed =>
-      runMode == RunMode.interval ? intervalEndSpeed : null;
+  double? get testEndSpeed {
+    if (runMode != RunMode.interval) return null;
+    return activeIntervalTest.endSpeedUserUnit;
+  }
 
   @override
   SpeedUnit? get testSpeedUnit {
@@ -529,6 +533,7 @@ void main() {
         speedKmh: 0.0,
         distanceMeters: 150.0,
         elapsedTime: 2.15,
+        testTimes: const {'custom_30_50_mph': 2.15},
         runMode: RunMode.interval,
         testStartSpeed: 30.0,
         testEndSpeed: 50.0,

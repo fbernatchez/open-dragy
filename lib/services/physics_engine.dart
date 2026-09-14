@@ -572,8 +572,8 @@ class PhysicsEngine {
         if (newtestTimes.containsKey(test.id)) continue;
 
         if (test.endSpeed != null && test.startSpeed != null) {
-          if ((current.testStartSpeed! - test.startSpeed!).abs() < 1.0 &&
-              (current.testEndSpeed! - test.endSpeed!).abs() < 1.0) {
+          if ((intervalStartSpeed - test.startSpeed!).abs() < 1.0 &&
+              (intervalEndSpeed - test.endSpeed!).abs() < 1.0) {
             newtestTimes[test.id] = newElapsedTimeCalculated;
           }
         }
