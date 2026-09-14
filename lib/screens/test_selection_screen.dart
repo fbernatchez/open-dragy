@@ -69,7 +69,11 @@ class TestSelectionScreen extends StatelessWidget {
                           (isMetric ? SpeedUnit.kmh : SpeedUnit.mph);
                     })
                     .map((test) {
-                  return _TestTile(test: test);
+                  return _TestTile(
+                    test: test,
+                    isEnabled: dragy.enabledTests.contains(test.id),
+                    onChanged: (val) => dragy.toggleTestEnabled(test.id, val),
+                  );
                 }),
               ],
             ),
@@ -134,10 +138,14 @@ class _SectionHeader extends StatelessWidget {
 
 class _TestTile extends StatelessWidget {
   final RaceTest test;
+  final bool isEnabled;
+  final ValueChanged<bool>? onChanged;
   final VoidCallback? onDelete;
 
   const _TestTile({
     required this.test,
+    this.isEnabled = true,
+    this.onChanged,
     this.onDelete,
   });
 
@@ -147,12 +155,14 @@ class _TestTile extends StatelessWidget {
       width: 40,
       height: 40,
       decoration: BoxDecoration(
-        color: const Color(0xFF1565C0).withOpacity(0.2),
+        color: isEnabled
+            ? const Color(0xFF1565C0).withOpacity(0.2)
+            : Colors.white.withOpacity(0.05),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Icon(
         test.distance != null ? Icons.flag_outlined : Icons.speed,
-        color: const Color(0xFF42A5F5),
+        color: isEnabled ? const Color(0xFF42A5F5) : Colors.white38,
         size: 22,
       ),
     );
@@ -164,25 +174,47 @@ class _TestTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: Colors.white.withOpacity(0.06)),
       ),
-      child: ListTile(
-        leading: iconContainer,
-        title: Text(
-          test.displayName,
-          style: GoogleFonts.roboto(
-            color: Colors.white,
-            fontSize: 15,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        trailing: onDelete != null
-            ? IconButton(
+      child: onDelete != null
+          ? ListTile(
+              leading: iconContainer,
+              title: Text(
+                test.displayName,
+                style: GoogleFonts.roboto(
+                  color: Colors.white,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              trailing: IconButton(
                 icon: const Icon(Icons.delete_outline, color: Colors.white38),
                 onPressed: onDelete,
-              )
-            : null,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      ),
+              ),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14)),
+            )
+          : SwitchListTile(
+              secondary: iconContainer,
+              title: Text(
+                test.displayName,
+                style: GoogleFonts.roboto(
+                  color: Colors.white,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              value: isEnabled,
+              onChanged: onChanged,
+              activeThumbColor: const Color(0xFF42A5F5),
+              activeTrackColor: const Color(0xFF1565C0),
+              inactiveThumbColor: Colors.white38,
+              inactiveTrackColor: Colors.white12,
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14)),
+            ),
     );
   }
 }

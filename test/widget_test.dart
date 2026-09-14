@@ -28,6 +28,9 @@ class MockDragyProvider extends ChangeNotifier implements DragyProvider {
   List<String> enabledTests = [];
 
   @override
+  bool isTestEnabled(String testId) => true;
+
+  @override
   void addCustomTest(RaceTest Test) {}
 
   @override

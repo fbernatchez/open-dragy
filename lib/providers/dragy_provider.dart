@@ -106,6 +106,9 @@ class DragyProvider extends ChangeNotifier {
   double _customIntervalEndSpeed = 200.0;
   double get customIntervalEndSpeed => _customIntervalEndSpeed;
 
+  List<String> _enabledTests = officialTests.map((t) => t.id).toList();
+  List<String> get enabledTests => List.unmodifiable(_enabledTests);
+
   List<RaceTest> _customTests = [];
   List<RaceTest> get customTests => List.unmodifiable(_customTests);
 
@@ -359,6 +362,7 @@ class DragyProvider extends ChangeNotifier {
             activeTests: activeTestsList,
           );
           for (final test in newTests) {
+            if (!isTestEnabled(test.id)) continue;
             if (!oldTests.any((t) => t.id == test.id)) {
               if (!test.enableTts ||
                   test.ttsPhrase == null ||
@@ -829,6 +833,23 @@ class DragyProvider extends ChangeNotifier {
     return endA.compareTo(endB);
   }
 
+  bool isTestEnabled(String testId) {
+    if (_customTests.any((t) => t.id == testId)) return true;
+    return _enabledTests.contains(testId);
+  }
+
+  void toggleTestEnabled(String targetId, bool enabled) {
+    if (enabled) {
+      if (!_enabledTests.contains(targetId)) {
+        _enabledTests.add(targetId);
+      }
+    } else {
+      _enabledTests.remove(targetId);
+    }
+    _saveSettings();
+    notifyListeners();
+  }
+
   void removeCustomTest(String targetId) {
     _customTests.removeWhere((t) => t.id == targetId);
     _saveSettings();
@@ -864,6 +885,12 @@ class DragyProvider extends ChangeNotifier {
     _customIntervalEndSpeed =
         (data['customIntervalEndSpeed'] as num?)?.toDouble() ?? 200.0;
 
+    if (data['enabledTests'] != null) {
+      _enabledTests = List<String>.from(data['enabledTests']);
+    } else {
+      _enabledTests = officialTests.map((t) => t.id).toList();
+    }
+
     if (data['customTests'] != null) {
       _customTests = (data['customTests'] as List)
           .map((e) => RaceTest.fromJson(e as Map<String, dynamic>))
@@ -890,6 +917,7 @@ class DragyProvider extends ChangeNotifier {
       'activeIntervalTest': _activeIntervalTest.name,
       'customIntervalStartSpeed': _customIntervalStartSpeed.round(),
       'customIntervalEndSpeed': _customIntervalEndSpeed.round(),
+      'enabledTests': _enabledTests,
       'customTests': _customTests.map((t) => t.toJson()).toList(),
     });
   }

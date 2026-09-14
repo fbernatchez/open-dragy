@@ -68,6 +68,8 @@ class RunDetailScreen extends StatelessWidget {
       activeTests: activeTestsList,
     );
     for (final test in completedTests) {
+      if (!dragy.isTestEnabled(test.id)) continue;
+
       // Filter out speed tests of the opposite unit system to match user's preference
       if (test.speedUnit != null) {
         final isTestMetric = test.speedUnit == SpeedUnit.kmh;
