@@ -677,32 +677,61 @@ double? getTrapSpeedForCategory(
 
   final targetMeters = convertToMeters(target.distance!, target.distanceUnit!);
 
-  final shouldApply66ftRule =
-      useNhraRules &&
-      metrics.runMode == RunMode.drag &&
-      metrics.testDistance != null &&
-      (target.distance! - metrics.testDistance!).abs() < 0.001 &&
-      target.distanceUnit == metrics.testDistanceUnit;
+  if (useNhraRules && targetMeters > 0) {
+    final shouldApply66ftRule = metrics.runMode == RunMode.drag &&
+        metrics.testDistance != null &&
+        (targetMeters -
+                convertToMeters(
+                    metrics.testDistance!, metrics.testDistanceUnit!))
+            .abs() <
+            0.01;
 
-  if (shouldApply66ftRule && targetMeters > 0) {
-    // Offset finish line by 1ft if rollout is applied (track starts timer after rollout)
-    final finishLineMeters =
+    // If rollout is applied, all targets are shifted by 1ft on the track
+    final shiftedMeters =
         targetMeters + (metrics.rolloutTime1ft != null ? 0.3048 : 0.0);
-    final trapStartMeters = finishLineMeters - 20.1168; // 66 feet before finish
 
-    if (trapStartMeters > 0) {
-      final timeFinish = _findDistanceCrossingTime(
-        metrics.history,
-        finishLineMeters,
-      );
-      final timeStart = _findDistanceCrossingTime(
-        metrics.history,
-        trapStartMeters,
-      );
+    // 1. NHRA 66ft Trap Speed Rule (Final Target Only)
+    if (shouldApply66ftRule) {
+      final trapStartMeters = shiftedMeters - 20.1168; // 66 feet before finish
+      if (trapStartMeters > 0) {
+        final timeFinish = _findDistanceCrossingTime(
+          metrics.history,
+          shiftedMeters,
+        );
+        final timeStart = _findDistanceCrossingTime(
+          metrics.history,
+          trapStartMeters,
+        );
 
-      if (timeFinish != null && timeStart != null && timeFinish > timeStart) {
-        final elapsedSeconds = timeFinish - timeStart;
-        return (20.1168 / elapsedSeconds) * 3.6; // Speed in km/h
+        if (timeFinish != null && timeStart != null && timeFinish > timeStart) {
+          final elapsedSeconds = timeFinish - timeStart;
+          return (20.1168 / elapsedSeconds) * 3.6; // Average speed in km/h
+        }
+      }
+    }
+
+    // 2. NHRA 1ft Rollout Shift (Intermediate Targets)
+    // For intermediate targets, the physical distance is shifted by 1ft, 
+    // so we calculate the instantaneous speed at the shifted distance.
+    if (metrics.rolloutTime1ft != null) {
+      final timeAtShifted = _findDistanceCrossingTime(
+        metrics.history,
+        shiftedMeters,
+      );
+      if (timeAtShifted != null) {
+        for (int i = 1; i < metrics.history.length; i++) {
+          final prev = metrics.history[i - 1];
+          final curr = metrics.history[i];
+          if (curr.elapsedTime >= timeAtShifted &&
+              prev.elapsedTime <= timeAtShifted) {
+            final dt = curr.elapsedTime - prev.elapsedTime;
+            if (dt > 0) {
+              final fraction = (timeAtShifted - prev.elapsedTime) / dt;
+              return prev.speedKmh + (curr.speedKmh - prev.speedKmh) * fraction;
+            }
+            return curr.speedKmh;
+          }
+        }
       }
     }
   }
