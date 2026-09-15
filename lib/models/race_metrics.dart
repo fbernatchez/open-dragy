@@ -42,9 +42,8 @@ class RaceMetrics {
   final double gForce;
   final double elapsedTime;
 
-  // Timers and Speeds
+  // Timers
   final Map<String, double> testTimes;
-  final Map<String, double> testSpeeds;
 
   // Global rollout timer (needed for NHRA calculations)
   final double? rolloutTime1ft;
@@ -75,7 +74,6 @@ class RaceMetrics {
     this.gForce = 0.0,
     this.elapsedTime = 0.0,
     Map<String, double>? testTimes,
-    Map<String, double>? testSpeeds,
     this.rolloutTime1ft,
     this.startAltitude,
     this.runMode,
@@ -86,8 +84,7 @@ class RaceMetrics {
     this.testSpeedUnit,
     this.isRunning = false,
     this.history = const [],
-  }) : testTimes = testTimes ?? const {},
-       testSpeeds = testSpeeds ?? const {};
+  }) : testTimes = testTimes ?? const {};
 
   RaceMetrics copyWith({
     double? speedKmh,
@@ -95,7 +92,6 @@ class RaceMetrics {
     double? gForce,
     double? elapsedTime,
     Map<String, double>? testTimes,
-    Map<String, double>? testSpeeds,
     double? rolloutTime1ft,
     double? startAltitude,
     RunMode? runMode,
@@ -113,7 +109,6 @@ class RaceMetrics {
       gForce: gForce ?? this.gForce,
       elapsedTime: elapsedTime ?? this.elapsedTime,
       testTimes: testTimes ?? this.testTimes,
-      testSpeeds: testSpeeds ?? this.testSpeeds,
       rolloutTime1ft: rolloutTime1ft ?? this.rolloutTime1ft,
       startAltitude: startAltitude ?? this.startAltitude,
       runMode: runMode ?? this.runMode,
@@ -134,7 +129,6 @@ class RaceMetrics {
       'gForce': gForce,
       'elapsedTime': elapsedTime,
       'testTimes': testTimes,
-      'testSpeeds': testSpeeds,
       'rolloutTime1ft': rolloutTime1ft,
       'startAltitude': startAltitude,
       'runMode': runMode?.name,
@@ -154,10 +148,6 @@ class RaceMetrics {
       gForce: (json['gForce'] as num).toDouble(),
       elapsedTime: (json['elapsedTime'] as num).toDouble(),
       testTimes: (json['testTimes'] as Map?)?.map(
-            (k, v) => MapEntry(k.toString(), (v as num).toDouble()),
-          ) ??
-          {},
-      testSpeeds: (json['testSpeeds'] as Map?)?.map(
             (k, v) => MapEntry(k.toString(), (v as num).toDouble()),
           ) ??
           {},

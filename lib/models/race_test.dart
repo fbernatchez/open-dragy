@@ -703,6 +703,28 @@ double? getCompletedDistanceForCategory(
   return totalDistance;
 }
 
+// Search and interpolate distance crossing speed
+double? findSpeedAtDistance(
+  List<DataPoint> history,
+  double targetMeters,
+) {
+  final crossingTime = findDistanceCrossingTime(history, targetMeters);
+  if (crossingTime == null) return null;
+  for (int i = 1; i < history.length; i++) {
+    final prev = history[i - 1];
+    final curr = history[i];
+    if (curr.elapsedTime >= crossingTime && prev.elapsedTime <= crossingTime) {
+      final dt = curr.elapsedTime - prev.elapsedTime;
+      if (dt > 0) {
+        final fraction = (crossingTime - prev.elapsedTime) / dt;
+        return prev.speedKmh + (curr.speedKmh - prev.speedKmh) * fraction;
+      }
+      return curr.speedKmh;
+    }
+  }
+  return null;
+}
+
 double? getTrapSpeedForCategory(
   RaceMetrics metrics,
   String categoryId, {
@@ -752,30 +774,12 @@ double? getTrapSpeedForCategory(
     // For intermediate targets, the physical distance is shifted by 1ft, 
     // so we calculate the instantaneous speed at the shifted distance.
     if (metrics.rolloutTime1ft != null) {
-      final timeAtShifted = findDistanceCrossingTime(
-        metrics.history,
-        shiftedMeters,
-      );
-      if (timeAtShifted != null) {
-        for (int i = 1; i < metrics.history.length; i++) {
-          final prev = metrics.history[i - 1];
-          final curr = metrics.history[i];
-          if (curr.elapsedTime >= timeAtShifted &&
-              prev.elapsedTime <= timeAtShifted) {
-            final dt = curr.elapsedTime - prev.elapsedTime;
-            if (dt > 0) {
-              final fraction = (timeAtShifted - prev.elapsedTime) / dt;
-              return prev.speedKmh + (curr.speedKmh - prev.speedKmh) * fraction;
-            }
-            return curr.speedKmh;
-          }
-        }
-      }
+      return findSpeedAtDistance(metrics.history, shiftedMeters);
     }
   }
 
-  // Fallback to instantaneous trap speed
-  return metrics.testSpeeds[categoryId];
+  // Standard instantaneous crossing speed from history
+  return findSpeedAtDistance(metrics.history, targetMeters);
 }
 
 String getDisplayLabelForTest({

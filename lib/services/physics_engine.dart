@@ -382,7 +382,6 @@ class PhysicsEngine {
       );
 
     final Map<String, double> newtestTimes = Map.from(current.testTimes);
-    final Map<String, double> newtestSpeeds = Map.from(current.testSpeeds);
     double? rollout1ft = current.rolloutTime1ft;
 
     final double startAltitude = current.startAltitude ?? currentAltitude;
@@ -413,12 +412,8 @@ class PhysicsEngine {
                 (testDistanceMeters - current.distanceMeters) / distDiff;
             newtestTimes[test.id] =
                 current.elapsedTime + (currentDt * fraction);
-            newtestSpeeds[test.id] =
-                current.speedKmh +
-                ((newSpeedKmh - current.speedKmh) * fraction);
           } else {
             newtestTimes[test.id] = newElapsedTime;
-            newtestSpeeds[test.id] = newSpeedKmh;
           }
         }
 
@@ -518,7 +513,6 @@ class PhysicsEngine {
       elapsedTime: newElapsedTime,
       gForce: smoothedGForce,
       testTimes: newtestTimes,
-      testSpeeds: newtestSpeeds,
       rolloutTime1ft: rollout1ft,
       startAltitude: startAltitude,
       isRunning: !testAchieved,

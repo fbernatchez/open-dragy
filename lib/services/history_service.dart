@@ -97,15 +97,6 @@ class HistoryService {
       '0-200kmh': 'time0to200kmh',
       '60-130mph': 'time60to130mph',
       '100-200kmh': 'time100to200kmh',
-    };
-
-    for (final entry in legacyTimeKeys.entries) {
-      if (metricsMap[entry.value] != null && !testTimes.containsKey(entry.key)) {
-        testTimes[entry.key] = (metricsMap[entry.value] as num).toDouble();
-      }
-    }
-
-    final legacyRolloutKeys = {
       '60ft_rollout': 'time60ftRollout',
       '330ft_rollout': 'time330ftRollout',
       '0-60mph_rollout': 'time0to60mphRollout',
@@ -116,34 +107,13 @@ class HistoryService {
       '1/2mile_rollout': 'time12MileRollout',
     };
 
-    for (final entry in legacyRolloutKeys.entries) {
+    for (final entry in legacyTimeKeys.entries) {
       if (metricsMap[entry.value] != null && !testTimes.containsKey(entry.key)) {
         testTimes[entry.key] = (metricsMap[entry.value] as num).toDouble();
       }
     }
 
-    // 2. Build testSpeeds from v1.1.4 trap fields
-    final Map<String, double> testSpeeds = {};
-    if (metricsMap['testSpeeds'] is Map) {
-      (metricsMap['testSpeeds'] as Map).forEach((k, v) {
-        if (v != null) testSpeeds[k.toString()] = (v as num).toDouble();
-      });
-    }
-
-    final legacySpeedKeys = {
-      '1/8mile': 'trap18Mile',
-      '1000ft': 'trap1000ft',
-      '1/4mile': 'trap14Mile',
-      '1/2mile': 'trap12Mile',
-    };
-
-    for (final entry in legacySpeedKeys.entries) {
-      if (metricsMap[entry.value] != null && !testSpeeds.containsKey(entry.key)) {
-        testSpeeds[entry.key] = (metricsMap[entry.value] as num).toDouble();
-      }
-    }
-
-    // 3. Map target* -> test*
+    // 2. Map target* -> test*
     final testDistance =
         metricsMap['testDistance'] ?? metricsMap['targetDistance'];
     final testDistanceUnit =
@@ -155,7 +125,7 @@ class HistoryService {
     final testSpeedUnit =
         metricsMap['testSpeedUnit'] ?? metricsMap['targetSpeedUnit'];
 
-    // 4. Ensure interval runs have custom test key in testTimes
+    // 3. Ensure interval runs have custom test key in testTimes
     if (metricsMap['runMode'] == 'interval' &&
         testStartSpeed != null &&
         testEndSpeed != null) {
@@ -169,7 +139,7 @@ class HistoryService {
       }
     }
 
-    // 5. Data Repair / Backfill: For Drag runs with rollout and GPS history,
+    // 4. Data Repair / Backfill: For Drag runs with rollout and GPS history,
     // ensure distance rollout keys (shifted by 1ft) are populated.
     final rollout1ft = (metricsMap['rolloutTime1ft'] as num?)?.toDouble();
     final rawHistory = metricsMap['history'] as List?;
@@ -213,7 +183,7 @@ class HistoryService {
       return (json, false);
     }
 
-    // 6. Build clean canonical metrics map
+    // 5. Build clean canonical metrics map
     final cleanMetrics = <String, dynamic>{
       'speedKmh': (metricsMap['speedKmh'] as num?)?.toDouble() ?? 0.0,
       'distanceMeters':
@@ -221,7 +191,6 @@ class HistoryService {
       'gForce': (metricsMap['gForce'] as num?)?.toDouble() ?? 0.0,
       'elapsedTime': (metricsMap['elapsedTime'] as num?)?.toDouble() ?? 0.0,
       'testTimes': testTimes,
-      'testSpeeds': testSpeeds,
       'rolloutTime1ft': rollout1ft,
       'startAltitude': (metricsMap['startAltitude'] as num?)?.toDouble(),
       'runMode': metricsMap['runMode'],

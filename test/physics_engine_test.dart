@@ -360,7 +360,6 @@ void main() {
       expect(metrics.testTimes['1000ft'], isNotNull);
       expect(metrics.testTimes['1/4mile'], isNotNull);
       expect(metrics.testTimes['1/2mile'], isNotNull);
-      expect(metrics.testSpeeds['1/2mile'], isNotNull);
       expect(metrics.testTimes['60-130mph'], isNotNull);
       expect(metrics.testTimes['100-200kmh'], isNotNull);
       expect(metrics.testTimes['0-130mph'], isNotNull);

@@ -1057,7 +1057,6 @@ void main() {
       expect(wasMigrated, true);
       expect(migratedMap['metrics']['testTimes']['1/4mile'], 12.10);
       expect(migratedMap['metrics']['testTimes']['0-60mph'], 3.85);
-      expect(migratedMap['metrics']['testSpeeds']['1/4mile'], 192.4);
       expect(migratedMap['metrics']['testDistance'], 0.25);
       expect(migratedMap['metrics']['testDistanceUnit'], 'mile');
 
@@ -1065,7 +1064,6 @@ void main() {
       final savedRun = SavedRun.fromJson(migratedMap);
       expect(savedRun.id, 'run_v114');
       expect(savedRun.metrics.testTimes['1/4mile'], 12.10);
-      expect(savedRun.metrics.testSpeeds['1/4mile'], 192.4);
       expect(savedRun.metrics.testDistance, 0.25);
       expect(savedRun.metrics.testDistanceUnit, DistanceUnit.mile);
       expect(savedRun.metrics.history.length, 2);
