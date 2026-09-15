@@ -14,11 +14,26 @@ class HistoryService {
   Future<List<SavedRun>> loadRuns() async {
     try {
       final box = await _box;
-      final runs = box.values
-          .map(
-            (json) => SavedRun.fromJson(Map<String, dynamic>.from(json as Map)),
-          )
-          .toList();
+      final List<SavedRun> runs = [];
+      final Map<dynamic, dynamic> migratedEntries = {};
+
+      for (final key in box.keys) {
+        final raw = box.get(key);
+        if (raw is Map) {
+          final rawMap = Map<String, dynamic>.from(raw);
+          final (migratedMap, wasMigrated) = migrateRawRunJson(rawMap);
+          if (wasMigrated) {
+            migratedEntries[key] = migratedMap;
+          }
+          runs.add(SavedRun.fromJson(migratedMap));
+        }
+      }
+
+      // Persist any migrated records back to Hive in-place
+      if (migratedEntries.isNotEmpty) {
+        await box.putAll(migratedEntries);
+      }
+
       // Sort descending by date (newest first)
       runs.sort((a, b) => b.dateTime.compareTo(a.dateTime));
       return runs;
@@ -27,6 +42,158 @@ class HistoryService {
       print('[HistoryService] Error loading runs: $e');
       return [];
     }
+  }
+
+  /// Migrates a raw legacy run map (e.g. from v1.1.4) to the canonical schema.
+  static (Map<String, dynamic>, bool) migrateRawRunJson(
+    Map<String, dynamic> rawJson,
+  ) {
+    bool modified = false;
+    final Map<String, dynamic> json = Map<String, dynamic>.from(rawJson);
+
+    final rawMetrics = json['metrics'];
+    if (rawMetrics is! Map) {
+      return (json, false);
+    }
+
+    final Map<String, dynamic> metricsMap =
+        Map<String, dynamic>.from(rawMetrics);
+
+    // 1. Check if metrics already conform to the modern schema
+    final bool hasTestTimes = metricsMap.containsKey('testTimes');
+    final bool hasLegacyTargets =
+        metricsMap.containsKey('targetDistance') ||
+        metricsMap.containsKey('targetStartSpeed') ||
+        metricsMap.containsKey('targetEndSpeed');
+    final bool hasLegacyTimeKeys = metricsMap.keys.any(
+      (k) => k.startsWith('time') && k != 'time',
+    );
+    final bool hasLegacyTrapKeys = metricsMap.keys.any(
+      (k) => k.startsWith('trap'),
+    );
+
+    if (hasTestTimes &&
+        !hasLegacyTargets &&
+        !hasLegacyTimeKeys &&
+        !hasLegacyTrapKeys) {
+      // Check if it's an interval run missing its custom test ID in testTimes
+      if (metricsMap['runMode'] == 'interval' &&
+          metricsMap['testStartSpeed'] != null &&
+          metricsMap['testEndSpeed'] != null) {
+        final unit = metricsMap['testSpeedUnit'] ?? 'kmh';
+        final start = (metricsMap['testStartSpeed'] as num).round();
+        final end = (metricsMap['testEndSpeed'] as num).round();
+        final customId = 'custom_${start}_${end}_$unit';
+        final testTimes = Map<String, dynamic>.from(metricsMap['testTimes'] as Map);
+        if (!testTimes.containsKey(customId) && metricsMap['elapsedTime'] != null) {
+          testTimes[customId] = (metricsMap['elapsedTime'] as num).toDouble();
+          metricsMap['testTimes'] = testTimes;
+          json['metrics'] = metricsMap;
+          return (json, true);
+        }
+      }
+      return (json, false);
+    }
+
+    modified = true;
+
+    // 2. Build testTimes from v1.1.4 fields if not present
+    final Map<String, double> testTimes = {};
+    if (metricsMap['testTimes'] is Map) {
+      (metricsMap['testTimes'] as Map).forEach((k, v) {
+        if (v != null) testTimes[k.toString()] = (v as num).toDouble();
+      });
+    }
+
+    final legacyTimeKeys = {
+      '60ft': 'time60ft',
+      '330ft': 'time330ft',
+      '0-60mph': 'time0to60mph',
+      '0-100kmh': 'time0to100kmh',
+      '1/8mile': 'time18Mile',
+      '1000ft': 'time1000ft',
+      '1/4mile': 'time14Mile',
+      '1/2mile': 'time12Mile',
+      '0-130mph': 'time0to130mph',
+      '0-200kmh': 'time0to200kmh',
+      '60-130mph': 'time60to130mph',
+      '100-200kmh': 'time100to200kmh',
+    };
+
+    for (final entry in legacyTimeKeys.entries) {
+      if (metricsMap[entry.value] != null && !testTimes.containsKey(entry.key)) {
+        testTimes[entry.key] = (metricsMap[entry.value] as num).toDouble();
+      }
+    }
+
+    // 3. Build testSpeeds from v1.1.4 trap fields
+    final Map<String, double> testSpeeds = {};
+    if (metricsMap['testSpeeds'] is Map) {
+      (metricsMap['testSpeeds'] as Map).forEach((k, v) {
+        if (v != null) testSpeeds[k.toString()] = (v as num).toDouble();
+      });
+    }
+
+    final legacySpeedKeys = {
+      '1/8mile': 'trap18Mile',
+      '1000ft': 'trap1000ft',
+      '1/4mile': 'trap14Mile',
+      '1/2mile': 'trap12Mile',
+    };
+
+    for (final entry in legacySpeedKeys.entries) {
+      if (metricsMap[entry.value] != null && !testSpeeds.containsKey(entry.key)) {
+        testSpeeds[entry.key] = (metricsMap[entry.value] as num).toDouble();
+      }
+    }
+
+    // 4. Map target* -> test*
+    final testDistance =
+        metricsMap['testDistance'] ?? metricsMap['targetDistance'];
+    final testDistanceUnit =
+        metricsMap['testDistanceUnit'] ?? metricsMap['targetDistanceUnit'];
+    final testStartSpeed =
+        metricsMap['testStartSpeed'] ?? metricsMap['targetStartSpeed'];
+    final testEndSpeed =
+        metricsMap['testEndSpeed'] ?? metricsMap['targetEndSpeed'];
+    final testSpeedUnit =
+        metricsMap['testSpeedUnit'] ?? metricsMap['targetSpeedUnit'];
+
+    // 5. Ensure interval runs have custom test key in testTimes
+    if (metricsMap['runMode'] == 'interval' &&
+        testStartSpeed != null &&
+        testEndSpeed != null) {
+      final unit = testSpeedUnit ?? 'kmh';
+      final start = (testStartSpeed as num).round();
+      final end = (testEndSpeed as num).round();
+      final customId = 'custom_${start}_${end}_$unit';
+      if (!testTimes.containsKey(customId) && metricsMap['elapsedTime'] != null) {
+        testTimes[customId] = (metricsMap['elapsedTime'] as num).toDouble();
+      }
+    }
+
+    // 6. Build clean canonical metrics map
+    final cleanMetrics = <String, dynamic>{
+      'speedKmh': (metricsMap['speedKmh'] as num?)?.toDouble() ?? 0.0,
+      'distanceMeters':
+          (metricsMap['distanceMeters'] as num?)?.toDouble() ?? 0.0,
+      'gForce': (metricsMap['gForce'] as num?)?.toDouble() ?? 0.0,
+      'elapsedTime': (metricsMap['elapsedTime'] as num?)?.toDouble() ?? 0.0,
+      'testTimes': testTimes,
+      'testSpeeds': testSpeeds,
+      'rolloutTime1ft': (metricsMap['rolloutTime1ft'] as num?)?.toDouble(),
+      'startAltitude': (metricsMap['startAltitude'] as num?)?.toDouble(),
+      'runMode': metricsMap['runMode'],
+      'testDistance': (testDistance as num?)?.toDouble(),
+      'testDistanceUnit': testDistanceUnit,
+      'testStartSpeed': (testStartSpeed as num?)?.toDouble(),
+      'testEndSpeed': (testEndSpeed as num?)?.toDouble(),
+      'testSpeedUnit': testSpeedUnit,
+      'history': metricsMap['history'] ?? [],
+    };
+
+    json['metrics'] = cleanMetrics;
+    return (json, modified);
   }
 
   Future<void> saveRun(SavedRun run) async {

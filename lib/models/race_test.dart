@@ -374,30 +374,21 @@ double? _getPrecalculatedTime(
   String id, {
   bool useNhraRules = false,
 }) {
-  if (useNhraRules) {
-    // 1. Check if we have an explicit legacy rollout key (e.g. '0-60mph_rollout')
-    final legacyRolloutTime = m.testTimes['${id}_rollout'];
-    if (legacyRolloutTime != null) return legacyRolloutTime;
+  final baseTime = m.testTimes[id];
+  if (baseTime == null) return null;
 
-    // 2. Otherwise, check if we have the base time, and subtract rollout
-    final baseTime = m.testTimes[id];
-    if (baseTime != null) {
-      // Only apply rollout if it's a standing start target
-      final isStandingStart = officialTests.any(
-        (t) =>
-            t.id == id &&
-            (t.distance != null ||
-                (t.startSpeed != null && t.startSpeed == 0.0)),
-      );
-      if (isStandingStart && m.rolloutTime1ft != null) {
-        return baseTime - m.rolloutTime1ft!;
-      }
-      return baseTime; // Not a standing start, so no rollout
+  if (useNhraRules && m.rolloutTime1ft != null) {
+    // Only apply rollout if it's a standing start target
+    final isStandingStart = officialTests.any(
+      (t) =>
+          t.id == id &&
+          (t.distance != null || (t.startSpeed != null && t.startSpeed == 0.0)),
+    );
+    if (isStandingStart) {
+      return baseTime - m.rolloutTime1ft!;
     }
-    return null;
-  } else {
-    return m.testTimes[id];
   }
+  return baseTime;
 }
 
 // Convert distance units to meters

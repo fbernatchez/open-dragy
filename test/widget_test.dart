@@ -14,6 +14,7 @@ import 'package:open_dragy/screens/settings_screen.dart';
 import 'package:open_dragy/screens/garage_screen.dart';
 import 'package:open_dragy/services/ble_service.dart';
 import 'package:open_dragy/models/vehicle.dart';
+import 'package:open_dragy/services/history_service.dart';
 import 'dart:io';
 import 'package:hive/hive.dart';
 
@@ -1009,18 +1010,25 @@ void main() {
   });
 
   test(
-    'SavedRun and RaceMetrics JSON deserialization handles dynamic maps from Hive',
+    'v1.1.4 legacy run JSON is migrated seamlessly by HistoryService',
     () {
-      final Map<dynamic, dynamic> hiveRawData = {
-        'id': 'run_123',
+      final Map<dynamic, dynamic> v114LegacyData = {
+        'id': 'run_v114',
         'dateTime': '2026-06-04T18:00:00.000',
         'metrics': {
-          'speedKmh': 100.0,
-          'distanceMeters': 400.0,
-          'gForce': 0.5,
-          'elapsedTime': 10.0,
-          'time14Mile': 10.0,
+          'speedKmh': 192.4,
+          'distanceMeters': 402.34,
+          'gForce': 0.85,
+          'elapsedTime': 12.10,
+          'time60ft': 1.95,
+          'time330ft': 5.12,
+          'time0to60mph': 3.85,
+          'time14Mile': 12.10,
+          'trap14Mile': 192.4,
+          'rolloutTime1ft': 0.28,
           'runMode': 'drag',
+          'targetDistance': 0.25,
+          'targetDistanceUnit': 'mile',
           'history': [
             {
               'elapsedTime': 0.0,
@@ -1029,28 +1037,74 @@ void main() {
               'altitude': 100.0,
             },
             {
-              'elapsedTime': 5.0,
-              'speedKmh': 50.0,
-              'gForce': 0.5,
+              'elapsedTime': 12.10,
+              'speedKmh': 192.4,
+              'gForce': 0.35,
               'altitude': 101.0,
             },
           ],
         },
-        'notes': 'Test run',
-        'temperature': 20.0,
-        'humidity': 50.0,
+        'notes': 'Legacy v1.1.4 test run',
         'vehicleId': 'v1',
         'vehicleName': 'My Car',
       };
 
-      final savedRunMap = Map<String, dynamic>.from(hiveRawData);
-      final savedRun = SavedRun.fromJson(savedRunMap);
+      // 1. Migrate raw map
+      final rawMap = Map<String, dynamic>.from(v114LegacyData);
+      final (migratedMap, wasMigrated) =
+          HistoryService.migrateRawRunJson(rawMap);
 
-      expect(savedRun.id, 'run_123');
-      expect(savedRun.metrics.speedKmh, 100.0);
-      expect(savedRun.metrics.runMode, RunMode.drag);
+      expect(wasMigrated, true);
+      expect(migratedMap['metrics']['testTimes']['1/4mile'], 12.10);
+      expect(migratedMap['metrics']['testTimes']['0-60mph'], 3.85);
+      expect(migratedMap['metrics']['testSpeeds']['1/4mile'], 192.4);
+      expect(migratedMap['metrics']['testDistance'], 0.25);
+      expect(migratedMap['metrics']['testDistanceUnit'], 'mile');
+
+      // 2. Parse into SavedRun
+      final savedRun = SavedRun.fromJson(migratedMap);
+      expect(savedRun.id, 'run_v114');
+      expect(savedRun.metrics.testTimes['1/4mile'], 12.10);
+      expect(savedRun.metrics.testSpeeds['1/4mile'], 192.4);
+      expect(savedRun.metrics.testDistance, 0.25);
+      expect(savedRun.metrics.testDistanceUnit, DistanceUnit.mile);
       expect(savedRun.metrics.history.length, 2);
-      expect(savedRun.metrics.history[1].speedKmh, 50.0);
+    },
+  );
+
+  test(
+    'v1.1.4 legacy interval run is migrated and assigned custom interval test ID',
+    () {
+      final Map<dynamic, dynamic> v114IntervalData = {
+        'id': 'run_interval_v114',
+        'dateTime': '2026-06-04T18:00:00.000',
+        'metrics': {
+          'speedKmh': 96.56,
+          'distanceMeters': 68.7,
+          'gForce': 0.45,
+          'elapsedTime': 3.42,
+          'runMode': 'interval',
+          'targetStartSpeed': 30.0,
+          'targetEndSpeed': 60.0,
+          'targetSpeedUnit': 'mph',
+          'history': [],
+        },
+      };
+
+      final (migratedMap, wasMigrated) =
+          HistoryService.migrateRawRunJson(Map<String, dynamic>.from(v114IntervalData));
+
+      expect(wasMigrated, true);
+      expect(migratedMap['metrics']['testTimes']['custom_30_60_mph'], 3.42);
+      expect(migratedMap['metrics']['testStartSpeed'], 30.0);
+      expect(migratedMap['metrics']['testEndSpeed'], 60.0);
+      expect(migratedMap['metrics']['testSpeedUnit'], 'mph');
+
+      final savedRun = SavedRun.fromJson(migratedMap);
+      expect(savedRun.metrics.testTimes['custom_30_60_mph'], 3.42);
+      expect(savedRun.metrics.testStartSpeed, 30.0);
+      expect(savedRun.metrics.testEndSpeed, 60.0);
+      expect(savedRun.metrics.testSpeedUnit, SpeedUnit.mph);
     },
   );
 
