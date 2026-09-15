@@ -1,5 +1,7 @@
 import 'package:hive/hive.dart';
 import '../models/saved_run.dart';
+import '../models/race_metrics.dart';
+import '../models/race_test.dart';
 
 class HistoryService {
   static const String _boxName = 'runs_box';
@@ -29,7 +31,7 @@ class HistoryService {
         }
       }
 
-      // Persist any migrated records back to Hive in-place
+      // Persist any migrated or repaired records back to Hive in-place
       if (migratedEntries.isNotEmpty) {
         await box.putAll(migratedEntries);
       }
@@ -44,7 +46,7 @@ class HistoryService {
     }
   }
 
-  /// Migrates a raw legacy run map (e.g. from v1.1.4) to the canonical schema.
+  /// Migrates a raw legacy run map (e.g. from v1.1.4) and repairs missing rollout keys.
   static (Map<String, dynamic>, bool) migrateRawRunJson(
     Map<String, dynamic> rawJson,
   ) {
@@ -59,8 +61,6 @@ class HistoryService {
     final Map<String, dynamic> metricsMap =
         Map<String, dynamic>.from(rawMetrics);
 
-    // 1. Check if metrics already conform to the modern schema
-    final bool hasTestTimes = metricsMap.containsKey('testTimes');
     final bool hasLegacyTargets =
         metricsMap.containsKey('targetDistance') ||
         metricsMap.containsKey('targetStartSpeed') ||
@@ -72,32 +72,11 @@ class HistoryService {
       (k) => k.startsWith('trap'),
     );
 
-    if (hasTestTimes &&
-        !hasLegacyTargets &&
-        !hasLegacyTimeKeys &&
-        !hasLegacyTrapKeys) {
-      // Check if it's an interval run missing its custom test ID in testTimes
-      if (metricsMap['runMode'] == 'interval' &&
-          metricsMap['testStartSpeed'] != null &&
-          metricsMap['testEndSpeed'] != null) {
-        final unit = metricsMap['testSpeedUnit'] ?? 'kmh';
-        final start = (metricsMap['testStartSpeed'] as num).round();
-        final end = (metricsMap['testEndSpeed'] as num).round();
-        final customId = 'custom_${start}_${end}_$unit';
-        final testTimes = Map<String, dynamic>.from(metricsMap['testTimes'] as Map);
-        if (!testTimes.containsKey(customId) && metricsMap['elapsedTime'] != null) {
-          testTimes[customId] = (metricsMap['elapsedTime'] as num).toDouble();
-          metricsMap['testTimes'] = testTimes;
-          json['metrics'] = metricsMap;
-          return (json, true);
-        }
-      }
-      return (json, false);
+    if (hasLegacyTargets || hasLegacyTimeKeys || hasLegacyTrapKeys) {
+      modified = true;
     }
 
-    modified = true;
-
-    // 2. Build testTimes from v1.1.4 fields if not present
+    // 1. Build testTimes
     final Map<String, double> testTimes = {};
     if (metricsMap['testTimes'] is Map) {
       (metricsMap['testTimes'] as Map).forEach((k, v) {
@@ -126,7 +105,24 @@ class HistoryService {
       }
     }
 
-    // 3. Build testSpeeds from v1.1.4 trap fields
+    final legacyRolloutKeys = {
+      '60ft_rollout': 'time60ftRollout',
+      '330ft_rollout': 'time330ftRollout',
+      '0-60mph_rollout': 'time0to60mphRollout',
+      '0-100kmh_rollout': 'time0to100kmhRollout',
+      '1/8mile_rollout': 'time18MileRollout',
+      '1000ft_rollout': 'time1000ftRollout',
+      '1/4mile_rollout': 'time14MileRollout',
+      '1/2mile_rollout': 'time12MileRollout',
+    };
+
+    for (final entry in legacyRolloutKeys.entries) {
+      if (metricsMap[entry.value] != null && !testTimes.containsKey(entry.key)) {
+        testTimes[entry.key] = (metricsMap[entry.value] as num).toDouble();
+      }
+    }
+
+    // 2. Build testSpeeds from v1.1.4 trap fields
     final Map<String, double> testSpeeds = {};
     if (metricsMap['testSpeeds'] is Map) {
       (metricsMap['testSpeeds'] as Map).forEach((k, v) {
@@ -147,7 +143,7 @@ class HistoryService {
       }
     }
 
-    // 4. Map target* -> test*
+    // 3. Map target* -> test*
     final testDistance =
         metricsMap['testDistance'] ?? metricsMap['targetDistance'];
     final testDistanceUnit =
@@ -159,7 +155,7 @@ class HistoryService {
     final testSpeedUnit =
         metricsMap['testSpeedUnit'] ?? metricsMap['targetSpeedUnit'];
 
-    // 5. Ensure interval runs have custom test key in testTimes
+    // 4. Ensure interval runs have custom test key in testTimes
     if (metricsMap['runMode'] == 'interval' &&
         testStartSpeed != null &&
         testEndSpeed != null) {
@@ -169,7 +165,52 @@ class HistoryService {
       final customId = 'custom_${start}_${end}_$unit';
       if (!testTimes.containsKey(customId) && metricsMap['elapsedTime'] != null) {
         testTimes[customId] = (metricsMap['elapsedTime'] as num).toDouble();
+        modified = true;
       }
+    }
+
+    // 5. Data Repair / Backfill: For Drag runs with rollout and GPS history,
+    // ensure distance rollout keys (shifted by 1ft) are populated.
+    final rollout1ft = (metricsMap['rolloutTime1ft'] as num?)?.toDouble();
+    final rawHistory = metricsMap['history'] as List?;
+    if (metricsMap['runMode'] == 'drag' &&
+        rollout1ft != null &&
+        rawHistory != null &&
+        rawHistory.isNotEmpty) {
+      final historyPoints = rawHistory
+          .map((e) => DataPoint.fromJson(Map<String, dynamic>.from(e as Map)))
+          .toList();
+
+      for (final test in officialTests) {
+        if (test.distance != null && test.distanceUnit != null) {
+          final rolloutKey = '${test.id}_rollout';
+          if (!testTimes.containsKey(rolloutKey) &&
+              testTimes.containsKey(test.id)) {
+            final targetMeters =
+                convertToMeters(test.distance!, test.distanceUnit!);
+            final crossingTime = findDistanceCrossingTime(
+              historyPoints,
+              targetMeters + 0.3048,
+            );
+            if (crossingTime != null) {
+              testTimes[rolloutKey] = crossingTime - rollout1ft;
+              modified = true;
+            }
+          }
+        } else if (test.endSpeed != null &&
+            (test.startSpeed == null || test.startSpeed == 0.0)) {
+          final rolloutKey = '${test.id}_rollout';
+          if (!testTimes.containsKey(rolloutKey) &&
+              testTimes.containsKey(test.id)) {
+            testTimes[rolloutKey] = testTimes[test.id]! - rollout1ft;
+            modified = true;
+          }
+        }
+      }
+    }
+
+    if (!modified) {
+      return (json, false);
     }
 
     // 6. Build clean canonical metrics map
@@ -181,7 +222,7 @@ class HistoryService {
       'elapsedTime': (metricsMap['elapsedTime'] as num?)?.toDouble() ?? 0.0,
       'testTimes': testTimes,
       'testSpeeds': testSpeeds,
-      'rolloutTime1ft': (metricsMap['rolloutTime1ft'] as num?)?.toDouble(),
+      'rolloutTime1ft': rollout1ft,
       'startAltitude': (metricsMap['startAltitude'] as num?)?.toDouble(),
       'runMode': metricsMap['runMode'],
       'testDistance': (testDistance as num?)?.toDouble(),
@@ -193,7 +234,7 @@ class HistoryService {
     };
 
     json['metrics'] = cleanMetrics;
-    return (json, modified);
+    return (json, true);
   }
 
   Future<void> saveRun(SavedRun run) async {

@@ -399,15 +399,14 @@ class PhysicsEngine {
     }
 
     for (final test in activeTests) {
-      if (newtestTimes.containsKey(test.id)) continue;
-
       if (test.distance != null && test.distanceUnit != null) {
         double testDistanceMeters = convertToMeters(
           test.distance!,
           test.distanceUnit!,
         );
 
-        if (newDistance >= testDistanceMeters) {
+        if (!newtestTimes.containsKey(test.id) &&
+            newDistance >= testDistanceMeters) {
           double distDiff = newDistance - current.distanceMeters;
           if (distDiff > 0) {
             double fraction =
@@ -422,17 +421,41 @@ class PhysicsEngine {
             newtestSpeeds[test.id] = newSpeedKmh;
           }
         }
+
+        // Distance Rollout (+1ft / 0.3048m track shift)
+        final rolloutKey = '${test.id}_rollout';
+        if (rollout1ft != null &&
+            !newtestTimes.containsKey(rolloutKey) &&
+            newDistance >= (testDistanceMeters + 0.3048)) {
+          double distDiff = newDistance - current.distanceMeters;
+          double absTime;
+          if (distDiff > 0) {
+            double fraction =
+                ((testDistanceMeters + 0.3048) - current.distanceMeters) /
+                distDiff;
+            absTime = current.elapsedTime + (currentDt * fraction);
+          } else {
+            absTime = newElapsedTime;
+          }
+          newtestTimes[rolloutKey] = absTime - rollout1ft;
+        }
       } else if (test.endSpeed != null &&
           (test.startSpeed == null || test.startSpeed == 0.0)) {
         double testEndSpeedKmh = test.endSpeed!;
-        if (newSpeedKmh >= testEndSpeedKmh) {
+        if (!newtestTimes.containsKey(test.id) &&
+            newSpeedKmh >= testEndSpeedKmh) {
           double speedDiff = newSpeedKmh - current.speedKmh;
+          double crossingTime;
           if (speedDiff > 0) {
             double fraction = (testEndSpeedKmh - current.speedKmh) / speedDiff;
-            newtestTimes[test.id] =
+            crossingTime =
                 current.elapsedTime + (currentDt * fraction);
           } else {
-            newtestTimes[test.id] = newElapsedTime;
+            crossingTime = newElapsedTime;
+          }
+          newtestTimes[test.id] = crossingTime;
+          if (rollout1ft != null) {
+            newtestTimes['${test.id}_rollout'] = crossingTime - rollout1ft;
           }
         }
       } else if (test.endSpeed != null &&

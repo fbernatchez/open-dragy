@@ -374,21 +374,28 @@ double? _getPrecalculatedTime(
   String id, {
   bool useNhraRules = false,
 }) {
-  final baseTime = m.testTimes[id];
-  if (baseTime == null) return null;
+  if (useNhraRules) {
+    // 1. Direct precalculated rollout key
+    final rolloutTime = m.testTimes['${id}_rollout'];
+    if (rolloutTime != null) return rolloutTime;
 
-  if (useNhraRules && m.rolloutTime1ft != null) {
-    // Only apply rollout if it's a standing start target
-    final isStandingStart = officialTests.any(
-      (t) =>
-          t.id == id &&
-          (t.distance != null || (t.startSpeed != null && t.startSpeed == 0.0)),
-    );
-    if (isStandingStart) {
-      return baseTime - m.rolloutTime1ft!;
+    // 2. Standing start speed test fallback (pure time subtraction)
+    final baseTime = m.testTimes[id];
+    if (baseTime != null) {
+      final isStandingSpeed = officialTests.any(
+        (t) =>
+            t.id == id &&
+            t.distance == null &&
+            (t.startSpeed == null || t.startSpeed == 0.0),
+      );
+      if (isStandingSpeed && m.rolloutTime1ft != null) {
+        return baseTime - m.rolloutTime1ft!;
+      }
+      return null;
     }
+    return null;
   }
-  return baseTime;
+  return m.testTimes[id];
 }
 
 // Convert distance units to meters
@@ -406,7 +413,7 @@ double convertToMeters(double distance, DistanceUnit unit) {
 }
 
 // Search and interpolate distance crossing time
-double? _findDistanceCrossingTime(
+double? findDistanceCrossingTime(
   List<DataPoint> history,
   double targetMeters,
 ) {
@@ -473,7 +480,17 @@ double? _calculateTimeFromHistory(
 
   if (test.distance != null && test.distanceUnit != null) {
     final targetMeters = convertToMeters(test.distance!, test.distanceUnit!);
-    return _findDistanceCrossingTime(metrics.history, targetMeters);
+    if (useNhraRules && metrics.rolloutTime1ft != null) {
+      final time = findDistanceCrossingTime(
+        metrics.history,
+        targetMeters + 0.3048,
+      );
+      if (time != null) {
+        return time - metrics.rolloutTime1ft!;
+      }
+      return null;
+    }
+    return findDistanceCrossingTime(metrics.history, targetMeters);
   } else if (test.endSpeed != null) {
     final start = test.startSpeed ?? 0.0;
     if (start == 0.0) {
@@ -715,11 +732,11 @@ double? getTrapSpeedForCategory(
     if (shouldApply66ftRule) {
       final trapStartMeters = shiftedMeters - 20.1168; // 66 feet before finish
       if (trapStartMeters > 0) {
-        final timeFinish = _findDistanceCrossingTime(
+        final timeFinish = findDistanceCrossingTime(
           metrics.history,
           shiftedMeters,
         );
-        final timeStart = _findDistanceCrossingTime(
+        final timeStart = findDistanceCrossingTime(
           metrics.history,
           trapStartMeters,
         );
@@ -735,7 +752,7 @@ double? getTrapSpeedForCategory(
     // For intermediate targets, the physical distance is shifted by 1ft, 
     // so we calculate the instantaneous speed at the shifted distance.
     if (metrics.rolloutTime1ft != null) {
-      final timeAtShifted = _findDistanceCrossingTime(
+      final timeAtShifted = findDistanceCrossingTime(
         metrics.history,
         shiftedMeters,
       );
