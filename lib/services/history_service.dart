@@ -139,51 +139,13 @@ class HistoryService {
       }
     }
 
-    // 4. Data Repair / Backfill: For Drag runs with rollout and GPS history,
-    // ensure distance rollout keys (shifted by 1ft) are populated.
     final rollout1ft = (metricsMap['rolloutTime1ft'] as num?)?.toDouble();
-    final rawHistory = metricsMap['history'] as List?;
-    if (metricsMap['runMode'] == 'drag' &&
-        rollout1ft != null &&
-        rawHistory != null &&
-        rawHistory.isNotEmpty) {
-      final historyPoints = rawHistory
-          .map((e) => DataPoint.fromJson(Map<String, dynamic>.from(e as Map)))
-          .toList();
-
-      for (final test in officialTests) {
-        if (test.distance != null && test.distanceUnit != null) {
-          final rolloutKey = '${test.id}_rollout';
-          if (!testTimes.containsKey(rolloutKey) &&
-              testTimes.containsKey(test.id)) {
-            final targetMeters =
-                convertToMeters(test.distance!, test.distanceUnit!);
-            final crossingTime = findDistanceCrossingTime(
-              historyPoints,
-              targetMeters + 0.3048,
-            );
-            if (crossingTime != null) {
-              testTimes[rolloutKey] = crossingTime - rollout1ft;
-              modified = true;
-            }
-          }
-        } else if (test.endSpeed != null &&
-            (test.startSpeed == null || test.startSpeed == 0.0)) {
-          final rolloutKey = '${test.id}_rollout';
-          if (!testTimes.containsKey(rolloutKey) &&
-              testTimes.containsKey(test.id)) {
-            testTimes[rolloutKey] = testTimes[test.id]! - rollout1ft;
-            modified = true;
-          }
-        }
-      }
-    }
 
     if (!modified) {
       return (json, false);
     }
 
-    // 5. Build clean canonical metrics map
+    // 4. Build clean canonical metrics map
     final cleanMetrics = <String, dynamic>{
       'speedKmh': (metricsMap['speedKmh'] as num?)?.toDouble() ?? 0.0,
       'distanceMeters':

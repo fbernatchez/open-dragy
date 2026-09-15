@@ -1106,67 +1106,6 @@ void main() {
     },
   );
 
-  test(
-    'Existing runs missing distance _rollout keys are repaired automatically from GPS history',
-    () {
-      // Represents a run that was already migrated to modern schema but lacks 1/4mile_rollout
-      final Map<dynamic, dynamic> runNeedingRepair = {
-        'id': 'run_repair_test',
-        'dateTime': '2026-06-04T18:00:00.000',
-        'metrics': {
-          'speedKmh': 150.0,
-          'distanceMeters': 405.0,
-          'gForce': 0.85,
-          'elapsedTime': 16.46,
-          'runMode': 'drag',
-          'testDistance': 0.25,
-          'testDistanceUnit': 'mile',
-          'rolloutTime1ft': 0.28,
-          'testTimes': {
-            '1/4mile': 16.46,
-            '0-60mph': 3.85,
-          },
-          'history': [
-            {
-              'elapsedTime': 0.0,
-              'speedKmh': 0.0,
-              'gForce': 0.0,
-              'altitude': 100.0,
-            },
-            {
-              'elapsedTime': 0.28,
-              'speedKmh': 8.0,
-              'gForce': 0.5,
-              'altitude': 100.0,
-            },
-            {
-              'elapsedTime': 16.46,
-              'speedKmh': 180.0,
-              'gForce': 0.4,
-              'altitude': 100.0,
-            },
-          ],
-        },
-      };
-
-      final (repairedMap, wasRepaired) =
-          HistoryService.migrateRawRunJson(Map<String, dynamic>.from(runNeedingRepair));
-
-      expect(wasRepaired, true);
-      // 1/4 mile rollout key is backfilled
-      expect(repairedMap['metrics']['testTimes']['1/4mile_rollout'], isNotNull);
-      expect(repairedMap['metrics']['testTimes']['0-60mph_rollout'], (3.85 - 0.28));
-
-      final savedRun = SavedRun.fromJson(repairedMap);
-      final nhraQuarterMile = getCompletedTimeForCategory(
-        savedRun.metrics,
-        '1/4mile',
-        useNhraRules: true,
-      );
-      expect(nhraQuarterMile, isNotNull);
-    },
-  );
-
   test('DragyProvider settings serialization test', () {
     double customIntervalStartSpeed = 100.0;
     double customIntervalEndSpeed = 200.0;
