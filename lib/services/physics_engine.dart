@@ -459,32 +459,75 @@ class PhysicsEngine {
         double testStartSpeedKmh = test.startSpeed!;
         double testEndSpeedKmh = test.endSpeed!;
         String startKey = '${test.id}_start';
+        bool isBraking = testStartSpeedKmh > testEndSpeedKmh;
+
+        double effectiveEndSpeed = testEndSpeedKmh;
+        if (isBraking && testEndSpeedKmh == 0.0) {
+          effectiveEndSpeed = PhysicsEngine.zeroCrossingThreshold;
+        }
 
         // Track start crossing
-        if (!newtestTimes.containsKey(startKey) &&
-            newSpeedKmh >= testStartSpeedKmh) {
-          double speedDiff = newSpeedKmh - current.speedKmh;
-          if (speedDiff > 0) {
-            double fraction =
-                (testStartSpeedKmh - current.speedKmh) / speedDiff;
-            newtestTimes[startKey] =
-                current.elapsedTime + (currentDt * fraction);
-          } else {
-            newtestTimes[startKey] = newElapsedTime;
+        if (!newtestTimes.containsKey(startKey)) {
+          if (!isBraking &&
+              current.speedKmh <= testStartSpeedKmh &&
+              newSpeedKmh >= testStartSpeedKmh) {
+            double speedDiff = newSpeedKmh - current.speedKmh;
+            if (speedDiff > 0) {
+              double fraction =
+                  (testStartSpeedKmh - current.speedKmh) / speedDiff;
+              newtestTimes[startKey] =
+                  current.elapsedTime + (currentDt * fraction);
+            } else {
+              newtestTimes[startKey] = newElapsedTime;
+            }
+          } else if (isBraking &&
+              current.speedKmh >= testStartSpeedKmh &&
+              newSpeedKmh <= testStartSpeedKmh) {
+            double speedDiff = current.speedKmh - newSpeedKmh;
+            if (speedDiff > 0) {
+              double fraction =
+                  (current.speedKmh - testStartSpeedKmh) / speedDiff;
+              newtestTimes[startKey] =
+                  current.elapsedTime + (currentDt * fraction);
+            } else {
+              newtestTimes[startKey] = newElapsedTime;
+            }
           }
         }
 
         // Check if we crossed the end speed (and already have the start time)
         if (newtestTimes.containsKey(startKey) &&
-            !newtestTimes.containsKey(test.id) &&
-            newSpeedKmh >= testEndSpeedKmh) {
-          double speedDiff = newSpeedKmh - current.speedKmh;
-          if (speedDiff > 0) {
-            double fraction = (testEndSpeedKmh - current.speedKmh) / speedDiff;
-            double tEnd = current.elapsedTime + (currentDt * fraction);
-            newtestTimes[test.id] = tEnd - newtestTimes[startKey]!;
+            !newtestTimes.containsKey(test.id)) {
+          if (!isBraking) {
+            if (newSpeedKmh < testStartSpeedKmh) {
+              newtestTimes.remove(startKey);
+            } else if (newSpeedKmh >= testEndSpeedKmh) {
+              double speedDiff = newSpeedKmh - current.speedKmh;
+              if (speedDiff > 0) {
+                double fraction =
+                    (testEndSpeedKmh - current.speedKmh) / speedDiff;
+                double tEnd = current.elapsedTime + (currentDt * fraction);
+                newtestTimes[test.id] = tEnd - newtestTimes[startKey]!;
+              } else {
+                newtestTimes[test.id] =
+                    newElapsedTime - newtestTimes[startKey]!;
+              }
+            }
           } else {
-            newtestTimes[test.id] = newElapsedTime - newtestTimes[startKey]!;
+            if (newSpeedKmh > testStartSpeedKmh) {
+              newtestTimes.remove(startKey);
+            } else if (newSpeedKmh <= effectiveEndSpeed) {
+              double speedDiff = current.speedKmh - newSpeedKmh;
+              if (speedDiff > 0) {
+                double fraction =
+                    (current.speedKmh - testEndSpeedKmh) / speedDiff;
+                double tEnd = current.elapsedTime + (currentDt * fraction);
+                newtestTimes[test.id] = tEnd - newtestTimes[startKey]!;
+              } else {
+                newtestTimes[test.id] =
+                    newElapsedTime - newtestTimes[startKey]!;
+              }
+            }
           }
         }
       }

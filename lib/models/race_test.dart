@@ -377,11 +377,11 @@ double? _getPrecalculatedTime(
   if (useNhraRules) {
     // 1. Direct precalculated rollout key
     final rolloutTime = m.testTimes['${id}_rollout'];
-    if (rolloutTime != null) return rolloutTime;
+    if (rolloutTime != null && rolloutTime > 0) return rolloutTime;
 
     // 2. Standing start speed test fallback (pure time subtraction)
     final baseTime = m.testTimes[id];
-    if (baseTime != null) {
+    if (baseTime != null && baseTime > 0) {
       final isStandingSpeed = officialTests.any(
         (t) =>
             t.id == id &&
@@ -389,13 +389,15 @@ double? _getPrecalculatedTime(
             (t.startSpeed == null || t.startSpeed == 0.0),
       );
       if (isStandingSpeed && m.rolloutTime1ft != null) {
-        return baseTime - m.rolloutTime1ft!;
+        final res = baseTime - m.rolloutTime1ft!;
+        return res > 0 ? res : null;
       }
       return null;
     }
     return null;
   }
-  return m.testTimes[id];
+  final baseTime = m.testTimes[id];
+  return (baseTime != null && baseTime > 0) ? baseTime : null;
 }
 
 // Convert distance units to meters
@@ -442,8 +444,9 @@ double? findDistanceCrossingTime(
 double? _findSpeedCrossingTime(
   List<DataPoint> history,
   double targetSpeedKmh,
-  double startTimeOffset,
-) {
+  double startTimeOffset, {
+  bool? isDecelerating,
+}) {
   for (int i = 1; i < history.length; i++) {
     final prev = history[i - 1];
     final curr = history[i];
@@ -454,7 +457,11 @@ double? _findSpeedCrossingTime(
     bool crossedDown =
         prev.speedKmh >= targetSpeedKmh && curr.speedKmh <= targetSpeedKmh;
 
-    if (crossedUp || crossedDown) {
+    bool matches = isDecelerating == null
+        ? (crossedUp || crossedDown)
+        : (isDecelerating ? crossedDown : crossedUp);
+
+    if (matches) {
       if (prev.speedKmh == targetSpeedKmh) {
         return prev.elapsedTime;
       }
@@ -486,29 +493,44 @@ double? _calculateTimeFromHistory(
         targetMeters + 0.3048,
       );
       if (time != null) {
-        return time - metrics.rolloutTime1ft!;
+        final adjusted = time - metrics.rolloutTime1ft!;
+        return adjusted > 0 ? adjusted : null;
       }
       return null;
     }
     return findDistanceCrossingTime(metrics.history, targetMeters);
   } else if (test.endSpeed != null) {
     final start = test.startSpeed ?? 0.0;
+    final isBraking = start > test.endSpeed!;
     if (start == 0.0) {
-      final time = _findSpeedCrossingTime(metrics.history, test.endSpeed!, 0.0);
+      final time = _findSpeedCrossingTime(
+        metrics.history,
+        test.endSpeed!,
+        0.0,
+        isDecelerating: false,
+      );
       if (time != null && useNhraRules && metrics.rolloutTime1ft != null) {
-        return time - metrics.rolloutTime1ft!;
+        final adjusted = time - metrics.rolloutTime1ft!;
+        return adjusted > 0 ? adjusted : null;
       }
       return time;
     } else {
-      final startTime = _findSpeedCrossingTime(metrics.history, start, 0.0);
+      final startTime = _findSpeedCrossingTime(
+        metrics.history,
+        start,
+        0.0,
+        isDecelerating: isBraking,
+      );
       if (startTime == null) return null;
       final endTime = _findSpeedCrossingTime(
         metrics.history,
         test.endSpeed!,
         startTime,
+        isDecelerating: isBraking,
       );
       if (endTime == null) return null;
-      return endTime - startTime;
+      final result = endTime - startTime;
+      return result > 0 ? result : null;
     }
   }
   return null;

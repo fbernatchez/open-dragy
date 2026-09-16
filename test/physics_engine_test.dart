@@ -1288,6 +1288,97 @@ void main() {
       }
       expect(metricsCancel.isRunning, false); // Cancelled
     });
+
+    test('drag run does not falsely trigger braking test during acceleration', () {
+      RaceMetrics metrics = RaceMetrics();
+      // Arm 1/4 mile drag run
+      metrics = engine.updateMetrics(
+        metrics,
+        0.0,
+        100.0,
+        isArmed: true,
+        runMode: RunMode.drag,
+        testDistance: 0.25,
+        testDistanceUnit: DistanceUnit.mile,
+        testStartSpeed: null,
+        testEndSpeed: null,
+        testSpeedUnit: null,
+        intervalStartSpeed: 0.0,
+        intervalEndSpeed: 0.0,
+      );
+
+      // Accelerate from 0 to 120 km/h (crossing 100 km/h upwards)
+      for (double speed = 1.0; speed <= 120.0; speed += 5.0) {
+        metrics = engine.updateMetrics(
+          metrics,
+          speed,
+          100.0,
+          isArmed: true,
+          runMode: RunMode.drag,
+          testDistance: 0.25,
+          testDistanceUnit: DistanceUnit.mile,
+          testStartSpeed: null,
+          testEndSpeed: null,
+          testSpeedUnit: null,
+          intervalStartSpeed: 0.0,
+          intervalEndSpeed: 0.0,
+        );
+      }
+
+      // During acceleration, 100-0kmh and 60-0mph must NOT be completed or negative
+      expect(metrics.testTimes.containsKey('100-0kmh'), false);
+      expect(metrics.testTimes.containsKey('60-0mph'), false);
+
+      final timeNonNhra = getCompletedTimeForCategory(metrics, '100-0kmh', useNhraRules: false);
+      final timeNhra = getCompletedTimeForCategory(metrics, '100-0kmh', useNhraRules: true);
+      expect(timeNonNhra, null);
+      expect(timeNhra, null);
+
+      // Now simulate vehicle braking from 120 km/h down to 0 km/h
+      for (double speed = 110.0; speed >= 0.0; speed -= 10.0) {
+        metrics = engine.updateMetrics(
+          metrics,
+          speed,
+          100.0,
+          isArmed: true,
+          runMode: RunMode.drag,
+          testDistance: 0.25,
+          testDistanceUnit: DistanceUnit.mile,
+          testStartSpeed: null,
+          testEndSpeed: null,
+          testSpeedUnit: null,
+          intervalStartSpeed: 0.0,
+          intervalEndSpeed: 0.0,
+        );
+      }
+
+      // After braking, 100-0 km/h should be recorded with a positive time
+      expect(metrics.testTimes.containsKey('100-0kmh'), true);
+      expect(metrics.testTimes['100-0kmh']!, greaterThan(0.0));
+      expect(getCompletedTimeForCategory(metrics, '100-0kmh', useNhraRules: false), greaterThan(0.0));
+    });
+
+    test('corrupted negative precalculated time in legacy run is ignored and recalculated dynamically', () {
+      final corruptedMetrics = RaceMetrics(
+        runMode: RunMode.drag,
+        testTimes: {
+          '100-0kmh': -2.45, // Corrupted legacy time
+        },
+        history: [
+          const DataPoint(elapsedTime: 0.0, speedKmh: 0.0, gForce: 0.0),
+          const DataPoint(elapsedTime: 2.0, speedKmh: 105.0, gForce: 0.0), // accelerated past 100
+          const DataPoint(elapsedTime: 4.0, speedKmh: 105.0, gForce: 0.0), // start braking
+          const DataPoint(elapsedTime: 5.0, speedKmh: 95.0, gForce: 0.0),  // crossed 100 downwards at t~4.5
+          const DataPoint(elapsedTime: 7.0, speedKmh: 0.0, gForce: 0.0),   // reached 0 at t=7.0
+        ],
+      );
+
+      // Should not return the negative number -2.45, should calculate from history (7.0 - 4.5 = 2.5s)
+      final calculated = getCompletedTimeForCategory(corruptedMetrics, '100-0kmh', useNhraRules: false);
+      expect(calculated, isNotNull);
+      expect(calculated!, greaterThan(0.0));
+      expect(calculated, closeTo(2.5, 0.1));
+    });
   });
 }
 
