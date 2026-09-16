@@ -377,11 +377,11 @@ double? _getPrecalculatedTime(
   if (useNhraRules) {
     // 1. Direct precalculated rollout key
     final rolloutTime = m.testTimes['${id}_rollout'];
-    if (rolloutTime != null && rolloutTime > 0) return rolloutTime;
+    if (rolloutTime != null) return rolloutTime;
 
     // 2. Standing start speed test fallback (pure time subtraction)
     final baseTime = m.testTimes[id];
-    if (baseTime != null && baseTime > 0) {
+    if (baseTime != null) {
       final isStandingSpeed = officialTests.any(
         (t) =>
             t.id == id &&
@@ -396,8 +396,7 @@ double? _getPrecalculatedTime(
     }
     return null;
   }
-  final baseTime = m.testTimes[id];
-  return (baseTime != null && baseTime > 0) ? baseTime : null;
+  return m.testTimes[id];
 }
 
 // Convert distance units to meters

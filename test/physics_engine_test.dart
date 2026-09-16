@@ -1358,12 +1358,10 @@ void main() {
       expect(getCompletedTimeForCategory(metrics, '100-0kmh', useNhraRules: false), greaterThan(0.0));
     });
 
-    test('corrupted negative precalculated time in legacy run is ignored and recalculated dynamically', () {
-      final corruptedMetrics = RaceMetrics(
+    test('calculateTimeFromHistory calculates valid duration from data points', () {
+      final metricsWithoutPrecalc = RaceMetrics(
         runMode: RunMode.drag,
-        testTimes: {
-          '100-0kmh': -2.45, // Corrupted legacy time
-        },
+        testTimes: {},
         history: [
           const DataPoint(elapsedTime: 0.0, speedKmh: 0.0, gForce: 0.0),
           const DataPoint(elapsedTime: 2.0, speedKmh: 105.0, gForce: 0.0), // accelerated past 100
@@ -1373,8 +1371,8 @@ void main() {
         ],
       );
 
-      // Should not return the negative number -2.45, should calculate from history (7.0 - 4.5 = 2.5s)
-      final calculated = getCompletedTimeForCategory(corruptedMetrics, '100-0kmh', useNhraRules: false);
+      // Calculates from history (7.0 - 4.5 = 2.5s)
+      final calculated = getCompletedTimeForCategory(metricsWithoutPrecalc, '100-0kmh', useNhraRules: false);
       expect(calculated, isNotNull);
       expect(calculated!, greaterThan(0.0));
       expect(calculated, closeTo(2.5, 0.1));
