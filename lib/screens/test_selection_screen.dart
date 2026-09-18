@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import '../models/race_test.dart';
 import '../providers/dragy_provider.dart';
 import '../utils/unit_converter.dart';
 
@@ -43,7 +42,7 @@ class TestSelectionScreen extends StatelessWidget {
               actions: [
                 IconButton(
                   icon: const Icon(Icons.add),
-                  onPressed: () => _showaddCustomTestDialog(context, dragy),
+                  onPressed: () => _showAddCustomTestDialog(context, dragy),
                 ),
               ],
               bottom: TabBar(
@@ -103,36 +102,15 @@ class TestSelectionScreen extends StatelessWidget {
    );
   }
 
-  void _showaddCustomTestDialog(BuildContext context, DragyProvider dragy) {
+  void _showAddCustomTestDialog(BuildContext context, DragyProvider dragy) {
     showDialog<bool>(
       context: context,
-      builder: (context) => _addCustomTestDialog(dragy: dragy),
+      builder: (context) => _AddCustomTestDialog(dragy: dragy),
     ).then((result) {
-      if (result == true) {
+      if (result == true && context.mounted) {
         DefaultTabController.of(context).animateTo(1);
       }
     });
-  }
-}
-
-class _SectionHeader extends StatelessWidget {
-  final String label;
-  const _SectionHeader({required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 16, right: 16, top: 20, bottom: 4),
-      child: Text(
-        label.toUpperCase(),
-        style: GoogleFonts.roboto(
-          color: Colors.white38,
-          fontSize: 12,
-          fontWeight: FontWeight.bold,
-          letterSpacing: 1.5,
-        ),
-      ),
-    );
   }
 }
 
@@ -219,15 +197,15 @@ class _TestTile extends StatelessWidget {
   }
 }
 
-class _addCustomTestDialog extends StatefulWidget {
+class _AddCustomTestDialog extends StatefulWidget {
   final DragyProvider dragy;
-  const _addCustomTestDialog({required this.dragy});
+  const _AddCustomTestDialog({required this.dragy});
 
   @override
-  State<_addCustomTestDialog> createState() => _addCustomTestDialogState();
+  State<_AddCustomTestDialog> createState() => _AddCustomTestDialogState();
 }
 
-class _addCustomTestDialogState extends State<_addCustomTestDialog> {
+class _AddCustomTestDialogState extends State<_AddCustomTestDialog> {
   bool isDistanceMode = false;
   final TextEditingController _startController = TextEditingController();
   final TextEditingController _endController = TextEditingController();

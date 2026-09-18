@@ -45,7 +45,7 @@ class BleService {
       await FlutterBluePlus.stopScan();
       await Future.delayed(const Duration(milliseconds: 300));
 
-      await device.connect(license: License.free);
+      await device.connect(license: License.nonprofit);
 
       // Request a larger MTU to prevent packet fragmentation and latency build-up
       try {
@@ -147,7 +147,7 @@ class BleService {
     }
   }
 
-  List<int> _ubxBuffer = [];
+  final List<int> _ubxBuffer = [];
   String _imuBuffer = "";
 
   void _processReceivedData(List<int> data) {

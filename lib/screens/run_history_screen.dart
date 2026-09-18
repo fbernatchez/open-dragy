@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../providers/dragy_provider.dart';
 import '../models/saved_run.dart';
-import '../utils/unit_converter.dart';
 import 'run_detail_screen.dart';
 
 class RunHistoryScreen extends StatefulWidget {
@@ -569,7 +568,6 @@ class RunHistoryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dragy = Provider.of<DragyProvider>(context);
-    final isMetric = dragy.isMetric;
     final metrics = run.metrics;
 
     // Decide which milestone display is primary
