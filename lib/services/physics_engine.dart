@@ -624,6 +624,19 @@ class PhysicsEngine {
       );
     }
 
+    double? rollout1ft = current.rolloutTime1ft;
+    if (intervalStartSpeed == 0.0 &&
+        rollout1ft == null &&
+        newDistance >= 0.3048) {
+      rollout1ft = _interpolateCrossingTime(
+        t0: current.elapsedTime,
+        currentDt: currentDt,
+        val0: current.distanceMeters,
+        val1: newDistance,
+        target: 0.3048,
+      );
+    }
+
     final Map<String, double> newtestTimes = Map.from(current.testTimes);
 
     if (testAchieved) {
@@ -635,6 +648,10 @@ class PhysicsEngine {
             'custom_${current.testStartSpeed!.round()}_${current.testEndSpeed!.round()}_$unit';
         if (!newtestTimes.containsKey(customId)) {
           newtestTimes[customId] = newElapsedTimeCalculated;
+          if (intervalStartSpeed == 0.0 && rollout1ft != null) {
+            newtestTimes['${customId}_rollout'] =
+                newElapsedTimeCalculated - rollout1ft;
+          }
         }
       }
       for (final test in activeTests) {
@@ -644,6 +661,10 @@ class PhysicsEngine {
           if ((intervalStartSpeed - test.startSpeed!).abs() < 1.0 &&
               (intervalEndSpeed - test.endSpeed!).abs() < 1.0) {
             newtestTimes[test.id] = newElapsedTimeCalculated;
+            if (intervalStartSpeed == 0.0 && rollout1ft != null) {
+              newtestTimes['${test.id}_rollout'] =
+                  newElapsedTimeCalculated - rollout1ft;
+            }
           }
         }
       }
@@ -655,6 +676,7 @@ class PhysicsEngine {
       elapsedTime: newElapsedTimeCalculated,
       gForce: smoothedGForce,
       testTimes: newtestTimes,
+      rolloutTime1ft: rollout1ft,
       startAltitude: current.startAltitude,
       isRunning: !testAchieved,
       history: newHistory,

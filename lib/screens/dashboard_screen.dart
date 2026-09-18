@@ -137,11 +137,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         );
         double maxTime = -1.0;
         for (final test in completed) {
-          if (test.speedUnit != null) {
-            final isTestMetric = test.speedUnit == SpeedUnit.kmh;
-            if (isTestMetric != isMetric) {
-              continue;
-            }
+          if (!test.matchesUnitSystem(isMetric)) {
+            continue;
           }
           final t = getCompletedTimeForCategory(
             metrics,

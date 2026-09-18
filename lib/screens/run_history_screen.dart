@@ -60,11 +60,8 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
         useNhraRules: useNhraRules,
       );
       for (final test in completed) {
-        if (test.speedUnit != null) {
-          final isTestMetric = test.speedUnit == SpeedUnit.kmh;
-          if (isTestMetric != isMetric) {
-            continue;
-          }
+        if (!test.matchesUnitSystem(isMetric)) {
+          continue;
         }
 
         if (!seenIds.contains(test.id)) {
@@ -596,6 +593,9 @@ class RunHistoryCard extends StatelessWidget {
       double maxTime = -1.0;
 
       for (final test in completed) {
+        if (!test.matchesUnitSystem(dragy.isMetric)) {
+          continue;
+        }
         final t = getCompletedTimeForCategory(
           metrics,
           test.id,

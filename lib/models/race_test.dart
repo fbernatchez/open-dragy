@@ -200,6 +200,23 @@ class RaceTest {
       isOfficial: json['isOfficial'] as bool? ?? false,
     );
   }
+
+  bool matchesUnitSystem(bool isMetric) {
+    if (speedUnit != null) {
+      final isTestMetric = speedUnit == SpeedUnit.kmh;
+      return isTestMetric == isMetric;
+    }
+    if (distanceUnit != null) {
+      if (isOfficial) {
+        // Official distance tests are shown in all unit modes.
+        return true;
+      }
+      final isDistanceMetric = distanceUnit == DistanceUnit.meter ||
+          distanceUnit == DistanceUnit.kilometer;
+      return isDistanceMetric == isMetric;
+    }
+    return true;
+  }
 }
 
 class HistoryCategory {
@@ -382,12 +399,13 @@ double? _getPrecalculatedTime(
     // 2. Standing start speed test fallback (pure time subtraction)
     final baseTime = m.testTimes[id];
     if (baseTime != null) {
-      final isStandingSpeed = officialTests.any(
-        (t) =>
-            t.id == id &&
-            t.distance == null &&
-            (t.startSpeed == null || t.startSpeed == 0.0),
-      );
+      final isStandingSpeed = id.startsWith('custom_0_') ||
+          officialTests.any(
+            (t) =>
+                t.id == id &&
+                t.distance == null &&
+                (t.startSpeed == null || t.startSpeed == 0.0),
+          );
       if (isStandingSpeed && m.rolloutTime1ft != null) {
         final res = baseTime - m.rolloutTime1ft!;
         return res > 0 ? res : null;
@@ -886,11 +904,8 @@ List<ReachedMilestone> getReachedMilestones(
     if (!isTestEnabled(test.id)) {
       continue;
     }
-    if (test.speedUnit != null) {
-      final isTestMetric = test.speedUnit == SpeedUnit.kmh;
-      if (isTestMetric != isMetric) {
-        continue;
-      }
+    if (!test.matchesUnitSystem(isMetric)) {
+      continue;
     }
 
     final time = getCompletedTimeForCategory(

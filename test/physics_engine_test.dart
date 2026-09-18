@@ -600,6 +600,22 @@ void main() {
       }
       expect(metrics.isRunning, false);
       expect(metrics.elapsedTime, greaterThan(0.0));
+      expect(metrics.rolloutTime1ft, isNotNull);
+
+      final rawTime = getCompletedTimeForCategory(
+        metrics,
+        'custom_0_50_mph',
+        useNhraRules: false,
+      );
+      final nhraTime = getCompletedTimeForCategory(
+        metrics,
+        'custom_0_50_mph',
+        useNhraRules: true,
+      );
+      expect(rawTime, isNotNull);
+      expect(nhraTime, isNotNull);
+      expect(nhraTime!, lessThan(rawTime!));
+      expect(nhraTime, closeTo(rawTime - metrics.rolloutTime1ft!, 0.001));
     });
 
     test('standing-start interval run cancels when speed drops below 3 km/h', () {
@@ -1394,6 +1410,55 @@ void main() {
       final completed = getCompletedTests(metrics);
       final count0to60 = completed.where((t) => t.displayName == '0-60 mph').length;
       expect(count0to60, 1);
+    });
+
+    test('matchesUnitSystem filters custom distance tests correctly between metric and imperial', () {
+      const custom100ft = RaceTest(
+        id: 'custom_dist_100_feet',
+        displayName: '100ft',
+        distance: 100.0,
+        distanceUnit: DistanceUnit.feet,
+        isOfficial: false,
+      );
+      const custom100m = RaceTest(
+        id: 'custom_dist_100_meter',
+        displayName: '100m',
+        distance: 100.0,
+        distanceUnit: DistanceUnit.meter,
+        isOfficial: false,
+      );
+
+      // 100ft should NOT match metric, but should match imperial
+      expect(custom100ft.matchesUnitSystem(true), isFalse);
+      expect(custom100ft.matchesUnitSystem(false), isTrue);
+
+      // 100m should match metric, but NOT imperial
+      expect(custom100m.matchesUnitSystem(true), isTrue);
+      expect(custom100m.matchesUnitSystem(false), isFalse);
+
+      // getReachedMilestones should not include 100ft when isMetric is true
+      final metrics = RaceMetrics(
+        runMode: RunMode.drag,
+        distanceMeters: 50.0,
+        testTimes: {'custom_dist_100_feet': 2.0},
+      );
+      final milestonesMetric = getReachedMilestones(
+        metrics,
+        isMetric: true,
+        useNhraRules: false,
+        customTests: [custom100ft],
+        isTestEnabled: (_) => true,
+      );
+      expect(milestonesMetric.any((m) => m.label == '100ft'), isFalse);
+
+      final milestonesImperial = getReachedMilestones(
+        metrics,
+        isMetric: false,
+        useNhraRules: false,
+        customTests: [custom100ft],
+        isTestEnabled: (_) => true,
+      );
+      expect(milestonesImperial.any((m) => m.label == '100ft'), isTrue);
     });
   });
 }

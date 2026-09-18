@@ -14,13 +14,7 @@ class TestSelectionScreen extends StatelessWidget {
     final isMetric = dragy.isMetric;
 
     final visibleCustom = dragy.customTests
-        .where(
-          (t) =>
-              (t.distance != null &&
-                  t.distanceUnit ==
-                      (isMetric ? DistanceUnit.meter : DistanceUnit.feet)) ||
-              t.speedUnit == (isMetric ? SpeedUnit.kmh : SpeedUnit.mph),
-        )
+        .where((t) => t.matchesUnitSystem(isMetric))
         .toList();
 
     return DefaultTabController(
