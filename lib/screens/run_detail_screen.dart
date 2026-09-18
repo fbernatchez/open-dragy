@@ -85,13 +85,13 @@ class RunDetailScreen extends StatelessWidget {
         activeTests: activeTestsList,
       );
       if (time != null) {
-        double sortTime = time;
-        if (test.startSpeed != null && test.startSpeed! > 0.0) {
-          if (test.speedUnit == SpeedUnit.mph) {
-            sortTime = (metrics.testTimes['0-60mph'] ?? 0.0) + time;
-          } else {
-            sortTime = (metrics.testTimes['0-100kmh'] ?? 0.0) + time;
-          }
+        final double sortTime;
+        if (test.distance != null) {
+          sortTime = time;
+        } else if (test.startSpeed != null && test.startSpeed! > 0.0) {
+          sortTime = (metrics.testTimes['${test.id}_start'] ?? 0.0) + time;
+        } else {
+          sortTime = time;
         }
 
         reachedMilestones.add(
@@ -138,7 +138,8 @@ class RunDetailScreen extends StatelessWidget {
             (metrics.testSpeedUnit ?? SpeedUnit.kmh) == SpeedUnit.kmh;
         if (runIsMetric == isMetric) {
           final customTest = buildCustomIntervalTest(metrics);
-          if (customTest != null) {
+          if (customTest != null &&
+              !reachedMilestones.any((m) => m.label == customTest.displayName)) {
             final compTime = getCompletedTimeForCategory(
               metrics,
               customTest.id,

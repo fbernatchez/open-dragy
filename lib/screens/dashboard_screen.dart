@@ -205,88 +205,77 @@ class _DashboardScreenState extends State<DashboardScreen> {
     // Collect reached milestones sorted by completion time ascending
     final List<_ReachedMilestone> reachedMilestones = [];
 
-    if (dragy.runMode == RunMode.drag) {
-      final activeTestsList = [...officialTests, ...dragy.customTests];
-      final completed = getCompletedTests(
-        metrics,
-        useNhraRules: dragy.useNhraRules,
-        activeTests: activeTestsList,
-      );
-      for (final test in completed) {
-        if (!dragy.isTestEnabled(test.id)) {
+    final activeTestsList = [...officialTests, ...dragy.customTests];
+    final completed = getCompletedTests(
+      metrics,
+      useNhraRules: dragy.useNhraRules,
+      activeTests: activeTestsList,
+    );
+    for (final test in completed) {
+      if (!dragy.isTestEnabled(test.id)) {
+        continue;
+      }
+      if (test.speedUnit != null) {
+        final isTestMetric = test.speedUnit == SpeedUnit.kmh;
+        if (isTestMetric != isMetric) {
           continue;
         }
-        if (test.speedUnit != null) {
-          final isTestMetric = test.speedUnit == SpeedUnit.kmh;
-          if (isTestMetric != isMetric) {
-            continue;
-          }
-        }
+      }
 
-        final time = getCompletedTimeForCategory(
-          metrics,
-          test.id,
-          useNhraRules: dragy.useNhraRules,
-          activeTests: activeTestsList,
-        )!;
-        reachedMilestones.add(
-          _ReachedMilestone(
-            label: test.displayName,
-            time: time,
-            sortTime: time,
-            trapSpeed: getTrapSpeedForCategory(
-              metrics,
-              test.id,
-              useNhraRules: dragy.useNhraRules,
-            ),
-          ),
-        );
+      final time =
+          getCompletedTimeForCategory(
+            metrics,
+            test.id,
+            useNhraRules: dragy.useNhraRules,
+            activeTests: activeTestsList,
+          ) ??
+          metrics.elapsedTime;
+
+      final double sortTime;
+      if (test.distance != null) {
+        sortTime = time;
+      } else if (test.startSpeed != null && test.startSpeed! > 0.0) {
+        sortTime = (metrics.testTimes['${test.id}_start'] ?? 0.0) + time;
+      } else {
+        sortTime = time;
       }
-    } else {
-      final activeTestsList = [...officialTests, ...dragy.customTests];
-      final completed = getCompletedTests(
-        metrics,
-        useNhraRules: dragy.useNhraRules,
-        activeTests: activeTestsList,
+
+      reachedMilestones.add(
+        _ReachedMilestone(
+          label: test.displayName,
+          time: time,
+          sortTime: sortTime,
+          trapSpeed: dragy.runMode == RunMode.drag
+              ? getTrapSpeedForCategory(
+                  metrics,
+                  test.id,
+                  useNhraRules: dragy.useNhraRules,
+                )
+              : null,
+        ),
       );
-      if (completed.isNotEmpty) {
-        final test = completed.first;
-        if (dragy.isTestEnabled(test.id)) {
-          final time =
-              getCompletedTimeForCategory(
-                metrics,
-                test.id,
-                useNhraRules: dragy.useNhraRules,
-                activeTests: activeTestsList,
-              ) ??
-              metrics.elapsedTime;
-          reachedMilestones.add(
-            _ReachedMilestone(
-              label: test.displayName,
-              time: time,
-              sortTime: time,
-            ),
-          );
-        }
-      } else if (!metrics.isRunning &&
-          metrics.history.isNotEmpty &&
-          metrics.elapsedTime > 0 &&
-          metrics.testStartSpeed != null &&
-          metrics.testEndSpeed != null) {
-        final label = getDisplayLabelForTest(
-          startSpeed: metrics.testStartSpeed,
-          endSpeed: metrics.testEndSpeed,
-          speedUnit: metrics.testSpeedUnit,
-          runMode: RunMode.interval,
-        );
-        reachedMilestones.add(
-          _ReachedMilestone(
-            label: label,
-            time: metrics.elapsedTime,
-            sortTime: metrics.elapsedTime,
-          ),
-        );
-      }
+    }
+
+    if (reachedMilestones.isEmpty &&
+        dragy.runMode == RunMode.interval &&
+        !metrics.isRunning &&
+        metrics.history.isNotEmpty &&
+        metrics.elapsedTime > 0 &&
+        metrics.testStartSpeed != null &&
+        metrics.testEndSpeed != null) {
+      final label = getDisplayLabelForTest(
+        startSpeed: metrics.testStartSpeed,
+        endSpeed: metrics.testEndSpeed,
+        speedUnit: metrics.testSpeedUnit,
+        runMode: RunMode.interval,
+      );
+      reachedMilestones.add(
+        _ReachedMilestone(
+          label: label,
+          time: metrics.elapsedTime,
+          sortTime: metrics.elapsedTime,
+        ),
+      );
     }
 
     reachedMilestones.sort((a, b) => a.sortTime.compareTo(b.sortTime));

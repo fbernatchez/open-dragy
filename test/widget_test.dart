@@ -15,6 +15,7 @@ import 'package:open_dragy/screens/garage_screen.dart';
 import 'package:open_dragy/services/ble_service.dart';
 import 'package:open_dragy/models/vehicle.dart';
 import 'package:open_dragy/services/history_service.dart';
+import 'package:open_dragy/utils/unit_converter.dart';
 import 'dart:io';
 import 'package:hive/hive.dart';
 
@@ -607,6 +608,145 @@ void main() {
       // Both hero timer and milestone line display 4.56s
       expect(find.text('4.56s'), findsNWidgets(2));
       expect(find.text('80-140 km/h'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'Dashboard displays all completed interval tests including intermediate custom tests and target interval',
+    (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1080, 1920);
+      tester.view.devicePixelRatio = 1.0;
+
+      final custom35to45 = RaceTest(
+        id: '35-45mph',
+        displayName: '35-45 mph',
+        startSpeed: UnitConverter.mphToKmh(35.0),
+        endSpeed: UnitConverter.mphToKmh(45.0),
+        speedUnit: SpeedUnit.mph,
+      );
+
+      final mockProvider = MockDragyProvider();
+      mockProvider.isMetric = false;
+      mockProvider.runMode = RunMode.interval;
+      mockProvider.customTests = [custom35to45];
+      mockProvider.activeIntervalTest = RaceIntervalTest.custom;
+      mockProvider.customIntervalStartSpeed = 30.0;
+      mockProvider.customIntervalEndSpeed = 60.0;
+      final metrics = RaceMetrics(
+        speedKmh: 0.0,
+        isRunning: false,
+        runMode: RunMode.interval,
+        testStartSpeed: 30.0,
+        testEndSpeed: 60.0,
+        testSpeedUnit: SpeedUnit.mph,
+        testTimes: {
+          '35-45mph': 2.07,
+          '35-45mph_start': 2.10,
+          'custom_30_60_mph': 6.27,
+        },
+      );
+      mockProvider.updateState(
+        isConnected: true,
+        metrics: metrics,
+        satellites: 8,
+        hdop: 1.2,
+      );
+
+      await tester.pumpWidget(
+        ChangeNotifierProvider<DragyProvider>.value(
+          value: mockProvider,
+          child: const MaterialApp(home: DashboardScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Hero timer displays target 6.27s, and BOTH 35-45 mph and 30-60 mph rows are displayed
+      expect(find.text('6.27s'), findsNWidgets(2)); // hero + milestone row
+      expect(find.text('30-60 mph'), findsOneWidget);
+      expect(find.text('35-45 mph'), findsOneWidget);
+      expect(find.text('2.07s'), findsOneWidget);
+
+      // Verify RunDetailScreen has no duplicate lines for 30-60 mph
+      final savedRun = SavedRun(
+        id: 'test_run',
+        dateTime: DateTime.now(),
+        metrics: metrics,
+      );
+      await tester.pumpWidget(
+        ChangeNotifierProvider<DragyProvider>.value(
+          value: mockProvider,
+          child: MaterialApp(home: RunDetailScreen(run: savedRun)),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // 1 on screen in _DetailSlipRow, 1 off-screen in ShareSlipWidget
+      expect(find.text('30-60 mph'), findsNWidgets(2));
+      expect(find.text('35-45 mph'), findsNWidgets(2));
+    },
+  );
+
+  testWidgets(
+    'Dashboard milestones preserve chronological order when rolling interval has shorter duration than launch test',
+    (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1080, 1920);
+      tester.view.devicePixelRatio = 1.0;
+
+      final custom0to10 = RaceTest(
+        id: '0-10mph',
+        displayName: '0-10 mph',
+        startSpeed: 0.0,
+        endSpeed: UnitConverter.mphToKmh(10.0),
+        speedUnit: SpeedUnit.mph,
+      );
+      final custom10to20 = RaceTest(
+        id: '10-20mph',
+        displayName: '10-20 mph',
+        startSpeed: UnitConverter.mphToKmh(10.0),
+        endSpeed: UnitConverter.mphToKmh(20.0),
+        speedUnit: SpeedUnit.mph,
+      );
+
+      final mockProvider = MockDragyProvider();
+      mockProvider.isMetric = false;
+      mockProvider.runMode = RunMode.drag;
+      mockProvider.customTests = [custom0to10, custom10to20];
+      mockProvider.updateState(
+        isConnected: true,
+        metrics: RaceMetrics(
+          speedKmh: 0.0,
+          isRunning: false,
+          runMode: RunMode.drag,
+          distanceMeters: 402.336,
+          elapsedTime: 20.29,
+          testTimes: {
+            '0-10mph': 2.05,
+            '10-20mph': 1.94, // shorter duration than 0-10 mph!
+            '10-20mph_start': 2.05, // reached 10 mph at 2.05s, completed 20 mph at 3.99s
+            '60ft': 3.99,
+            '1/4mile': 20.29,
+          },
+        ),
+        satellites: 8,
+        hdop: 1.2,
+      );
+
+      await tester.pumpWidget(
+        ChangeNotifierProvider<DragyProvider>.value(
+          value: mockProvider,
+          child: const MaterialApp(home: DashboardScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('0-10 mph'), findsOneWidget);
+      expect(find.text('10-20 mph'), findsOneWidget);
+
+      // 0-10 mph completed at 2.05s, 10-20 mph completed at 3.99s.
+      // Therefore 0-10 mph must appear physically above 10-20 mph on the screen.
+      final pos0to10 = tester.getTopLeft(find.text('0-10 mph')).dy;
+      final pos10to20 = tester.getTopLeft(find.text('10-20 mph')).dy;
+      expect(pos0to10 < pos10to20, isTrue);
     },
   );
 
