@@ -630,25 +630,7 @@ class DragyProvider extends ChangeNotifier {
   }
 
   void toggleSpeedUnit() {
-    _isMetric = !_isMetric;
-
-    if (_isMetric) {
-      _customIntervalStartSpeed = UnitConverter.mphToKmh(
-        _customIntervalStartSpeed,
-      ).roundToDouble();
-      _customIntervalEndSpeed = UnitConverter.mphToKmh(
-        _customIntervalEndSpeed,
-      ).roundToDouble();
-    } else {
-      _customIntervalStartSpeed = UnitConverter.kmhToMph(
-        _customIntervalStartSpeed,
-      ).roundToDouble();
-      _customIntervalEndSpeed = UnitConverter.kmhToMph(
-        _customIntervalEndSpeed,
-      ).roundToDouble();
-    }
-    _saveSettings();
-    notifyListeners();
+    setMetric(!_isMetric);
   }
 
   void setactiveDragTest(RaceDragTest target) {
@@ -669,61 +651,24 @@ class DragyProvider extends ChangeNotifier {
     if (_isMetric != isMetric) {
       _isMetric = isMetric;
 
-      if (_isMetric) {
-        _customIntervalStartSpeed = UnitConverter.mphToKmh(
-          _customIntervalStartSpeed,
-        ).roundToDouble();
-        _customIntervalEndSpeed = UnitConverter.mphToKmh(
-          _customIntervalEndSpeed,
-        ).roundToDouble();
-      } else {
-        _customIntervalStartSpeed = UnitConverter.kmhToMph(
-          _customIntervalStartSpeed,
-        ).roundToDouble();
-        _customIntervalEndSpeed = UnitConverter.kmhToMph(
-          _customIntervalEndSpeed,
-        ).roundToDouble();
-      }
+      final convert =
+          _isMetric ? UnitConverter.mphToKmh : UnitConverter.kmhToMph;
+      _customIntervalStartSpeed =
+          convert(_customIntervalStartSpeed).roundToDouble();
+      _customIntervalEndSpeed = convert(_customIntervalEndSpeed).roundToDouble();
+
+      _syncActiveTestToUnit();
       _saveSettings();
       notifyListeners();
     }
   }
 
   void _syncActiveTestToUnit() {
-    if (_isMetric) {
-      if (_activeIntervalTest == RaceIntervalTest.sixtyToOneThirtyMph) {
-        _activeIntervalTest = RaceIntervalTest.oneHundredToTwoHundredKmh;
-      } else if (_activeIntervalTest == RaceIntervalTest.zeroToSixtyMph) {
-        _activeIntervalTest = RaceIntervalTest.zeroToOneHundredKmh;
-      } else if (_activeIntervalTest ==
-          RaceIntervalTest.fiftyToSeventyFiveMph) {
-        _activeIntervalTest = RaceIntervalTest.eightyToOneTwentyKmh;
-      } else if (_activeIntervalTest == RaceIntervalTest.zeroToOneThirtyMph) {
-        _activeIntervalTest = RaceIntervalTest.zeroToTwoHundredKmh;
-      } else if (_activeIntervalTest == RaceIntervalTest.sixtyToOneHundredMph) {
-        _activeIntervalTest = RaceIntervalTest.oneHundredToOneSixtyKmh;
-      } else if (_activeIntervalTest == RaceIntervalTest.zeroToOneHundredMph) {
-        _activeIntervalTest = RaceIntervalTest.zeroToOneSixtyKmh;
-      } else if (_activeIntervalTest == RaceIntervalTest.sixtyToZeroMph) {
-        _activeIntervalTest = RaceIntervalTest.oneHundredToZeroKmh;
-      }
-    } else {
-      if (_activeIntervalTest == RaceIntervalTest.oneHundredToTwoHundredKmh) {
-        _activeIntervalTest = RaceIntervalTest.sixtyToOneThirtyMph;
-      } else if (_activeIntervalTest == RaceIntervalTest.zeroToOneHundredKmh) {
-        _activeIntervalTest = RaceIntervalTest.zeroToSixtyMph;
-      } else if (_activeIntervalTest == RaceIntervalTest.eightyToOneTwentyKmh) {
-        _activeIntervalTest = RaceIntervalTest.fiftyToSeventyFiveMph;
-      } else if (_activeIntervalTest == RaceIntervalTest.zeroToTwoHundredKmh) {
-        _activeIntervalTest = RaceIntervalTest.zeroToOneThirtyMph;
-      } else if (_activeIntervalTest == RaceIntervalTest.oneHundredToZeroKmh) {
-        _activeIntervalTest = RaceIntervalTest.sixtyToZeroMph;
-      } else if (_activeIntervalTest ==
-          RaceIntervalTest.oneHundredToOneSixtyKmh) {
-        _activeIntervalTest = RaceIntervalTest.sixtyToOneHundredMph;
-      } else if (_activeIntervalTest == RaceIntervalTest.zeroToOneSixtyKmh) {
-        _activeIntervalTest = RaceIntervalTest.zeroToOneHundredMph;
-      }
+    if (_activeIntervalTest != RaceIntervalTest.custom &&
+        (_activeIntervalTest.speedUnit == SpeedUnit.kmh) != _isMetric) {
+      _activeIntervalTest = _isMetric
+          ? RaceIntervalTest.zeroToOneHundredKmh
+          : RaceIntervalTest.zeroToSixtyMph;
     }
   }
 

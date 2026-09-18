@@ -231,8 +231,7 @@ class MockDragyProvider extends ChangeNotifier implements DragyProvider {
 
   @override
   void toggleSpeedUnit() {
-    isMetric = !isMetric;
-    notifyListeners();
+    setMetric(!isMetric);
   }
 
   @override
@@ -254,6 +253,15 @@ class MockDragyProvider extends ChangeNotifier implements DragyProvider {
   @override
   void setMetric(bool isMetric) {
     this.isMetric = isMetric;
+    if (isMetric) {
+      if (activeIntervalTest == RaceIntervalTest.zeroToSixtyMph) {
+        activeIntervalTest = RaceIntervalTest.zeroToOneHundredKmh;
+      }
+    } else {
+      if (activeIntervalTest == RaceIntervalTest.zeroToOneHundredKmh) {
+        activeIntervalTest = RaceIntervalTest.zeroToSixtyMph;
+      }
+    }
     notifyListeners();
   }
 
@@ -1387,4 +1395,40 @@ void main() {
     expect(savedMap['customIntervalStartSpeed'] is int, true);
     expect(savedMap['customIntervalEndSpeed'] is int, true);
   });
+
+  testWidgets(
+    'Switching speed unit updates activeIntervalTest and interval dropdown correctly',
+    (WidgetTester tester) async {
+      final mock = MockDragyProvider();
+      mock.isMetric = false;
+      mock.activeIntervalTest = RaceIntervalTest.zeroToSixtyMph;
+      mock.runMode = RunMode.interval;
+
+      await tester.pumpWidget(
+        ChangeNotifierProvider<DragyProvider>.value(
+          value: mock,
+          child: const MaterialApp(home: DashboardScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Dropdown should show 0-60 mph
+      expect(find.text('0-60 mph'), findsOneWidget);
+
+      // Switch to metric
+      mock.setMetric(true);
+      await tester.pumpAndSettle();
+
+      // activeIntervalTest should have converted to 0-100 km/h
+      expect(mock.activeIntervalTest, RaceIntervalTest.zeroToOneHundredKmh);
+      expect(find.text('0-100 km/h'), findsOneWidget);
+
+      // Switch back to imperial
+      mock.setMetric(false);
+      await tester.pumpAndSettle();
+
+      expect(mock.activeIntervalTest, RaceIntervalTest.zeroToSixtyMph);
+      expect(find.text('0-60 mph'), findsOneWidget);
+    },
+  );
 }
