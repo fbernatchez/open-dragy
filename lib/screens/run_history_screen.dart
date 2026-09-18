@@ -610,7 +610,6 @@ class RunHistoryCard extends StatelessWidget {
       }
     }
 
-    final double avgSlope = metrics.avgSlope;
     final bool isSlopeValid = metrics.isSlopeValid;
 
     return Dismissible(

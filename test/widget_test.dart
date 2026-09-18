@@ -38,13 +38,13 @@ class MockDragyProvider extends ChangeNotifier implements DragyProvider {
   }
 
   @override
-  void addCustomTest(RaceTest Test) {}
+  void addCustomTest(RaceTest test) {}
 
   @override
-  void removeCustomTest(String TestId) {}
+  void removeCustomTest(String testId) {}
 
   @override
-  void toggleTestEnabled(String TestId, bool enabled) {}
+  void toggleTestEnabled(String testId, bool enabled) {}
 
   @override
   String get firmwareVersion => "1.0.0-mock";
@@ -214,8 +214,8 @@ class MockDragyProvider extends ChangeNotifier implements DragyProvider {
   }
 
   @override
-  void setactiveIntervalTest(RaceIntervalTest Test) {
-    activeIntervalTest = Test;
+  void setactiveIntervalTest(RaceIntervalTest test) {
+    activeIntervalTest = test;
     notifyListeners();
   }
 
@@ -239,8 +239,8 @@ class MockDragyProvider extends ChangeNotifier implements DragyProvider {
   RaceDragTest activeDragTest = RaceDragTest.quarterMile;
 
   @override
-  void setactiveDragTest(RaceDragTest Test) {
-    activeDragTest = Test;
+  void setactiveDragTest(RaceDragTest test) {
+    activeDragTest = test;
     notifyListeners();
   }
 
