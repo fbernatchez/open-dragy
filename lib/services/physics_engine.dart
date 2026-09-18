@@ -5,13 +5,6 @@ import '../models/race_metrics.dart';
 class PhysicsEngine {
   static const double gAcceleration = 9.80665; // m/s^2
 
-  static const double distance60ft = 18.288;
-  static const double distance330ft = 100.584;
-  static const double distance18Mile = 201.168;
-  static const double distance1000ft = 304.8;
-  static const double distance14Mile = 402.336;
-  static const double distance12Mile = 804.672;
-
   static const double launchCommitThreshold =
       3.0; // km/h needed to confirm a real launch (ignores GPS wandering)
   static const double zeroCrossingThreshold =
@@ -109,34 +102,26 @@ class PhysicsEngine {
     // without triggering or integrating, preserving completed run statistics
     if (!isArmed && !current.isRunning) {
       _stoppedTicks = 0;
-      double displaySpeed = newSpeedKmh < 2.0 ? 0.0 : newSpeedKmh;
-      return current.copyWith(
-        speedKmh: displaySpeed,
-        isRunning: false,
-        distanceMeters: current.history.isNotEmpty
-            ? current.distanceMeters
-            : 0.0,
-        elapsedTime: current.history.isNotEmpty ? current.elapsedTime : 0.0,
-        startAltitude: current.history.isNotEmpty
-            ? current.startAltitude
-            : currentAltitude,
+      return _buildWaitingMetrics(
+        current,
+        newSpeedKmh,
+        currentAltitude,
+        runMode: runMode,
+        testDistance: testDistance,
+        testDistanceUnit: testDistanceUnit,
+        testStartSpeed: testStartSpeed,
+        testEndSpeed: testEndSpeed,
+        testSpeedUnit: testSpeedUnit,
       );
     }
 
     if (!current.isRunning) {
       if (runMode == RunMode.drag) {
-        // Armed state
         if (newSpeedKmh == 0.0) {
-          return current.copyWith(
-            speedKmh: 0.0,
-            distanceMeters: current.history.isNotEmpty
-                ? current.distanceMeters
-                : 0.0,
-            elapsedTime: current.history.isNotEmpty ? current.elapsedTime : 0.0,
-            gForce: current.gForce,
-            startAltitude: current.history.isNotEmpty
-                ? current.startAltitude
-                : currentAltitude,
+          return _buildWaitingMetrics(
+            current,
+            0.0,
+            currentAltitude,
             runMode: RunMode.drag,
             testDistance: testDistance,
             testDistanceUnit: testDistanceUnit,
@@ -163,18 +148,10 @@ class PhysicsEngine {
           return triggered;
         }
 
-        // We are stopped or moving slowly (creeping/GPS wandering).
-        double displaySpeed = newSpeedKmh < 2.0 ? 0.0 : newSpeedKmh;
-        return current.copyWith(
-          speedKmh: displaySpeed,
-          distanceMeters: current.history.isNotEmpty
-              ? current.distanceMeters
-              : 0.0,
-          elapsedTime: current.history.isNotEmpty ? current.elapsedTime : 0.0,
-          gForce: current.gForce,
-          startAltitude: current.history.isNotEmpty
-              ? current.startAltitude
-              : currentAltitude,
+        return _buildWaitingMetrics(
+          current,
+          newSpeedKmh,
+          currentAltitude,
           runMode: RunMode.drag,
           testDistance: testDistance,
           testDistanceUnit: testDistanceUnit,
@@ -265,17 +242,10 @@ class PhysicsEngine {
           }
         }
 
-        double displaySpeed = newSpeedKmh < 2.0 ? 0.0 : newSpeedKmh;
-        return current.copyWith(
-          speedKmh: displaySpeed,
-          distanceMeters: current.history.isNotEmpty
-              ? current.distanceMeters
-              : 0.0,
-          elapsedTime: current.history.isNotEmpty ? current.elapsedTime : 0.0,
-          gForce: current.gForce,
-          startAltitude: current.history.isNotEmpty
-              ? current.startAltitude
-              : currentAltitude,
+        return _buildWaitingMetrics(
+          current,
+          newSpeedKmh,
+          currentAltitude,
           runMode: RunMode.interval,
           testDistance: testDistance,
           testDistanceUnit: testDistanceUnit,
@@ -353,23 +323,52 @@ class PhysicsEngine {
     }
   }
 
-  RaceMetrics _integrateDrag(
+  RaceMetrics _buildWaitingMetrics(
+    RaceMetrics current,
+    double speedKmh,
+    double currentAltitude, {
+    required RunMode runMode,
+    required double? testDistance,
+    required DistanceUnit? testDistanceUnit,
+    required double? testStartSpeed,
+    required double? testEndSpeed,
+    required SpeedUnit? testSpeedUnit,
+  }) {
+    final double displaySpeed = speedKmh < 2.0 ? 0.0 : speedKmh;
+    return current.copyWith(
+      speedKmh: displaySpeed,
+      isRunning: false,
+      distanceMeters: current.history.isNotEmpty ? current.distanceMeters : 0.0,
+      elapsedTime: current.history.isNotEmpty ? current.elapsedTime : 0.0,
+      gForce: current.gForce,
+      startAltitude:
+          current.history.isNotEmpty ? current.startAltitude : currentAltitude,
+      runMode: runMode,
+      testDistance: testDistance,
+      testDistanceUnit: testDistanceUnit,
+      testStartSpeed: testStartSpeed,
+      testEndSpeed: testEndSpeed,
+      testSpeedUnit: testSpeedUnit,
+    );
+  }
+
+  static ({
+    double newDistance,
+    double newElapsedTime,
+    List<DataPoint> newHistory,
+  }) _integrateStep(
     RaceMetrics current,
     double newSpeedKmh,
     double currentAltitude,
     double currentDt,
     double smoothedGForce,
-    List<RaceTest> activeTests,
   ) {
     final currentSpeedMs = current.speedKmh / 3.6;
     final newSpeedMs = newSpeedKmh / 3.6;
-
-    // Trapezoidal integration for distance
     final avgSpeedMs = (currentSpeedMs + newSpeedMs) / 2;
     final double deltaDistance = avgSpeedMs * currentDt;
     final double newDistance = current.distanceMeters + deltaDistance;
-
-    final newElapsedTime = current.elapsedTime + currentDt;
+    final double newElapsedTime = current.elapsedTime + currentDt;
 
     final newHistory = List<DataPoint>.from(current.history)
       ..add(
@@ -381,20 +380,57 @@ class PhysicsEngine {
         ),
       );
 
+    return (
+      newDistance: newDistance,
+      newElapsedTime: newElapsedTime,
+      newHistory: newHistory,
+    );
+  }
+
+  static double _interpolateCrossingTime({
+    required double t0,
+    required double currentDt,
+    required double val0,
+    required double val1,
+    required double target,
+  }) {
+    final diff = (val1 - val0).abs();
+    if (diff > 0) {
+      final fraction = (target - val0).abs() / diff;
+      return t0 + (currentDt * fraction);
+    }
+    return t0 + currentDt;
+  }
+
+  RaceMetrics _integrateDrag(
+    RaceMetrics current,
+    double newSpeedKmh,
+    double currentAltitude,
+    double currentDt,
+    double smoothedGForce,
+    List<RaceTest> activeTests,
+  ) {
+    final (:newDistance, :newElapsedTime, :newHistory) = _integrateStep(
+      current,
+      newSpeedKmh,
+      currentAltitude,
+      currentDt,
+      smoothedGForce,
+    );
+
     final Map<String, double> newtestTimes = Map.from(current.testTimes);
     double? rollout1ft = current.rolloutTime1ft;
-
     final double startAltitude = current.startAltitude ?? currentAltitude;
 
     // 1 ft (0.3048 meters) for rollout trigger point
     if (rollout1ft == null && newDistance >= 0.3048) {
-      double distDiff = newDistance - current.distanceMeters;
-      if (distDiff > 0) {
-        double fraction = (0.3048 - current.distanceMeters) / distDiff;
-        rollout1ft = current.elapsedTime + (currentDt * fraction);
-      } else {
-        rollout1ft = newElapsedTime;
-      }
+      rollout1ft = _interpolateCrossingTime(
+        t0: current.elapsedTime,
+        currentDt: currentDt,
+        val0: current.distanceMeters,
+        val1: newDistance,
+        target: 0.3048,
+      );
     }
 
     for (final test in activeTests) {
@@ -406,15 +442,13 @@ class PhysicsEngine {
 
         if (!newtestTimes.containsKey(test.id) &&
             newDistance >= testDistanceMeters) {
-          double distDiff = newDistance - current.distanceMeters;
-          if (distDiff > 0) {
-            double fraction =
-                (testDistanceMeters - current.distanceMeters) / distDiff;
-            newtestTimes[test.id] =
-                current.elapsedTime + (currentDt * fraction);
-          } else {
-            newtestTimes[test.id] = newElapsedTime;
-          }
+          newtestTimes[test.id] = _interpolateCrossingTime(
+            t0: current.elapsedTime,
+            currentDt: currentDt,
+            val0: current.distanceMeters,
+            val1: newDistance,
+            target: testDistanceMeters,
+          );
         }
 
         // Distance Rollout (+1ft / 0.3048m track shift)
@@ -422,16 +456,13 @@ class PhysicsEngine {
         if (rollout1ft != null &&
             !newtestTimes.containsKey(rolloutKey) &&
             newDistance >= (testDistanceMeters + 0.3048)) {
-          double distDiff = newDistance - current.distanceMeters;
-          double absTime;
-          if (distDiff > 0) {
-            double fraction =
-                ((testDistanceMeters + 0.3048) - current.distanceMeters) /
-                distDiff;
-            absTime = current.elapsedTime + (currentDt * fraction);
-          } else {
-            absTime = newElapsedTime;
-          }
+          final absTime = _interpolateCrossingTime(
+            t0: current.elapsedTime,
+            currentDt: currentDt,
+            val0: current.distanceMeters,
+            val1: newDistance,
+            target: testDistanceMeters + 0.3048,
+          );
           newtestTimes[rolloutKey] = absTime - rollout1ft;
         }
       } else if (test.endSpeed != null &&
@@ -439,15 +470,13 @@ class PhysicsEngine {
         double testEndSpeedKmh = test.endSpeed!;
         if (!newtestTimes.containsKey(test.id) &&
             newSpeedKmh >= testEndSpeedKmh) {
-          double speedDiff = newSpeedKmh - current.speedKmh;
-          double crossingTime;
-          if (speedDiff > 0) {
-            double fraction = (testEndSpeedKmh - current.speedKmh) / speedDiff;
-            crossingTime =
-                current.elapsedTime + (currentDt * fraction);
-          } else {
-            crossingTime = newElapsedTime;
-          }
+          final crossingTime = _interpolateCrossingTime(
+            t0: current.elapsedTime,
+            currentDt: currentDt,
+            val0: current.speedKmh,
+            val1: newSpeedKmh,
+            target: testEndSpeedKmh,
+          );
           newtestTimes[test.id] = crossingTime;
           if (rollout1ft != null) {
             newtestTimes['${test.id}_rollout'] = crossingTime - rollout1ft;
@@ -468,30 +497,19 @@ class PhysicsEngine {
 
         // Track start crossing
         if (!newtestTimes.containsKey(startKey)) {
-          if (!isBraking &&
-              current.speedKmh <= testStartSpeedKmh &&
-              newSpeedKmh >= testStartSpeedKmh) {
-            double speedDiff = newSpeedKmh - current.speedKmh;
-            if (speedDiff > 0) {
-              double fraction =
-                  (testStartSpeedKmh - current.speedKmh) / speedDiff;
-              newtestTimes[startKey] =
-                  current.elapsedTime + (currentDt * fraction);
-            } else {
-              newtestTimes[startKey] = newElapsedTime;
-            }
-          } else if (isBraking &&
-              current.speedKmh >= testStartSpeedKmh &&
-              newSpeedKmh <= testStartSpeedKmh) {
-            double speedDiff = current.speedKmh - newSpeedKmh;
-            if (speedDiff > 0) {
-              double fraction =
-                  (current.speedKmh - testStartSpeedKmh) / speedDiff;
-              newtestTimes[startKey] =
-                  current.elapsedTime + (currentDt * fraction);
-            } else {
-              newtestTimes[startKey] = newElapsedTime;
-            }
+          if ((!isBraking &&
+                  current.speedKmh <= testStartSpeedKmh &&
+                  newSpeedKmh >= testStartSpeedKmh) ||
+              (isBraking &&
+                  current.speedKmh >= testStartSpeedKmh &&
+                  newSpeedKmh <= testStartSpeedKmh)) {
+            newtestTimes[startKey] = _interpolateCrossingTime(
+              t0: current.elapsedTime,
+              currentDt: currentDt,
+              val0: current.speedKmh,
+              val1: newSpeedKmh,
+              target: testStartSpeedKmh,
+            );
           }
         }
 
@@ -502,31 +520,27 @@ class PhysicsEngine {
             if (newSpeedKmh < testStartSpeedKmh) {
               newtestTimes.remove(startKey);
             } else if (newSpeedKmh >= testEndSpeedKmh) {
-              double speedDiff = newSpeedKmh - current.speedKmh;
-              if (speedDiff > 0) {
-                double fraction =
-                    (testEndSpeedKmh - current.speedKmh) / speedDiff;
-                double tEnd = current.elapsedTime + (currentDt * fraction);
-                newtestTimes[test.id] = tEnd - newtestTimes[startKey]!;
-              } else {
-                newtestTimes[test.id] =
-                    newElapsedTime - newtestTimes[startKey]!;
-              }
+              final tEnd = _interpolateCrossingTime(
+                t0: current.elapsedTime,
+                currentDt: currentDt,
+                val0: current.speedKmh,
+                val1: newSpeedKmh,
+                target: testEndSpeedKmh,
+              );
+              newtestTimes[test.id] = tEnd - newtestTimes[startKey]!;
             }
           } else {
             if (newSpeedKmh > testStartSpeedKmh) {
               newtestTimes.remove(startKey);
             } else if (newSpeedKmh <= effectiveEndSpeed) {
-              double speedDiff = current.speedKmh - newSpeedKmh;
-              if (speedDiff > 0) {
-                double fraction =
-                    (current.speedKmh - testEndSpeedKmh) / speedDiff;
-                double tEnd = current.elapsedTime + (currentDt * fraction);
-                newtestTimes[test.id] = tEnd - newtestTimes[startKey]!;
-              } else {
-                newtestTimes[test.id] =
-                    newElapsedTime - newtestTimes[startKey]!;
-              }
+              final tEnd = _interpolateCrossingTime(
+                t0: current.elapsedTime,
+                currentDt: currentDt,
+                val0: current.speedKmh,
+                val1: newSpeedKmh,
+                target: testEndSpeedKmh,
+              );
+              newtestTimes[test.id] = tEnd - newtestTimes[startKey]!;
             }
           }
         }
@@ -573,25 +587,13 @@ class PhysicsEngine {
     required double currentDt,
     required List<RaceTest> activeTests,
   }) {
-    final currentSpeedMs = current.speedKmh / 3.6;
-    final newSpeedMs = newSpeedKmh / 3.6;
-
-    // Trapezoidal integration for distance
-    final avgSpeedMs = (currentSpeedMs + newSpeedMs) / 2;
-    final double deltaDistance = avgSpeedMs * currentDt;
-    final double newDistance = current.distanceMeters + deltaDistance;
-
-    final newElapsedTime = current.elapsedTime + currentDt;
-
-    final newHistory = List<DataPoint>.from(current.history)
-      ..add(
-        DataPoint(
-          elapsedTime: newElapsedTime,
-          speedKmh: newSpeedKmh,
-          gForce: smoothedGForce,
-          altitude: currentAltitude,
-        ),
-      );
+    final (:newDistance, :newElapsedTime, :newHistory) = _integrateStep(
+      current,
+      newSpeedKmh,
+      currentAltitude,
+      currentDt,
+      smoothedGForce,
+    );
 
     bool testAchieved = false;
     double newElapsedTimeCalculated = newElapsedTime;
@@ -604,26 +606,33 @@ class PhysicsEngine {
 
     if (!isBraking && newSpeedKmh >= intervalEndSpeed) {
       testAchieved = true;
-      double speedDiff = newSpeedKmh - current.speedKmh;
-      if (speedDiff > 0) {
-        double fraction = (intervalEndSpeed - current.speedKmh) / speedDiff;
-        newElapsedTimeCalculated = current.elapsedTime + (currentDt * fraction);
-      }
+      newElapsedTimeCalculated = _interpolateCrossingTime(
+        t0: current.elapsedTime,
+        currentDt: currentDt,
+        val0: current.speedKmh,
+        val1: newSpeedKmh,
+        target: intervalEndSpeed,
+      );
     } else if (isBraking && newSpeedKmh <= effectiveEndSpeed) {
       testAchieved = true;
-      double speedDiff = current.speedKmh - newSpeedKmh;
-      if (speedDiff > 0) {
-        double fraction = (current.speedKmh - intervalEndSpeed) / speedDiff;
-        newElapsedTimeCalculated = current.elapsedTime + (currentDt * fraction);
-      }
+      newElapsedTimeCalculated = _interpolateCrossingTime(
+        t0: current.elapsedTime,
+        currentDt: currentDt,
+        val0: current.speedKmh,
+        val1: newSpeedKmh,
+        target: intervalEndSpeed,
+      );
     }
 
     final Map<String, double> newtestTimes = Map.from(current.testTimes);
 
     if (testAchieved) {
-      if (current.testStartSpeed != null && current.testEndSpeed != null && current.testSpeedUnit != null) {
+      if (current.testStartSpeed != null &&
+          current.testEndSpeed != null &&
+          current.testSpeedUnit != null) {
         final unit = current.testSpeedUnit!.name;
-        final customId = 'custom_${current.testStartSpeed!.round()}_${current.testEndSpeed!.round()}_$unit';
+        final customId =
+            'custom_${current.testStartSpeed!.round()}_${current.testEndSpeed!.round()}_$unit';
         if (!newtestTimes.containsKey(customId)) {
           newtestTimes[customId] = newElapsedTimeCalculated;
         }

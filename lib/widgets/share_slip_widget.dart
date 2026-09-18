@@ -1,15 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../models/race_test.dart';
 import '../models/saved_run.dart';
 import '../utils/unit_converter.dart';
-
-class ReachedMilestone {
-  final String label;
-  final double time;
-  final double? trapSpeed;
-
-  ReachedMilestone({required this.label, required this.time, this.trapSpeed});
-}
 
 class ShareSlipWidget extends StatelessWidget {
   final SavedRun run;
@@ -37,14 +30,9 @@ class ShareSlipWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final vehicle = run.vehicleName ?? 'Unknown Vehicle';
 
-    final double startAlt = run.metrics.startAltitude ?? 0.0;
-    final double endAlt = run.metrics.history.isNotEmpty
-        ? (run.metrics.history.last.altitude ?? startAlt)
-        : startAlt;
-    final double elevationDiff = endAlt - startAlt;
-    final double avgSlope = run.metrics.distanceMeters > 0
-        ? (elevationDiff / run.metrics.distanceMeters) * 100
-        : 0.0;
+    final double startAlt = run.metrics.startAltitudeOrZero;
+    final double elevationDiff = run.metrics.elevationDiff;
+    final double avgSlope = run.metrics.avgSlope;
 
     final double displayStartAlt = isMetric
         ? startAlt

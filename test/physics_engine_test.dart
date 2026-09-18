@@ -1374,8 +1374,26 @@ void main() {
       // Calculates from history (7.0 - 4.5 = 2.5s)
       final calculated = getCompletedTimeForCategory(metricsWithoutPrecalc, '100-0kmh', useNhraRules: false);
       expect(calculated, isNotNull);
-      expect(calculated!, greaterThan(0.0));
       expect(calculated, closeTo(2.5, 0.1));
+    });
+
+    test('getCompletedTests does not duplicate official preset tests as custom interval tests', () {
+      final history = [
+        const DataPoint(elapsedTime: 0.0, speedKmh: 0.0, gForce: 0.0),
+        const DataPoint(elapsedTime: 0.25, speedKmh: 10.0, gForce: 0.5),
+        const DataPoint(elapsedTime: 3.5, speedKmh: 100.0, gForce: 0.8),
+      ];
+      final metrics = RaceMetrics(
+        runMode: RunMode.interval,
+        testStartSpeed: 0.0,
+        testEndSpeed: 60.0,
+        testSpeedUnit: SpeedUnit.mph,
+        history: history,
+      );
+
+      final completed = getCompletedTests(metrics);
+      final count0to60 = completed.where((t) => t.displayName == '0-60 mph').length;
+      expect(count0to60, 1);
     });
   });
 }

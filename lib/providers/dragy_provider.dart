@@ -225,7 +225,7 @@ class DragyProvider extends ChangeNotifier {
       baseTime += clampedDelta;
     }
 
-    if (_useNhraRules && (_runMode == RunMode.drag || testStartSpeed == 0.0)) {
+    if (_useNhraRules && _runMode == RunMode.drag) {
       if (_metrics.rolloutTime1ft != null) {
         return max(0.0, baseTime - _metrics.rolloutTime1ft!);
       } else {

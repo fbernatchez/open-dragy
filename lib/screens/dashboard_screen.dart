@@ -192,93 +192,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
       }
     }
 
-    final double startAlt = metrics.startAltitude ?? 0.0;
-    final double endAlt = metrics.history.isNotEmpty
-        ? (metrics.history.last.altitude ?? startAlt)
-        : startAlt;
-    final double elevationDiff = endAlt - startAlt;
-    final double avgSlope = metrics.distanceMeters > 0
-        ? (elevationDiff / metrics.distanceMeters) * 100
-        : 0.0;
-    final bool isSlopeValid = avgSlope >= -1.0;
+    final double avgSlope = metrics.avgSlope;
+    final bool isSlopeValid = metrics.isSlopeValid;
 
     // Collect reached milestones sorted by completion time ascending
-    final List<_ReachedMilestone> reachedMilestones = [];
-
-    final activeTestsList = [...officialTests, ...dragy.customTests];
-    final completed = getCompletedTests(
+    final reachedMilestones = getReachedMilestones(
       metrics,
+      isMetric: isMetric,
       useNhraRules: dragy.useNhraRules,
-      activeTests: activeTestsList,
+      customTests: dragy.customTests,
+      isTestEnabled: dragy.isTestEnabled,
+      includeTrapSpeed: dragy.runMode == RunMode.drag,
     );
-    for (final test in completed) {
-      if (!dragy.isTestEnabled(test.id)) {
-        continue;
-      }
-      if (test.speedUnit != null) {
-        final isTestMetric = test.speedUnit == SpeedUnit.kmh;
-        if (isTestMetric != isMetric) {
-          continue;
-        }
-      }
-
-      final time =
-          getCompletedTimeForCategory(
-            metrics,
-            test.id,
-            useNhraRules: dragy.useNhraRules,
-            activeTests: activeTestsList,
-          ) ??
-          metrics.elapsedTime;
-
-      final double sortTime;
-      if (test.distance != null) {
-        sortTime = time;
-      } else if (test.startSpeed != null && test.startSpeed! > 0.0) {
-        sortTime = (metrics.testTimes['${test.id}_start'] ?? 0.0) + time;
-      } else {
-        sortTime = time;
-      }
-
-      reachedMilestones.add(
-        _ReachedMilestone(
-          label: test.displayName,
-          time: time,
-          sortTime: sortTime,
-          trapSpeed: dragy.runMode == RunMode.drag
-              ? getTrapSpeedForCategory(
-                  metrics,
-                  test.id,
-                  useNhraRules: dragy.useNhraRules,
-                )
-              : null,
-        ),
-      );
-    }
-
-    if (reachedMilestones.isEmpty &&
-        dragy.runMode == RunMode.interval &&
-        !metrics.isRunning &&
-        metrics.history.isNotEmpty &&
-        metrics.elapsedTime > 0 &&
-        metrics.testStartSpeed != null &&
-        metrics.testEndSpeed != null) {
-      final label = getDisplayLabelForTest(
-        startSpeed: metrics.testStartSpeed,
-        endSpeed: metrics.testEndSpeed,
-        speedUnit: metrics.testSpeedUnit,
-        runMode: RunMode.interval,
-      );
-      reachedMilestones.add(
-        _ReachedMilestone(
-          label: label,
-          time: metrics.elapsedTime,
-          sortTime: metrics.elapsedTime,
-        ),
-      );
-    }
-
-    reachedMilestones.sort((a, b) => a.sortTime.compareTo(b.sortTime));
 
     final currentMilestoneCount = reachedMilestones.length;
     if (currentMilestoneCount > _previousMilestoneCount) {
@@ -1194,19 +1119,6 @@ class _ResultRow extends StatelessWidget {
   }
 }
 
-class _ReachedMilestone {
-  final String label;
-  final double time;
-  final double sortTime;
-  final double? trapSpeed;
-
-  _ReachedMilestone({
-    required this.label,
-    required this.time,
-    required this.sortTime,
-    this.trapSpeed,
-  });
-}
 
 class _ModeButton extends StatelessWidget {
   final String label;

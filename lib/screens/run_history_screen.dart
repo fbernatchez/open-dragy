@@ -608,33 +608,10 @@ class RunHistoryCard extends StatelessWidget {
           primaryTime = "${t.toStringAsFixed(2)}s";
         }
       }
-
-      if (maxTime < 0) {
-        final customTest = buildCustomIntervalTest(metrics);
-        if (customTest != null) {
-          primaryLabel = customTest.displayName;
-          final compTime = getCompletedTimeForCategory(
-            metrics,
-            customTest.id,
-            useNhraRules: useNhraRulesSetting,
-            activeTests: [customTest],
-          );
-          primaryTime = compTime != null
-              ? "${compTime.toStringAsFixed(2)}s"
-              : "-.--s";
-        }
-      }
     }
 
-    final double startAlt = metrics.startAltitude ?? 0.0;
-    final double endAlt = metrics.history.isNotEmpty
-        ? (metrics.history.last.altitude ?? startAlt)
-        : startAlt;
-    final double elevationDiff = endAlt - startAlt;
-    final double avgSlope = metrics.distanceMeters > 0
-        ? (elevationDiff / metrics.distanceMeters) * 100
-        : 0.0;
-    final bool isSlopeValid = avgSlope >= -1.0;
+    final double avgSlope = metrics.avgSlope;
+    final bool isSlopeValid = metrics.isSlopeValid;
 
     return Dismissible(
       key: Key(run.id),

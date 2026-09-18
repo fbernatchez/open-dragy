@@ -122,6 +122,21 @@ class RaceMetrics {
     );
   }
 
+  double get startAltitudeOrZero =>
+      startAltitude ??
+      (history.isNotEmpty ? history.first.altitude ?? 0.0 : 0.0);
+
+  double get endAltitudeOrZero => history.isNotEmpty
+      ? (history.last.altitude ?? startAltitudeOrZero)
+      : startAltitudeOrZero;
+
+  double get elevationDiff => endAltitudeOrZero - startAltitudeOrZero;
+
+  double get avgSlope =>
+      distanceMeters > 0 ? (elevationDiff / distanceMeters) * 100 : 0.0;
+
+  bool get isSlopeValid => avgSlope >= -1.0;
+
   Map<String, dynamic> toJson() {
     return {
       'speedKmh': speedKmh,

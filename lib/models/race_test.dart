@@ -440,7 +440,7 @@ double? findDistanceCrossingTime(
 }
 
 // Search and interpolate speed crossing time
-double? _findSpeedCrossingTime(
+double? findSpeedCrossingTime(
   List<DataPoint> history,
   double targetSpeedKmh,
   double startTimeOffset, {
@@ -502,7 +502,7 @@ double? _calculateTimeFromHistory(
     final start = test.startSpeed ?? 0.0;
     final isBraking = start > test.endSpeed!;
     if (start == 0.0) {
-      final time = _findSpeedCrossingTime(
+      final time = findSpeedCrossingTime(
         metrics.history,
         test.endSpeed!,
         0.0,
@@ -514,22 +514,21 @@ double? _calculateTimeFromHistory(
       }
       return time;
     } else {
-      final startTime = _findSpeedCrossingTime(
+      final startTime = findSpeedCrossingTime(
         metrics.history,
         start,
         0.0,
         isDecelerating: isBraking,
       );
       if (startTime == null) return null;
-      final endTime = _findSpeedCrossingTime(
+      final endTime = findSpeedCrossingTime(
         metrics.history,
         test.endSpeed!,
         startTime,
         isDecelerating: isBraking,
       );
       if (endTime == null) return null;
-      final result = endTime - startTime;
-      return result > 0 ? result : null;
+      return endTime - startTime;
     }
   }
   return null;
@@ -538,34 +537,35 @@ double? _calculateTimeFromHistory(
 List<RaceTest> getCompletedTests(
   RaceMetrics metrics, {
   bool useNhraRules = false,
-  List<RaceTest> activeTests = officialTests,
+  List<RaceTest>? activeTests,
 }) {
-  final List<RaceTest> completed = [];
+  final completed = <RaceTest>[];
+  final customTest = buildCustomIntervalTest(metrics);
+  final testsToProcess = [
+    ...?activeTests ?? officialTests,
+    if (customTest != null) customTest,
+  ];
 
-  for (final test in activeTests) {
+  for (final test in testsToProcess) {
+    if (completed.any((t) => t.id == test.id || t.displayName == test.displayName)) {
+      continue;
+    }
+    // Distance tests and tests starting from 0 require standing start (drag or interval starting at 0)
+    if (test.distance != null ||
+        (test.startSpeed != null && test.startSpeed == 0.0)) {
+      if (metrics.runMode != RunMode.drag && metrics.testStartSpeed != 0.0) {
+        continue;
+      }
+    }
+
     final time = getCompletedTimeForCategory(
       metrics,
       test.id,
       useNhraRules: useNhraRules,
-      activeTests: activeTests,
+      activeTests: testsToProcess,
     );
     if (time != null) {
       completed.add(test);
-    }
-  }
-
-  if (metrics.runMode == RunMode.interval) {
-    final customTest = buildCustomIntervalTest(metrics);
-    if (customTest != null && !completed.any((t) => t.id == customTest.id)) {
-      final time = getCompletedTimeForCategory(
-        metrics,
-        customTest.id,
-        useNhraRules: useNhraRules,
-        activeTests: [...activeTests, customTest],
-      );
-      if (time != null) {
-        completed.add(customTest);
-      }
     }
   }
 
@@ -615,20 +615,24 @@ double? getCompletedTimeForCategory(
   RaceMetrics metrics,
   String categoryId, {
   bool useNhraRules = false,
-  List<RaceTest> activeTests = officialTests,
+  List<RaceTest>? activeTests,
 }) {
-  final useRollout = useNhraRules && metrics.rolloutTime1ft != null;
-
   // 1. Fast path: Direct lookup in precalculated testTimes
   final precalculated = _getPrecalculatedTime(
     metrics,
     categoryId,
-    useNhraRules: useRollout,
+    useNhraRules: useNhraRules && metrics.rolloutTime1ft != null,
   );
   if (precalculated != null) return precalculated;
 
   // 2. Fallback: Calculate dynamically from history if target definition exists
-  for (final test in activeTests) {
+  final customTest = buildCustomIntervalTest(metrics);
+  final candidates = [
+    ...?activeTests ?? officialTests,
+    if (customTest != null) customTest,
+  ];
+
+  for (final test in candidates) {
     if (test.id == categoryId) {
       // Standing start tests require either drag mode or an interval run that started from 0.
       if (test.distance != null ||
@@ -638,7 +642,7 @@ double? getCompletedTimeForCategory(
         }
       }
 
-      return _calculateTimeFromHistory(metrics, test, useNhraRules: useRollout);
+      return _calculateTimeFromHistory(metrics, test, useNhraRules: useNhraRules);
     }
   }
 
@@ -678,7 +682,7 @@ double? getCompletedDistanceForCategory(
 
   double startTimeOffset = 0.0;
   if (test.startSpeed != null && test.startSpeed! > 0.0) {
-    final tStart = _findSpeedCrossingTime(
+    final tStart = findSpeedCrossingTime(
       metrics.history,
       test.startSpeed!,
       0.0,
@@ -846,4 +850,101 @@ String getDisplayLabelForTest({
     }
     return 'Interval';
   }
+}
+
+class ReachedMilestone {
+  final String label;
+  final double time;
+  final double sortTime;
+  final double? trapSpeed;
+
+  const ReachedMilestone({
+    required this.label,
+    required this.time,
+    this.sortTime = 0.0,
+    this.trapSpeed,
+  });
+}
+
+List<ReachedMilestone> getReachedMilestones(
+  RaceMetrics metrics, {
+  required bool isMetric,
+  required bool useNhraRules,
+  required List<RaceTest> customTests,
+  required bool Function(String testId) isTestEnabled,
+  bool includeTrapSpeed = true,
+}) {
+  final List<ReachedMilestone> reachedMilestones = [];
+  final activeTestsList = [...officialTests, ...customTests];
+  final completed = getCompletedTests(
+    metrics,
+    useNhraRules: useNhraRules,
+    activeTests: activeTestsList,
+  );
+
+  for (final test in completed) {
+    if (!isTestEnabled(test.id)) {
+      continue;
+    }
+    if (test.speedUnit != null) {
+      final isTestMetric = test.speedUnit == SpeedUnit.kmh;
+      if (isTestMetric != isMetric) {
+        continue;
+      }
+    }
+
+    final time = getCompletedTimeForCategory(
+      metrics,
+      test.id,
+      useNhraRules: useNhraRules,
+      activeTests: activeTestsList,
+    ) ?? (metrics.isRunning ? metrics.elapsedTime : null);
+
+    if (time == null) continue;
+
+    final double sortTime;
+    if (test.distance != null) {
+      sortTime = time;
+    } else if (test.startSpeed != null && test.startSpeed! > 0.0) {
+      final isDecel =
+          test.endSpeed != null && test.startSpeed! > test.endSpeed!;
+      final startCrossing = metrics.testTimes['${test.id}_start'] ??
+          (metrics.history.isNotEmpty
+              ? findSpeedCrossingTime(
+                  metrics.history,
+                  test.startSpeed!,
+                  0.0,
+                  isDecelerating: isDecel,
+                )
+              : null);
+      double finishTime = (startCrossing ?? 0.0) + time;
+      if (useNhraRules &&
+          metrics.rolloutTime1ft != null &&
+          (metrics.runMode == RunMode.drag || metrics.testStartSpeed == 0.0)) {
+        finishTime -= metrics.rolloutTime1ft!;
+      }
+      sortTime = finishTime;
+    } else {
+      sortTime = time;
+    }
+
+    reachedMilestones.add(
+      ReachedMilestone(
+        label: test.displayName,
+        time: time,
+        sortTime: sortTime,
+        trapSpeed: includeTrapSpeed
+            ? getTrapSpeedForCategory(
+                metrics,
+                test.id,
+                useNhraRules: useNhraRules,
+                activeTests: activeTestsList,
+              )
+            : null,
+      ),
+    );
+  }
+
+  reachedMilestones.sort((a, b) => a.sortTime.compareTo(b.sortTime));
+  return reachedMilestones;
 }

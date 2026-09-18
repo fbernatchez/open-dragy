@@ -57,110 +57,14 @@ class RunDetailScreen extends StatelessWidget {
         dragy.useNhraRules && run.metrics.rolloutTime1ft != null;
     final metrics = run.metrics;
 
-    // Collect reached milestones sorted by completion time ascending
-    final List<_ReachedMilestone> reachedMilestones = [];
-
-    // 1. Official and Custom completed tests
-    final activeTestsList = [...officialTests, ...dragy.customTests];
-    final completedTests = getCompletedTests(
+    final reachedMilestones = getReachedMilestones(
       metrics,
+      isMetric: isMetric,
       useNhraRules: useNhraRules,
-      activeTests: activeTestsList,
+      customTests: dragy.customTests,
+      isTestEnabled: dragy.isTestEnabled,
+      includeTrapSpeed: true,
     );
-    for (final test in completedTests) {
-      if (!dragy.isTestEnabled(test.id)) continue;
-
-      // Filter out speed tests of the opposite unit system to match user's preference
-      if (test.speedUnit != null) {
-        final isTestMetric = test.speedUnit == SpeedUnit.kmh;
-        if (isTestMetric != isMetric) {
-          continue;
-        }
-      }
-
-      final time = getCompletedTimeForCategory(
-        metrics,
-        test.id,
-        useNhraRules: useNhraRules,
-        activeTests: activeTestsList,
-      );
-      if (time != null) {
-        final double sortTime;
-        if (test.distance != null) {
-          sortTime = time;
-        } else if (test.startSpeed != null && test.startSpeed! > 0.0) {
-          sortTime = (metrics.testTimes['${test.id}_start'] ?? 0.0) + time;
-        } else {
-          sortTime = time;
-        }
-
-        reachedMilestones.add(
-          _ReachedMilestone(
-            label: test.displayName,
-            time: time,
-            sortTime: sortTime,
-            trapSpeed: getTrapSpeedForCategory(
-              metrics,
-              test.id,
-              useNhraRules: useNhraRules,
-              activeTests: activeTestsList,
-            ),
-          ),
-        );
-      }
-    }
-
-    // 2. Custom interval category if it's an interval run and not an official test
-    if (metrics.runMode == RunMode.interval &&
-        metrics.testStartSpeed != null &&
-        metrics.testEndSpeed != null) {
-      bool matchesAny = false;
-      final isMph = (metrics.testSpeedUnit ?? SpeedUnit.kmh) == SpeedUnit.mph;
-      final startKmh = isMph
-          ? UnitConverter.mphToKmh(metrics.testStartSpeed!)
-          : metrics.testStartSpeed!;
-      final endKmh = isMph
-          ? UnitConverter.mphToKmh(metrics.testEndSpeed!)
-          : metrics.testEndSpeed!;
-
-      for (final test in officialTests) {
-        if (test.startSpeed != null &&
-            (startKmh - test.startSpeed!).abs() < 1.0 &&
-            test.endSpeed != null &&
-            (endKmh - test.endSpeed!).abs() < 1.0 &&
-            metrics.testSpeedUnit == test.speedUnit) {
-          matchesAny = true;
-          break;
-        }
-      }
-      if (!matchesAny) {
-        final runIsMetric =
-            (metrics.testSpeedUnit ?? SpeedUnit.kmh) == SpeedUnit.kmh;
-        if (runIsMetric == isMetric) {
-          final customTest = buildCustomIntervalTest(metrics);
-          if (customTest != null &&
-              !reachedMilestones.any((m) => m.label == customTest.displayName)) {
-            final compTime = getCompletedTimeForCategory(
-              metrics,
-              customTest.id,
-              useNhraRules: useNhraRules,
-              activeTests: [...officialTests, customTest],
-            );
-            if (compTime != null) {
-              reachedMilestones.add(
-                _ReachedMilestone(
-                  label: customTest.displayName,
-                  time: compTime,
-                  sortTime: compTime,
-                ),
-              );
-            }
-          }
-        }
-      }
-    }
-
-    reachedMilestones.sort((a, b) => a.sortTime.compareTo(b.sortTime));
 
     final speedMilestones = reachedMilestones
         .where((m) => m.label.contains('mph') || m.label.contains('km/h'))
@@ -254,15 +158,11 @@ class RunDetailScreen extends StatelessWidget {
       primaryTime = "${completedTime.toStringAsFixed(2)}s";
     }
 
-    final double startAlt = metrics.startAltitude ?? 0.0;
-    final double endAlt = metrics.history.isNotEmpty
-        ? (metrics.history.last.altitude ?? startAlt)
-        : startAlt;
-    final double elevationDiff = endAlt - startAlt;
-    final double avgSlope = metrics.distanceMeters > 0
-        ? (elevationDiff / metrics.distanceMeters) * 100
-        : 0.0;
-    final bool isSlopeValid = avgSlope >= -1.0;
+    final double startAlt = metrics.startAltitudeOrZero;
+    final double endAlt = metrics.endAltitudeOrZero;
+    final double elevationDiff = metrics.elevationDiff;
+    final double avgSlope = metrics.avgSlope;
+    final bool isSlopeValid = metrics.isSlopeValid;
 
     final double displayStartAlt = isMetric
         ? startAlt
@@ -577,24 +477,8 @@ class RunDetailScreen extends StatelessWidget {
                 isMetric: isMetric,
                 tempInCelsius: tempInCelsius,
                 useNhraRules: useNhraRules,
-                speedMilestones: speedMilestones
-                    .map(
-                      (m) => ReachedMilestone(
-                        label: m.label,
-                        time: m.time,
-                        trapSpeed: m.trapSpeed,
-                      ),
-                    )
-                    .toList(),
-                distanceMilestones: distanceMilestones
-                    .map(
-                      (m) => ReachedMilestone(
-                        label: m.label,
-                        time: m.time,
-                        trapSpeed: m.trapSpeed,
-                      ),
-                    )
-                    .toList(),
+                speedMilestones: speedMilestones,
+                distanceMilestones: distanceMilestones,
               ),
             ),
           ),
@@ -1071,19 +955,6 @@ class _EnvironmentCard extends StatelessWidget {
   }
 }
 
-class _ReachedMilestone {
-  final String label;
-  final double time;
-  final double sortTime;
-  final double? trapSpeed;
-
-  _ReachedMilestone({
-    required this.label,
-    required this.time,
-    required this.sortTime,
-    this.trapSpeed,
-  });
-}
 
 class TelemetryChart extends StatefulWidget {
   final SavedRun run;
