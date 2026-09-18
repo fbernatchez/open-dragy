@@ -129,9 +129,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
           useNhraRules: dragy.useNhraRules,
         );
       } else {
+        final activeTestsList = [...officialTests, ...dragy.customTests];
         final completed = getCompletedTests(
           metrics,
           useNhraRules: dragy.useNhraRules,
+          activeTests: activeTestsList,
         );
         double maxTime = -1.0;
         for (final test in completed) {
@@ -145,6 +147,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             metrics,
             test.id,
             useNhraRules: dragy.useNhraRules,
+            activeTests: activeTestsList,
           );
           if (t != null && t > maxTime) {
             maxTime = t;
@@ -203,11 +206,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final List<_ReachedMilestone> reachedMilestones = [];
 
     if (dragy.runMode == RunMode.drag) {
+      final activeTestsList = [...officialTests, ...dragy.customTests];
       final completed = getCompletedTests(
         metrics,
         useNhraRules: dragy.useNhraRules,
+        activeTests: activeTestsList,
       );
       for (final test in completed) {
+        if (!dragy.isTestEnabled(test.id)) {
+          continue;
+        }
         if (test.speedUnit != null) {
           final isTestMetric = test.speedUnit == SpeedUnit.kmh;
           if (isTestMetric != isMetric) {
@@ -219,6 +227,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           metrics,
           test.id,
           useNhraRules: dragy.useNhraRules,
+          activeTests: activeTestsList,
         )!;
         reachedMilestones.add(
           _ReachedMilestone(
@@ -234,26 +243,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
         );
       }
     } else {
+      final activeTestsList = [...officialTests, ...dragy.customTests];
       final completed = getCompletedTests(
         metrics,
         useNhraRules: dragy.useNhraRules,
+        activeTests: activeTestsList,
       );
       if (completed.isNotEmpty) {
         final test = completed.first;
-        final time =
-            getCompletedTimeForCategory(
-              metrics,
-              test.id,
-              useNhraRules: dragy.useNhraRules,
-            ) ??
-            metrics.elapsedTime;
-        reachedMilestones.add(
-          _ReachedMilestone(
-            label: test.displayName,
-            time: time,
-            sortTime: time,
-          ),
-        );
+        if (dragy.isTestEnabled(test.id)) {
+          final time =
+              getCompletedTimeForCategory(
+                metrics,
+                test.id,
+                useNhraRules: dragy.useNhraRules,
+                activeTests: activeTestsList,
+              ) ??
+              metrics.elapsedTime;
+          reachedMilestones.add(
+            _ReachedMilestone(
+              label: test.displayName,
+              time: time,
+              sortTime: time,
+            ),
+          );
+        }
       } else if (!metrics.isRunning &&
           metrics.history.isNotEmpty &&
           metrics.elapsedTime > 0 &&

@@ -28,8 +28,13 @@ class MockDragyProvider extends ChangeNotifier implements DragyProvider {
   @override
   List<String> enabledTests = [];
 
+  Set<String> disabledTestIds = {};
+
   @override
-  bool isTestEnabled(String testId) => true;
+  bool isTestEnabled(String testId) {
+    if (testId.startsWith('custom_')) return true;
+    return !disabledTestIds.contains(testId);
+  }
 
   @override
   void addCustomTest(RaceTest Test) {}
@@ -483,6 +488,127 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('12.34s'), findsNWidgets(2));
   });
+
+  testWidgets('Dashboard does not display milestone lines for deactivated tests', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(1080, 1920);
+    tester.view.devicePixelRatio = 1.0;
+
+    final mockProvider = MockDragyProvider();
+    mockProvider.disabledTestIds = {'60ft'};
+    mockProvider.updateState(
+      isConnected: true,
+      metrics: RaceMetrics(
+        speedKmh: 0.0,
+        isRunning: false,
+        testTimes: {
+          '60ft': 2.10,
+          '1/4mile': 12.34,
+        },
+        runMode: RunMode.drag,
+      ),
+      satellites: 8,
+      hdop: 1.2,
+    );
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider<DragyProvider>.value(
+        value: mockProvider,
+        child: const MaterialApp(home: DashboardScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('2.10s'), findsNothing);
+    expect(find.text('60ft'), findsNothing);
+    // 1/4 mile is enabled so it shows both in the hero timer and milestone line
+    expect(find.text('12.34s'), findsNWidgets(2));
+  });
+
+  testWidgets(
+    'Dashboard displays hero timer when target test is deactivated in settings, but hides its milestone line',
+    (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1080, 1920);
+      tester.view.devicePixelRatio = 1.0;
+
+      final mockProvider = MockDragyProvider();
+      // Disable 1/4 mile in settings
+      mockProvider.disabledTestIds = {'1/4mile'};
+      mockProvider.updateState(
+        isConnected: true,
+        metrics: RaceMetrics(
+          speedKmh: 0.0,
+          isRunning: false,
+          testTimes: {
+            '60ft': 2.10,
+            '1/4mile': 12.34,
+          },
+          runMode: RunMode.drag,
+        ),
+        satellites: 8,
+        hdop: 1.2,
+      );
+
+      await tester.pumpWidget(
+        ChangeNotifierProvider<DragyProvider>.value(
+          value: mockProvider,
+          child: const MaterialApp(home: DashboardScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Hero timer shows completed 1/4 mile time (12.34s)
+      // But milestone line for 1/4 mile is omitted because it is disabled in settings.
+      // So '12.34s' appears only once (in the hero timer), and 60ft milestone line is displayed.
+      expect(find.text('12.34s'), findsOneWidget);
+      expect(find.text('2.10s'), findsOneWidget);
+      expect(find.text('60ft'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'Dashboard displays milestone line and hero timer for ad-hoc custom interval runs',
+    (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1080, 1920);
+      tester.view.devicePixelRatio = 1.0;
+
+      final mockProvider = MockDragyProvider();
+      mockProvider.isMetric = true;
+      mockProvider.runMode = RunMode.interval;
+      mockProvider.activeIntervalTest = RaceIntervalTest.custom;
+      mockProvider.customIntervalStartSpeed = 80.0;
+      mockProvider.customIntervalEndSpeed = 140.0;
+      mockProvider.updateState(
+        isConnected: true,
+        metrics: RaceMetrics(
+          speedKmh: 0.0,
+          isRunning: false,
+          runMode: RunMode.interval,
+          testStartSpeed: 80.0,
+          testEndSpeed: 140.0,
+          testSpeedUnit: SpeedUnit.kmh,
+          testTimes: {
+            'custom_80_140_kmh': 4.56,
+          },
+        ),
+        satellites: 8,
+        hdop: 1.2,
+      );
+
+      await tester.pumpWidget(
+        ChangeNotifierProvider<DragyProvider>.value(
+          value: mockProvider,
+          child: const MaterialApp(home: DashboardScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Both hero timer and milestone line display 4.56s
+      expect(find.text('4.56s'), findsNWidgets(2));
+      expect(find.text('80-140 km/h'), findsOneWidget);
+    },
+  );
 
   testWidgets('RunHistoryScreen filtering and PB test', (
     WidgetTester tester,

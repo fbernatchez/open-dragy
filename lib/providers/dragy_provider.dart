@@ -844,6 +844,7 @@ class DragyProvider extends ChangeNotifier {
   }
 
   bool isTestEnabled(String testId) {
+    if (testId.startsWith('custom_')) return true;
     if (_customTests.any((t) => t.id == testId)) return true;
     return _enabledTests.contains(testId);
   }
