@@ -278,6 +278,15 @@ class MockDragyProvider extends ChangeNotifier implements DragyProvider {
   }
 
   @override
+  int boxPivotAngle = 0;
+
+  @override
+  void setBoxPivotAngle(int value) {
+    boxPivotAngle = (value % 360 + 360) % 360;
+    notifyListeners();
+  }
+
+  @override
   bool enableTts = true;
 
   @override

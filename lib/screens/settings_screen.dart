@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../providers/dragy_provider.dart';
 import '../widgets/firmware_update_dialog.dart';
 import '../services/firmware_service.dart';
+import '../widgets/box_pivot_preview.dart';
 import 'test_selection_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -131,6 +132,45 @@ class SettingsScreen extends StatelessWidget {
             ),
           ),
 
+          _SectionHeader(label: 'Mounting & Sensor'),
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            decoration: BoxDecoration(
+              color: const Color(0xFF111111),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: Colors.white.withOpacity(0.06)),
+            ),
+            child: ListTile(
+              leading: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1565C0).withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.explore_outlined,
+                  color: Color(0xFF42A5F5),
+                  size: 22,
+                ),
+              ),
+              title: Text(
+                'Box Pivot Orientation',
+                style: GoogleFonts.roboto(
+                  color: Colors.white,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              subtitle: Text(
+                'Set device mounting orientation',
+                style: GoogleFonts.roboto(color: Colors.white38, fontSize: 12),
+              ),
+              trailing: const Icon(Icons.chevron_right, color: Colors.white38),
+              onTap: () => _showBoxPivotDialog(context),
+            ),
+          ),
+
           _SectionHeader(label: 'About'),
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -237,6 +277,15 @@ class SettingsScreen extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  void _showBoxPivotDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return const BoxPivotDialog();
+      },
     );
   }
 

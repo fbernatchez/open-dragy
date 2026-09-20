@@ -212,7 +212,13 @@ class DragyProvider extends ChangeNotifier {
     }
   }
 
-  double _gForceCalibrationOffset = 0.0;
+  int _boxPivotAngle = 0;
+  int get boxPivotAngle => _boxPivotAngle;
+
+  double _gravX = 0.0;
+  double _gravY = 0.0;
+  double _gravZ = 1.0;
+  bool _hasGravEstimate = false;
   DateTime? _lastGpsUpdateTime;
 
   double get liveElapsedTime {
@@ -430,23 +436,40 @@ class DragyProvider extends ChangeNotifier {
       try {
         final parts = csv.split(',');
         if (parts.length >= 3) {
-          // Assuming BMI160 format: "X,Y,Z" raw integers
-          // We'll use the Y axis for longitudinal G-force (front to back) after a 90-degree pivot
-          int y = int.parse(parts[1].trim());
+          final rawX = int.parse(parts[0].trim());
+          final rawY = int.parse(parts[1].trim());
+          final rawZ = int.parse(parts[2].trim());
 
           // 16384 LSB/g is standard for +/- 2G range on BMI160
-          double gForce = y / 16384.0;
+          final double gx = rawX / 16384.0;
+          final double gy = rawY / 16384.0;
+          final double gz = rawZ / 16384.0;
 
-          // Automatic progressive calibration when speed is constant (cruising or stationary) and not in an active run
           if (!_metrics.isRunning && isSpeedConstant) {
-            const double alpha = 0.02; // Calibration speed factor (EMA)
-            _gForceCalibrationOffset =
-                _gForceCalibrationOffset * (1.0 - alpha) + gForce * alpha;
+            const double alpha = 0.02;
+            if (!_hasGravEstimate) {
+              _gravX = gx;
+              _gravY = gy;
+              _gravZ = gz;
+              _hasGravEstimate = true;
+            } else {
+              _gravX = _gravX * (1.0 - alpha) + gx * alpha;
+              _gravY = _gravY * (1.0 - alpha) + gy * alpha;
+              _gravZ = _gravZ * (1.0 - alpha) + gz * alpha;
+            }
           }
 
-          double calibratedGForce = gForce - _gForceCalibrationOffset;
+          final double gForce = computeLeveledGForce(
+            boxPivotAngle: _boxPivotAngle,
+            gx: gx,
+            gy: gy,
+            gz: gz,
+            gravX: _gravX,
+            gravY: _gravY,
+            gravZ: _gravZ,
+          );
 
-          // Clamp noise to prevent "-0.0" from showing up
+          double calibratedGForce = gForce;
           if (calibratedGForce.abs() < 0.05) {
             calibratedGForce = 0.0;
           }
@@ -707,6 +730,65 @@ class DragyProvider extends ChangeNotifier {
     }
   }
 
+  void setBoxPivotAngle(int angle) {
+    final normalized = (angle % 360 + 360) % 360;
+    if (_boxPivotAngle != normalized) {
+      _boxPivotAngle = normalized;
+      _saveSettings();
+      notifyListeners();
+    }
+  }
+
+  static double computeLeveledGForce({
+    required int boxPivotAngle,
+    required double gx,
+    required double gy,
+    required double gz,
+    double gravX = 0.0,
+    double gravY = 0.0,
+    double gravZ = 1.0,
+  }) {
+    final gravNorm = sqrt(gravX * gravX + gravY * gravY + gravZ * gravZ);
+    final double ux;
+    final double uy;
+    final double uz;
+    if (gravNorm > 0.001) {
+      ux = gravX / gravNorm;
+      uy = gravY / gravNorm;
+      uz = gravZ / gravNorm;
+    } else {
+      ux = 0.0;
+      uy = 0.0;
+      uz = 1.0;
+    }
+
+    final rad = boxPivotAngle * (pi / 180.0);
+    final bx = -sin(rad);
+    final by = cos(rad);
+    const bz = 0.0;
+
+    final dotBU = bx * ux + by * uy + bz * uz;
+    final px = bx - dotBU * ux;
+    final py = by - dotBU * uy;
+    final pz = bz - dotBU * uz;
+    final pLen = sqrt(px * px + py * py + pz * pz);
+
+    final double fx;
+    final double fy;
+    final double fz;
+    if (pLen > 0.001) {
+      fx = px / pLen;
+      fy = py / pLen;
+      fz = pz / pLen;
+    } else {
+      fx = bx;
+      fy = by;
+      fz = bz;
+    }
+
+    return gx * fx + gy * fy + gz * fz;
+  }
+
   void toggleArm() {
     if (_metrics.isRunning) {
       _isArmed = false;
@@ -822,6 +904,7 @@ class DragyProvider extends ChangeNotifier {
     _useNhraRules = data['useNhraRules'] as bool? ?? true;
     _enableTts = data['enableTts'] as bool? ?? true;
     _enableAudioRecording = data['enableAudioRecording'] as bool? ?? true;
+    _boxPivotAngle = (data['boxPivotAngle'] as num?)?.toInt() ?? 0;
     final modeStr = data['runMode'] as String?;
     _runMode = modeStr != null
         ? (RunMode.values.asNameMap()[modeStr] ?? RunMode.drag)
@@ -871,6 +954,7 @@ class DragyProvider extends ChangeNotifier {
       'useNhraRules': _useNhraRules,
       'enableTts': _enableTts,
       'enableAudioRecording': _enableAudioRecording,
+      'boxPivotAngle': _boxPivotAngle,
       'runMode': _runMode.name,
       'activeDragTest': _activeDragTest.name,
       'activeIntervalTest': _activeIntervalTest.name,

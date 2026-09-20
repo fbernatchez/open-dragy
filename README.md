@@ -8,8 +8,12 @@ OpenDragy is a high-precision, open-source vehicle performance timer that measur
 
 * **High-Precision Telemetry (10Hz)**: Receives and parses binary **UBX-NAV-PVT** packets from the u-blox GPS module 10 times per second, providing precise speed, position, and satellite count directly from the chip's internal navigation solution.
 * **Real-Time G-Force Telemetry**: Streams live accelerometer data at 100Hz from the onboard BMI160 IMU for instant G-force mapping and post-run acceleration curve analysis.
+* **Flexible Mounting & 3D Attitude Alignment**: Mount the enclosure facing any direction (0–359°) and on sloped surfaces (windshield mounts, angled dashboards, cup holders). Continuous 3D gravity vector tracking ($A_x, A_y, A_z$) projects acceleration onto the true horizontal plane orthogonal to gravity, preventing cosine attenuation and eliminating pitch/roll slope leakage.
+* **Interactive Mounting Preview**: An intuitive graphical setup dialog renders a top-down view of the OpenDragy enclosure rotating dynamically over a neutral compass rose with 0°, 90°, 180°, 270° quick presets and 1° fine-tuning.
 * **Zero-Crossing Interpolation**: Interpolates the exact start time (down to the millisecond) between the last stationary tick and the first launch tick, guaranteeing highly accurate launch timings.
 * **Auto-Armed Launch Control**: Automatically starts recording when speed exceeds `3.0 km/h` to bypass GPS drift/wandering, auto-stops when stationary, and auto-disarms upon completion.
+* **Voice Announcements (TTS) & Audio Recording**: Real-time spoken announcements for run starts, milestone completions, and trap speeds. Optional cabin audio recording lets you capture exhaust notes synced directly with your telemetry.
+* **Wireless OTA Firmware Updates**: Wirelessly check for, download, and flash ESP32-S3 firmware updates directly over BLE from the companion app without opening the case or plugging in USB.
 * **Wakelock Integration**: Intelligently keeps your device screen awake and active during armed and ongoing runs, so you never miss your telemetry.
 * **Aesthetic Companion App**: Built with Flutter featuring a premium OLED black design with Neon Amber and Neon Green styling, utilizing the Inter font family.
 * **Garage & Fleet Management**: Track multiple vehicles locally and link performance runs to specific cars or bikes.
@@ -105,13 +109,17 @@ The companion application is written in Flutter and is located in the root direc
 * [`lib/main.dart`](lib/main.dart): Main application entry point, sets up global theme and screen routing.
 * [`lib/services/physics_engine.dart`](lib/services/physics_engine.dart): Advanced physics computations (trapezoidal integration, zero-crossing interpolation, speed interval timing).
 * [`lib/services/ble_service.dart`](lib/services/ble_service.dart): BLE scanner and stream listener that parses binary UBX packets & IMU data.
-* [`lib/providers/dragy_provider.dart`](lib/providers/dragy_provider.dart): Core state provider coordinating Bluetooth events, GPS/IMU data processing, runs logic, settings, and database saves.
+* [`lib/providers/dragy_provider.dart`](lib/providers/dragy_provider.dart): Core state provider coordinating Bluetooth events, GPS/IMU data processing, 3D attitude alignment, run logic, settings, and database saves.
 * [`lib/services/history_service.dart`](lib/services/history_service.dart): Manages local saving and retrieval of historical run logs.
 * [`lib/services/weather_service.dart`](lib/services/weather_service.dart): Integration with Open-Meteo API to log run-time environment data.
 * [`lib/services/garage_service.dart`](lib/services/garage_service.dart): Manages local storage of vehicle profiles (cars, bikes) for fleet management.
 * [`lib/services/settings_service.dart`](lib/services/settings_service.dart): Handles user preferences such as unit toggles (Metric/Imperial) and app settings.
+* [`lib/services/tts_service.dart`](lib/services/tts_service.dart): Voice announcements (TTS) for run starts, milestone completions, and trap speeds.
+* [`lib/services/audio_recording_service.dart`](lib/services/audio_recording_service.dart): Cabin audio recording synchronized with telemetry during performance runs.
+* [`lib/services/firmware_service.dart`](lib/services/firmware_service.dart): Manages ESP32-S3 firmware version checks and wireless OTA updates over BLE.
+* [`lib/widgets/box_pivot_preview.dart`](lib/widgets/box_pivot_preview.dart): Interactive 360° enclosure orientation dialog with rotating top-down visual preview, presets, and fine slider.
 * [`lib/screens/dashboard_screen.dart`](lib/screens/dashboard_screen.dart): Live telemetry display, speedometer, Bluetooth controls, and active timer stats.
 * [`lib/screens/run_history_screen.dart`](lib/screens/run_history_screen.dart): Displays the history of all recorded runs and allows filtering or selecting runs to view details.
 * [`lib/screens/run_detail_screen.dart`](lib/screens/run_detail_screen.dart): Post-run analysis, graphs, G-force curves, and slope validations.
 * [`lib/screens/garage_screen.dart`](lib/screens/garage_screen.dart): Interface for adding, editing, and selecting vehicles.
-* [`lib/screens/settings_screen.dart`](lib/screens/settings_screen.dart): UI for configuring app preferences.
+* [`lib/screens/settings_screen.dart`](lib/screens/settings_screen.dart): UI for configuring app preferences, box pivot orientation, audio settings, and OTA firmware.
