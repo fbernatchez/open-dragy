@@ -138,11 +138,14 @@ class MockDragyProvider extends ChangeNotifier implements DragyProvider {
   @override
   double customIntervalEndSpeed = 200.0;
 
-  @override
-  double get intervalStartSpeed => 100.0;
+  double mockIntervalStartSpeed = 100.0;
+  double mockIntervalEndSpeed = 200.0;
 
   @override
-  double get intervalEndSpeed => 200.0;
+  double get intervalStartSpeed => mockIntervalStartSpeed;
+
+  @override
+  double get intervalEndSpeed => mockIntervalEndSpeed;
 
   @override
   double get customIntervalStartSpeedUserUnit => 100.0;
@@ -456,9 +459,9 @@ void main() {
       hdop: 1.2,
     );
     await tester.pumpAndSettle();
-    expect(find.text('Stop'), findsOneWidget);
+    expect(find.text('STOP'), findsOneWidget);
 
-    // 3c. Connected, Armed, and Stationary (Awaiting Launch) State in drag mode
+    // 3c. Connected, Armed, and Stationary (Ready to Launch) State in drag mode
     mockProvider.updateState(
       isConnected: true,
       metrics: RaceMetrics(
@@ -470,9 +473,72 @@ void main() {
       hdop: 1.2,
     );
     await tester.pumpAndSettle();
-    expect(find.text('Awaiting Launch'), findsOneWidget);
-    // Reset armed state back to false for the next tests
+    expect(find.text('Ready to Launch'), findsOneWidget);
+    // 3d. Interval mode: Armed acceleration test, moving above start speed (Slow Down)
+    mockProvider.isArmed = true;
+    mockProvider.runMode = RunMode.interval;
+    mockProvider.mockIntervalStartSpeed = 100.0;
+    mockProvider.mockIntervalEndSpeed = 200.0;
+    mockProvider.updateState(
+      isConnected: true,
+      metrics: RaceMetrics(
+        speedKmh: 120.0,
+        isRunning: false,
+        runMode: RunMode.interval,
+      ),
+      satellites: 8,
+      hdop: 1.2,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Slow Down'), findsOneWidget);
+
+    // 3e. Interval mode: Armed acceleration test, moving below start speed (Ready to Run)
+    mockProvider.updateState(
+      isConnected: true,
+      metrics: RaceMetrics(
+        speedKmh: 80.0,
+        isRunning: false,
+        runMode: RunMode.interval,
+      ),
+      satellites: 8,
+      hdop: 1.2,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Ready to Run'), findsOneWidget);
+
+    // 3f. Interval mode: Armed deceleration test, moving below start speed (Speed Up)
+    mockProvider.mockIntervalStartSpeed = 100.0;
+    mockProvider.mockIntervalEndSpeed = 0.0;
+    mockProvider.updateState(
+      isConnected: true,
+      metrics: RaceMetrics(
+        speedKmh: 80.0,
+        isRunning: false,
+        runMode: RunMode.interval,
+      ),
+      satellites: 8,
+      hdop: 1.2,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Speed Up'), findsOneWidget);
+
+    // 3g. Interval mode: Armed deceleration test, moving at or above start speed (Ready to Brake)
+    mockProvider.updateState(
+      isConnected: true,
+      metrics: RaceMetrics(
+        speedKmh: 110.0,
+        isRunning: false,
+        runMode: RunMode.interval,
+      ),
+      satellites: 8,
+      hdop: 1.2,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Ready to Brake'), findsOneWidget);
+
+    // Reset armed state back to false and runMode to drag for subsequent tests
     mockProvider.isArmed = false;
+    mockProvider.runMode = RunMode.drag;
 
     // 4. Running State (Live Elapsed Time)
     mockProvider.updateState(

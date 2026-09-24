@@ -798,7 +798,7 @@ class DragyProvider extends ChangeNotifier {
     } else {
       _isArmed = !_isArmed;
       if (_isArmed) {
-        _metrics = _physicsEngine.reset();
+        _metrics = _physicsEngine.reset().copyWith(speedKmh: _metrics.speedKmh);
         _lastGpsUpdateTime = null;
         if (_enableAudioRecording) {
           _audioService.startArmedBuffer();

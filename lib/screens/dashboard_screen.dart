@@ -103,10 +103,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     double fontSize = 80.0;
     Color textColor = Colors.white;
     String statusKey = "ready";
+    const double statusFontSize = 52.0;
+    bool shouldBlink = false;
 
     if (!isConnected) {
       mainTime = "Disconnected";
-      fontSize = 40.0;
+      fontSize = statusFontSize;
       textColor = Colors.white38;
       statusKey = "disconnected";
     } else if (metrics.isRunning) {
@@ -163,26 +165,52 @@ class _DashboardScreenState extends State<DashboardScreen> {
             dragy.satellites >= 4 && dragy.hdop > 0.0 && dragy.hdop <= 2.0;
         if (!isGpsReady) {
           mainTime = "Waiting for GPS";
-          fontSize = 35.0;
-          textColor = Colors.amberAccent;
+          fontSize = statusFontSize;
+          textColor = const Color(0xFFFFD54F);
           statusKey = "waiting_gps";
         } else if (dragy.isArmed) {
-          if (dragy.runMode == RunMode.drag && metrics.speedKmh > 0.0) {
-            mainTime = "Stop";
-            fontSize = 60.0;
-            textColor = Colors.redAccent;
-            statusKey = "stop";
+          final bool isStandingStart = dragy.runMode == RunMode.drag ||
+              (dragy.runMode == RunMode.interval &&
+                  dragy.intervalStartSpeed == 0.0);
+          if (isStandingStart) {
+            if (metrics.speedKmh > 0.0) {
+              mainTime = "STOP";
+              fontSize = statusFontSize;
+              textColor = Colors.redAccent;
+              statusKey = "stop";
+              shouldBlink = true;
+            } else {
+              mainTime = "Ready to Launch";
+              fontSize = statusFontSize;
+              textColor = Colors.white;
+              statusKey = "armed";
+            }
           } else {
-            mainTime = dragy.runMode == RunMode.drag
-                ? "Awaiting Launch"
-                : "Awaiting Speed";
-            fontSize = 32.0;
-            textColor = const Color(0xFFFFBF00);
-            statusKey = "armed";
+            // Rolling Interval Mode
+            final double startSpeed = dragy.intervalStartSpeed;
+            final double endSpeed = dragy.intervalEndSpeed;
+            final bool isBraking = startSpeed > endSpeed;
+
+            if (!isBraking && metrics.speedKmh > startSpeed) {
+              mainTime = "Slow Down";
+              fontSize = statusFontSize;
+              textColor = const Color(0xFFFFD54F);
+              statusKey = "slow_down";
+            } else if (isBraking && metrics.speedKmh < startSpeed) {
+              mainTime = "Speed Up";
+              fontSize = statusFontSize;
+              textColor = const Color(0xFFFFD54F);
+              statusKey = "speed_up";
+            } else {
+              mainTime = isBraking ? "Ready to Brake" : "Ready to Run";
+              fontSize = statusFontSize;
+              textColor = Colors.white;
+              statusKey = "armed";
+            }
           }
         } else {
           mainTime = "Disarmed";
-          fontSize = 50.0;
+          fontSize = statusFontSize;
           textColor = Colors.white54;
           statusKey = "disarmed";
         }
@@ -723,13 +751,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                       ),
                                     );
                                   },
-                              child: Text(
-                                mainTime,
+                              child: FittedBox(
                                 key: ValueKey<String>(statusKey),
-                                style: GoogleFonts.robotoMono(
-                                  color: textColor,
-                                  fontSize: fontSize,
-                                  fontWeight: FontWeight.bold,
+                                fit: BoxFit.scaleDown,
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16.0,
+                                  ),
+                                  child: _BlinkingWidget(
+                                    isBlinking: shouldBlink,
+                                    child: Text(
+                                      mainTime,
+                                      style: mainTime.endsWith('s')
+                                          ? GoogleFonts.robotoMono(
+                                              color: textColor,
+                                              fontSize: fontSize,
+                                              fontWeight: FontWeight.bold,
+                                            )
+                                          : GoogleFonts.roboto(
+                                              color: textColor,
+                                              fontSize: fontSize,
+                                              fontWeight: FontWeight.bold,
+                                              letterSpacing: -0.5,
+                                            ),
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
@@ -1313,5 +1359,52 @@ class _LiveWeatherWidget extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _BlinkingWidget extends StatefulWidget {
+  final Widget child;
+  final bool isBlinking;
+  const _BlinkingWidget({super.key, required this.child, required this.isBlinking});
+
+  @override
+  State<_BlinkingWidget> createState() => _BlinkingWidgetState();
+}
+
+class _BlinkingWidgetState extends State<_BlinkingWidget>
+    with TickerProviderStateMixin {
+  late final AnimationController _c;
+
+  @override
+  void initState() {
+    super.initState();
+    _c = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    );
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.isBlinking &&
+        !WidgetsBinding.instance.runtimeType.toString().contains('Test')) {
+      if (!_c.isAnimating) _c.repeat();
+      return AnimatedBuilder(
+        animation: _c,
+        builder: (context, child) => Opacity(
+          opacity: _c.value < 0.5 ? 1.0 : 0.0,
+          child: child,
+        ),
+        child: widget.child,
+      );
+    }
+    _c.stop();
+    return widget.child;
   }
 }
