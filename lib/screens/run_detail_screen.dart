@@ -1032,6 +1032,8 @@ class _TelemetryChartState extends State<TelemetryChart> {
         final minT = history.first.elapsedTime;
         final maxT = history.last.elapsedTime;
         if (chartSec >= maxT && _isPlayingAudio) {
+          _isPlayingAudio = false;
+          _lastUpdate = null;
           _audioPlayer.pause();
           final offset = widget.run.audioStartOffset ?? 0.0;
           _audioPlayer.seek(
@@ -1441,7 +1443,32 @@ class _TelemetryChartState extends State<TelemetryChart> {
             await _audioPlayer.setSourceDeviceFile(widget.run.audioFilePath!);
           }
 
-          if (_scrubTime != null) {
+          final history = trimHistoryToTime(
+            widget.run.metrics.history,
+            widget.endTime,
+          );
+          final isAtEnd = history.isNotEmpty &&
+              ((_scrubTime != null && _scrubTime! >= history.last.elapsedTime) ||
+                  _interpolatedChartSec >= history.last.elapsedTime);
+          final isCompleted = _playerState == PlayerState.completed;
+          final currentPos = await _audioPlayer.getCurrentPosition();
+
+          if (isAtEnd ||
+              isCompleted ||
+              currentPos == null ||
+              currentPos.inMilliseconds < 100) {
+            final offset = widget.run.audioStartOffset ?? 0.0;
+            await _audioPlayer.seek(
+              Duration(milliseconds: (offset * 1000).round()),
+            );
+            if (mounted) {
+              setState(() {
+                _scrubTime = 0.0;
+                _interpolatedChartSec = 0.0;
+                _lastUpdate = DateTime.now();
+              });
+            }
+          } else if (_scrubTime != null) {
             final chartSec = _scrubTime!;
             final offset = widget.run.audioStartOffset ?? 0.0;
             await _audioPlayer.seek(
@@ -1454,37 +1481,10 @@ class _TelemetryChartState extends State<TelemetryChart> {
               });
             }
           } else {
-            final history = trimHistoryToTime(
-              widget.run.metrics.history,
-              widget.endTime,
-            );
-            final isAtEnd =
-                history.isNotEmpty &&
-                _interpolatedChartSec >= history.last.elapsedTime;
-            final isCompleted = _playerState == PlayerState.completed;
-            final currentPos = await _audioPlayer.getCurrentPosition();
-
-            if (isAtEnd ||
-                isCompleted ||
-                currentPos == null ||
-                currentPos.inMilliseconds < 100) {
-              final offset = widget.run.audioStartOffset ?? 0.0;
-              await _audioPlayer.seek(
-                Duration(milliseconds: (offset * 1000).round()),
-              );
-              if (mounted) {
-                setState(() {
-                  _scrubTime = 0.0;
-                  _interpolatedChartSec = 0.0;
-                  _lastUpdate = DateTime.now();
-                });
-              }
-            } else {
-              if (mounted) {
-                setState(() {
-                  _lastUpdate = DateTime.now();
-                });
-              }
+            if (mounted) {
+              setState(() {
+                _lastUpdate = DateTime.now();
+              });
             }
           }
           await _audioPlayer.resume();
