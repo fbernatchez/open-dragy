@@ -464,34 +464,179 @@ double? findSpeedCrossingTime(
   double startTimeOffset, {
   bool? isDecelerating,
 }) {
+  const eps = 1e-6;
+
   for (int i = 1; i < history.length; i++) {
     final prev = history[i - 1];
     final curr = history[i];
     if (prev.elapsedTime < startTimeOffset) continue;
 
-    bool crossedUp =
-        prev.speedKmh <= targetSpeedKmh && curr.speedKmh >= targetSpeedKmh;
-    bool crossedDown =
-        prev.speedKmh >= targetSpeedKmh && curr.speedKmh <= targetSpeedKmh;
+    // Snap endpoints if within tiny floating-point precision error
+    final pSpeed = (prev.speedKmh - targetSpeedKmh).abs() < eps
+        ? targetSpeedKmh
+        : prev.speedKmh;
+    final cSpeed = (curr.speedKmh - targetSpeedKmh).abs() < eps
+        ? targetSpeedKmh
+        : curr.speedKmh;
 
-    bool matches = isDecelerating == null
+    final crossedUp = pSpeed <= targetSpeedKmh && cSpeed >= targetSpeedKmh;
+    final crossedDown = pSpeed >= targetSpeedKmh && cSpeed <= targetSpeedKmh;
+
+    final matches = isDecelerating == null
         ? (crossedUp || crossedDown)
         : (isDecelerating ? crossedDown : crossedUp);
 
     if (matches) {
-      if (prev.speedKmh == targetSpeedKmh) {
-        return prev.elapsedTime;
-      }
-      final speedDiff = (curr.speedKmh - prev.speedKmh).abs();
-      double fraction = 0.0;
-      if (speedDiff > 0) {
-        fraction = (targetSpeedKmh - prev.speedKmh).abs() / speedDiff;
-      }
+      if (pSpeed == targetSpeedKmh) return prev.elapsedTime;
+      if (cSpeed == targetSpeedKmh) return curr.elapsedTime;
+
+      final speedDiff = (cSpeed - pSpeed).abs();
+      if (speedDiff == 0) return prev.elapsedTime;
+
+      final fraction =
+          ((targetSpeedKmh - pSpeed).abs() / speedDiff).clamp(0.0, 1.0);
       final dt = curr.elapsedTime - prev.elapsedTime;
       return prev.elapsedTime + (dt * fraction);
     }
   }
   return null;
+}
+
+/// Finds the raw absolute timestamp in [metrics.history] when [test] reached its finish line/target.
+///
+/// For distance tests with NHRA rules, it targets [distance + 0.3048m] (the 1321 ft beam)
+/// and returns the crossing time.
+/// Note: This returns the physical finish timestamp, NOT the timed duration (it does not subtract rollout).
+double? getTestAbsoluteEndTime(
+  RaceMetrics metrics,
+  RaceTest test, {
+  bool useNhraRules = false,
+}) {
+  if (metrics.history.isEmpty) return null;
+
+  if (test.distance != null && test.distanceUnit != null) {
+    final targetMeters = convertToMeters(test.distance!, test.distanceUnit!);
+    final extra = (useNhraRules && metrics.rolloutTime1ft != null) ? 0.3048 : 0.0;
+    return findDistanceCrossingTime(metrics.history, targetMeters + extra);
+  } else if (test.endSpeed != null) {
+    final start = test.startSpeed ?? 0.0;
+    final isBraking = start > test.endSpeed!;
+    if (start == 0.0) {
+      return findSpeedCrossingTime(
+        metrics.history,
+        test.endSpeed!,
+        0.0,
+        isDecelerating: false,
+      );
+    } else {
+      final startTime = findSpeedCrossingTime(
+        metrics.history,
+        start,
+        0.0,
+        isDecelerating: isBraking,
+      );
+      if (startTime == null) return null;
+      return findSpeedCrossingTime(
+        metrics.history,
+        test.endSpeed!,
+        startTime,
+        isDecelerating: isBraking,
+      );
+    }
+  }
+  return null;
+}
+
+/// Interpolates a [DataPoint] at [time] from [history] using linear interpolation.
+DataPoint interpolateDataPointAt(List<DataPoint> history, double time) {
+  if (history.isEmpty) {
+    return DataPoint(elapsedTime: time, speedKmh: 0.0, gForce: 0.0);
+  }
+  if (time <= history.first.elapsedTime) {
+    final p = history.first;
+    return DataPoint(
+      elapsedTime: time,
+      speedKmh: p.speedKmh,
+      gForce: p.gForce,
+      altitude: p.altitude,
+    );
+  }
+  if (time >= history.last.elapsedTime) {
+    final p = history.last;
+    return DataPoint(
+      elapsedTime: time,
+      speedKmh: p.speedKmh,
+      gForce: p.gForce,
+      altitude: p.altitude,
+    );
+  }
+
+  int low = 0;
+  int high = history.length - 1;
+  while (low <= high) {
+    final mid = (low + high) ~/ 2;
+    if (history[mid].elapsedTime <= time) {
+      if (mid == history.length - 1 || history[mid + 1].elapsedTime > time) {
+        final p0 = history[mid];
+        final p1 = history[mid + 1];
+        final dt = p1.elapsedTime - p0.elapsedTime;
+        if (dt <= 0) {
+          return DataPoint(
+            elapsedTime: time,
+            speedKmh: p0.speedKmh,
+            gForce: p0.gForce,
+            altitude: p0.altitude,
+          );
+        }
+        final f = (time - p0.elapsedTime) / dt;
+        final speed = p0.speedKmh + (p1.speedKmh - p0.speedKmh) * f;
+        final g = p0.gForce + (p1.gForce - p0.gForce) * f;
+        double? alt;
+        if (p0.altitude != null && p1.altitude != null) {
+          alt = p0.altitude! + (p1.altitude! - p0.altitude!) * f;
+        } else {
+          alt = p0.altitude ?? p1.altitude;
+        }
+        return DataPoint(
+          elapsedTime: time,
+          speedKmh: speed,
+          gForce: g,
+          altitude: alt,
+        );
+      }
+      low = mid + 1;
+    } else {
+      high = mid - 1;
+    }
+  }
+
+  return history.last;
+}
+
+/// Trims [history] up to [endTime].
+///
+/// If [endTime] is null, or [history] ends before/at [endTime], returns [history].
+/// Otherwise, returns points where `elapsedTime < endTime` plus an interpolated
+/// [DataPoint] precisely at [endTime].
+List<DataPoint> trimHistoryToTime(List<DataPoint> history, double? endTime) {
+  if (endTime == null || history.isEmpty || history.last.elapsedTime <= endTime) {
+    return history;
+  }
+  if (endTime <= history.first.elapsedTime) {
+    return [interpolateDataPointAt(history, endTime)];
+  }
+
+  final trimmed = <DataPoint>[];
+  for (final p in history) {
+    if (p.elapsedTime < endTime) {
+      trimmed.add(p);
+    } else {
+      break;
+    }
+  }
+
+  trimmed.add(interpolateDataPointAt(history, endTime));
+  return trimmed;
 }
 
 // Calculate run times dynamically from history points
@@ -502,52 +647,33 @@ double? _calculateTimeFromHistory(
 }) {
   if (metrics.history.isEmpty) return null;
 
-  if (test.distance != null && test.distanceUnit != null) {
-    final targetMeters = convertToMeters(test.distance!, test.distanceUnit!);
+  final endTime = getTestAbsoluteEndTime(
+    metrics,
+    test,
+    useNhraRules: useNhraRules,
+  );
+  if (endTime == null) return null;
+
+  final isDistance = test.distance != null && test.distanceUnit != null;
+  final startSpeed = test.startSpeed ?? 0.0;
+  final isStanding = isDistance || (test.endSpeed != null && startSpeed == 0.0);
+
+  if (isStanding) {
     if (useNhraRules && metrics.rolloutTime1ft != null) {
-      final time = findDistanceCrossingTime(
-        metrics.history,
-        targetMeters + 0.3048,
-      );
-      if (time != null) {
-        final adjusted = time - metrics.rolloutTime1ft!;
-        return adjusted > 0 ? adjusted : null;
-      }
-      return null;
+      final adjusted = endTime - metrics.rolloutTime1ft!;
+      return adjusted > 0 ? adjusted : null;
     }
-    return findDistanceCrossingTime(metrics.history, targetMeters);
+    return endTime;
   } else if (test.endSpeed != null) {
-    final start = test.startSpeed ?? 0.0;
-    final isBraking = start > test.endSpeed!;
-    if (start == 0.0) {
-      final time = findSpeedCrossingTime(
-        metrics.history,
-        test.endSpeed!,
-        0.0,
-        isDecelerating: false,
-      );
-      if (time != null && useNhraRules && metrics.rolloutTime1ft != null) {
-        final adjusted = time - metrics.rolloutTime1ft!;
-        return adjusted > 0 ? adjusted : null;
-      }
-      return time;
-    } else {
-      final startTime = findSpeedCrossingTime(
-        metrics.history,
-        start,
-        0.0,
-        isDecelerating: isBraking,
-      );
-      if (startTime == null) return null;
-      final endTime = findSpeedCrossingTime(
-        metrics.history,
-        test.endSpeed!,
-        startTime,
-        isDecelerating: isBraking,
-      );
-      if (endTime == null) return null;
-      return endTime - startTime;
-    }
+    final isBraking = startSpeed > test.endSpeed!;
+    final startTime = findSpeedCrossingTime(
+      metrics.history,
+      startSpeed,
+      0.0,
+      isDecelerating: isBraking,
+    );
+    if (startTime == null) return null;
+    return endTime - startTime;
   }
   return null;
 }
@@ -673,7 +799,6 @@ double? getCompletedDistanceForCategory(
   bool useNhraRules = false,
   List<RaceTest>? activeTests,
 }) {
-  final useRollout = useNhraRules && metrics.rolloutTime1ft != null;
   final test = (activeTests ?? officialTests).firstWhere(
     (t) => t.id == categoryId,
     orElse: () => RaceTest(id: 'unknown', displayName: 'Unknown'),
@@ -681,44 +806,43 @@ double? getCompletedDistanceForCategory(
 
   if (test.id == 'unknown') return null;
 
+  final endTime = getTestAbsoluteEndTime(
+    metrics,
+    test,
+    useNhraRules: useNhraRules,
+  );
+  if (endTime == null) return null;
+
   if (test.distance != null && test.distanceUnit != null) {
     return convertToMeters(test.distance!, test.distanceUnit!);
   }
 
-  final testTime = getCompletedTimeForCategory(
-    metrics,
-    categoryId,
-    useNhraRules: useNhraRules,
-    activeTests: activeTests ?? officialTests,
-  );
-  if (testTime == null) return null;
-
-  double targetTime = testTime;
+  final useRollout = useNhraRules && metrics.rolloutTime1ft != null;
+  double startTime = 0.0;
   if (useRollout && (test.startSpeed == null || test.startSpeed == 0.0)) {
-    targetTime += metrics.rolloutTime1ft!;
-  }
-
-  double startTimeOffset = 0.0;
-  if (test.startSpeed != null && test.startSpeed! > 0.0) {
+    startTime = metrics.rolloutTime1ft!;
+  } else if (test.startSpeed != null && test.startSpeed! > 0.0) {
     final tStart = findSpeedCrossingTime(
       metrics.history,
       test.startSpeed!,
       0.0,
+      isDecelerating: test.startSpeed! > (test.endSpeed ?? 0.0),
     );
     if (tStart == null) return null;
-    startTimeOffset = tStart;
-    targetTime = startTimeOffset + testTime;
+    startTime = tStart;
   }
+
+  if (endTime <= startTime) return 0.0;
 
   double totalDistance = 0.0;
   for (int i = 1; i < metrics.history.length; i++) {
     final prev = metrics.history[i - 1];
     final curr = metrics.history[i];
 
-    if (curr.elapsedTime <= startTimeOffset) continue;
+    if (curr.elapsedTime <= startTime) continue;
 
-    double tStartStep = math.max(prev.elapsedTime, startTimeOffset);
-    double tEndStep = math.min(curr.elapsedTime, targetTime);
+    double tStartStep = math.max(prev.elapsedTime, startTime);
+    double tEndStep = math.min(curr.elapsedTime, endTime);
     if (tStartStep >= tEndStep) continue;
 
     double dt = curr.elapsedTime - prev.elapsedTime;
@@ -736,11 +860,7 @@ double? getCompletedDistanceForCategory(
     double avgSpeedMs = ((vStart + vEnd) / 2) / 3.6;
     totalDistance += avgSpeedMs * dtStep;
 
-    if (curr.elapsedTime >= targetTime) break;
-  }
-
-  if (useRollout && (test.startSpeed == null || test.startSpeed == 0.0)) {
-    totalDistance = math.max(0.0, totalDistance - 0.3048);
+    if (curr.elapsedTime >= endTime) break;
   }
 
   return totalDistance;

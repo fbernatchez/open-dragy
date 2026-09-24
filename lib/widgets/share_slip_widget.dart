@@ -13,6 +13,8 @@ class ShareSlipWidget extends StatelessWidget {
   final bool isMetric;
   final bool tempInCelsius;
   final bool useNhraRules;
+  final double? elevationDiff;
+  final double? avgSlope;
 
   const ShareSlipWidget({
     super.key,
@@ -24,6 +26,8 @@ class ShareSlipWidget extends StatelessWidget {
     required this.isMetric,
     required this.tempInCelsius,
     required this.useNhraRules,
+    this.elevationDiff,
+    this.avgSlope,
   });
 
   @override
@@ -31,15 +35,15 @@ class ShareSlipWidget extends StatelessWidget {
     final vehicle = run.vehicleName ?? 'Unknown Vehicle';
 
     final double startAlt = run.metrics.startAltitudeOrZero;
-    final double elevationDiff = run.metrics.elevationDiff;
-    final double avgSlope = run.metrics.avgSlope;
+    final double effectiveElevationDiff = elevationDiff ?? run.metrics.elevationDiff;
+    final double effectiveAvgSlope = avgSlope ?? run.metrics.avgSlope;
 
     final double displayStartAlt = isMetric
         ? startAlt
         : UnitConverter.metersToFeet(startAlt);
     final double displayElevationDiff = isMetric
-        ? elevationDiff
-        : UnitConverter.metersToFeet(elevationDiff);
+        ? effectiveElevationDiff
+        : UnitConverter.metersToFeet(effectiveElevationDiff);
     final String altUnit = isMetric ? 'm' : 'ft';
 
     final tempC = run.temperature;
@@ -56,8 +60,8 @@ class ShareSlipWidget extends StatelessWidget {
         tempC,
       );
       final daStr = isMetric
-          ? '${daMeters.toStringAsFixed(0)}m'
-          : '${UnitConverter.metersToFeet(daMeters).toStringAsFixed(0)}ft';
+          ? '${daMeters.toStringAsFixed(0)} m'
+          : '${UnitConverter.metersToFeet(daMeters).toStringAsFixed(0)} ft';
 
       weatherStr = '$tempStr • ${humidity.toStringAsFixed(0)}% • DA: $daStr';
     }
@@ -201,7 +205,7 @@ class ShareSlipWidget extends StatelessWidget {
                     ),
                     Expanded(
                       child: Text(
-                        '${displayStartAlt.toStringAsFixed(0)}$altUnit (${displayElevationDiff >= 0 ? '+' : ''}${displayElevationDiff.toStringAsFixed(1)}$altUnit) • Slope: ${avgSlope.toStringAsFixed(2)}%',
+                        '${displayStartAlt.toStringAsFixed(0)} $altUnit (${displayElevationDiff >= 0 ? '+' : ''}${displayElevationDiff.toStringAsFixed(1)} $altUnit) • Slope: ${effectiveAvgSlope.toStringAsFixed(2)}%',
                         style: GoogleFonts.robotoMono(
                           color: Colors.white,
                           fontSize: 11,

@@ -10,6 +10,8 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:path_provider/path_provider.dart';
 import '../providers/dragy_provider.dart';
 import '../models/saved_run.dart';
+import '../models/race_metrics.dart';
+import '../models/race_test.dart';
 import '../utils/unit_converter.dart';
 import 'package:share_plus/share_plus.dart';
 import '../widgets/share_slip_widget.dart';
@@ -106,6 +108,7 @@ class RunDetailScreen extends StatelessWidget {
       }
     }
 
+    RaceTest? primaryTest = matchedTest;
     double? completedTime;
     if (matchedTest != null) {
       completedTime = getCompletedTimeForCategory(
@@ -122,6 +125,7 @@ class RunDetailScreen extends StatelessWidget {
       // Custom interval target
       final customTest = buildCustomIntervalTest(metrics);
       if (customTest != null) {
+        primaryTest = customTest;
         completedTime = getCompletedTimeForCategory(
           metrics,
           customTest.id,
@@ -146,6 +150,7 @@ class RunDetailScreen extends StatelessWidget {
         if (t != null && t > maxTime) {
           maxTime = t;
           completedTime = t;
+          primaryTest = test;
           primaryLabel = "${test.displayName} Time";
         }
       }
@@ -155,11 +160,29 @@ class RunDetailScreen extends StatelessWidget {
       primaryTime = "${completedTime.toStringAsFixed(2)}s";
     }
 
+    // Resolve end boundary and accurate stats for the primary test
+    final double? tEnd = primaryTest != null
+        ? getTestAbsoluteEndTime(metrics, primaryTest, useNhraRules: useNhraRules)
+        : null;
+
+    final double? integratedDist = (tEnd != null && primaryTest != null)
+        ? getCompletedDistanceForCategory(
+            metrics,
+            primaryTest.id,
+            useNhraRules: useNhraRules,
+            activeTests: [...officialTests, primaryTest],
+          )
+        : null;
+    final double totalDistanceMeters = integratedDist ?? metrics.distanceMeters;
     final double startAlt = metrics.startAltitudeOrZero;
-    final double endAlt = metrics.endAltitudeOrZero;
-    final double elevationDiff = metrics.elevationDiff;
-    final double avgSlope = metrics.avgSlope;
-    final bool isSlopeValid = metrics.isSlopeValid;
+    final double endAlt = tEnd != null
+        ? (interpolateDataPointAt(metrics.history, tEnd).altitude ?? metrics.endAltitudeOrZero)
+        : metrics.endAltitudeOrZero;
+    final double elevationDiff = endAlt - startAlt;
+    final double avgSlope = totalDistanceMeters > 0
+        ? (elevationDiff / totalDistanceMeters) * 100
+        : metrics.avgSlope;
+    final bool isSlopeValid = avgSlope >= -1.0;
 
     final double displayStartAlt = isMetric
         ? startAlt
@@ -371,7 +394,7 @@ class RunDetailScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 24),
                 ],
-                TelemetryChart(run: run, isMetric: isMetric),
+                TelemetryChart(run: run, isMetric: isMetric, endTime: tEnd),
                 const SizedBox(height: 24),
                 // Run summary
                 Container(
@@ -406,8 +429,8 @@ class RunDetailScreen extends StatelessWidget {
                       _ProfileStatRow(
                         label: 'Total Distance',
                         value: isMetric
-                            ? '${metrics.distanceMeters.toStringAsFixed(1)} m'
-                            : '${UnitConverter.metersToFeet(metrics.distanceMeters).toStringAsFixed(1)} ft',
+                            ? '${totalDistanceMeters.toStringAsFixed(1)} m'
+                            : '${UnitConverter.metersToFeet(totalDistanceMeters).toStringAsFixed(1)} ft',
                       ),
                       _ProfileStatRow(
                         label: 'Start Altitude',
@@ -476,6 +499,8 @@ class RunDetailScreen extends StatelessWidget {
                 useNhraRules: useNhraRules,
                 speedMilestones: speedMilestones,
                 distanceMilestones: distanceMilestones,
+                elevationDiff: elevationDiff,
+                avgSlope: avgSlope,
               ),
             ),
           ),
@@ -956,15 +981,21 @@ class _EnvironmentCard extends StatelessWidget {
 class TelemetryChart extends StatefulWidget {
   final SavedRun run;
   final bool isMetric;
+  final double? endTime;
 
-  const TelemetryChart({super.key, required this.run, required this.isMetric});
+  const TelemetryChart({
+    super.key,
+    required this.run,
+    required this.isMetric,
+    this.endTime,
+  });
 
   @override
   State<TelemetryChart> createState() => _TelemetryChartState();
 }
 
 class _TelemetryChartState extends State<TelemetryChart> {
-  int? _selectedIndex;
+  double? _scrubTime;
 
   final AudioPlayer _audioPlayer = AudioPlayer();
   bool _isPlayingAudio = false;
@@ -981,7 +1012,7 @@ class _TelemetryChartState extends State<TelemetryChart> {
     super.initState();
     _setupAudio();
     _uiTimer = Timer.periodic(const Duration(milliseconds: 16), (_) {
-      if (_isPlayingAudio && _lastUpdate != null) {
+      if (_isPlayingAudio && _lastUpdate != null && !_isScrubbing) {
         final now = DateTime.now();
         final delta = now.difference(_lastUpdate!).inMilliseconds / 1000.0;
         _lastUpdate = now;
@@ -992,21 +1023,18 @@ class _TelemetryChartState extends State<TelemetryChart> {
   }
 
   void _updateChartSelection(double chartSec) {
-    if (chartSec >= 0) {
-      final history = widget.run.metrics.history;
-      if (history.isNotEmpty && mounted) {
-        int bestIdx = 0;
-        double minDiff = double.infinity;
-        for (int i = 0; i < history.length; i++) {
-          final diff = (history[i].elapsedTime - chartSec).abs();
-          if (diff < minDiff) {
-            minDiff = diff;
-            bestIdx = i;
-          }
-        }
-        if (_selectedIndex != bestIdx) {
+    if (chartSec >= 0 && mounted) {
+      final history = trimHistoryToTime(
+        widget.run.metrics.history,
+        widget.endTime,
+      );
+      if (history.isNotEmpty) {
+        final minT = history.first.elapsedTime;
+        final maxT = history.last.elapsedTime;
+        final clamped = chartSec.clamp(minT, maxT);
+        if (_scrubTime != clamped) {
           setState(() {
-            _selectedIndex = bestIdx;
+            _scrubTime = clamped;
           });
         }
       }
@@ -1040,7 +1068,7 @@ class _TelemetryChartState extends State<TelemetryChart> {
               } else {
                 _lastUpdate = null;
                 if (state == PlayerState.completed) {
-                  _selectedIndex = null;
+                  _scrubTime = null;
                 }
               }
             });
@@ -1080,46 +1108,62 @@ class _TelemetryChartState extends State<TelemetryChart> {
     if (!_isScrubbing) {
       _isScrubbing = true;
     }
-    final history = widget.run.metrics.history;
+    final history = trimHistoryToTime(
+      widget.run.metrics.history,
+      widget.endTime,
+    );
     if (history.isEmpty) return;
 
-    final double chartWidth = containerWidth - 32;
+    final double chartWidth = max(1.0, containerWidth - 32);
     final double relativeX = localPosition.dx;
     final double pct = (relativeX / chartWidth).clamp(0.0, 1.0);
-    final int index = (pct * (history.length - 1)).round();
+    final double minT = history.first.elapsedTime;
+    final double maxT = history.last.elapsedTime;
+    final double rawTime = minT + (pct * (maxT - minT));
+    final double quantizedTime =
+        ((rawTime * 100).round() / 100.0).clamp(minT, maxT);
 
-    if (_selectedIndex != index) {
+    if (_scrubTime != quantizedTime) {
       setState(() {
-        _selectedIndex = index;
+        _scrubTime = quantizedTime;
       });
     }
   }
 
+  double _interpolateSeries(List<double> xs, List<double> ys, double x) {
+    if (xs.isEmpty || ys.isEmpty) return 0.0;
+    if (x <= xs.first) return ys.first;
+    if (x >= xs.last) return ys.last;
+    for (int i = 0; i < xs.length - 1; i++) {
+      if (xs[i] <= x && xs[i + 1] >= x) {
+        final dx = xs[i + 1] - xs[i];
+        return dx > 0 ? ys[i] + (ys[i + 1] - ys[i]) * ((x - xs[i]) / dx) : ys[i];
+      }
+    }
+    return ys.last;
+  }
+
   void _endScrub() {
     _isScrubbing = false;
-    if (_selectedIndex != null && widget.run.audioFilePath != null) {
-      final history = widget.run.metrics.history;
-      if (_selectedIndex! < history.length) {
-        final chartSec = history[_selectedIndex!].elapsedTime;
-        final offset = widget.run.audioStartOffset ?? 0.0;
-        final audioSec = chartSec + offset;
-        if (audioSec >= 0) {
-          _audioPlayer.seek(Duration(milliseconds: (audioSec * 1000).round()));
-          setState(() {
-            _interpolatedChartSec = chartSec;
-            _lastUpdate = DateTime.now();
-          });
-        }
+    if (_scrubTime != null && widget.run.audioFilePath != null) {
+      final chartSec = _scrubTime!;
+      final offset = widget.run.audioStartOffset ?? 0.0;
+      final audioSec = chartSec + offset;
+      if (audioSec >= 0) {
+        _audioPlayer.seek(Duration(milliseconds: (audioSec * 1000).round()));
+        _interpolatedChartSec = chartSec;
+        _lastUpdate = DateTime.now();
       }
     }
     setState(() {
-      _selectedIndex = null;
+      _scrubTime = null;
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final history = widget.run.metrics.history;
+    final rawHistory = widget.run.metrics.history;
+    final history = trimHistoryToTime(rawHistory, widget.endTime);
     if (history.length < 2) {
       return Container(
         width: double.infinity,
@@ -1164,6 +1208,18 @@ class _TelemetryChartState extends State<TelemetryChart> {
       (p) => p.altitude != null && p.altitude != 0.0,
     );
 
+    double? scrubSpeed;
+    double? scrubGForce;
+    double? scrubElevation;
+    if (_scrubTime != null) {
+      final pt = interpolateDataPointAt(history, _scrubTime!);
+      scrubSpeed = isMetric ? pt.speedKmh : UnitConverter.kmhToMph(pt.speedKmh);
+      scrubGForce = pt.gForce;
+      if (hasElevation && times.isNotEmpty && times.length == elevations.length) {
+        scrubElevation = _interpolateSeries(times, elevations, _scrubTime!);
+      }
+    }
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final double width = constraints.maxWidth;
@@ -1179,13 +1235,24 @@ class _TelemetryChartState extends State<TelemetryChart> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Header & Scrub HUD
-              _buildHud(times, speeds, gForces, elevations, hasElevation),
+              _buildHud(
+                times: times,
+                speeds: speeds,
+                gForces: gForces,
+                elevations: elevations,
+                hasElevation: hasElevation,
+                scrubTime: _scrubTime,
+                scrubSpeed: scrubSpeed,
+                scrubGForce: scrubGForce,
+                scrubElevation: scrubElevation,
+              ),
               const SizedBox(height: 16),
               // Legend
               _buildLegend(hasElevation),
               const SizedBox(height: 16),
               // Chart Area
               GestureDetector(
+                behavior: HitTestBehavior.opaque,
                 onPanStart: (details) =>
                     _handleTouch(details.localPosition, width),
                 onPanUpdate: (details) =>
@@ -1204,7 +1271,10 @@ class _TelemetryChartState extends State<TelemetryChart> {
                     elevations: elevations,
                     hasElevation: hasElevation,
                     isMetric: isMetric,
-                    selectedIndex: _selectedIndex,
+                    scrubTime: _scrubTime,
+                    scrubSpeed: scrubSpeed,
+                    scrubGForce: scrubGForce,
+                    scrubElevation: scrubElevation,
                   ),
                 ),
               ),
@@ -1215,15 +1285,18 @@ class _TelemetryChartState extends State<TelemetryChart> {
     );
   }
 
-  Widget _buildHud(
-    List<double> times,
-    List<double> speeds,
-    List<double> gForces,
-    List<double> elevations,
-    bool hasElevation,
-  ) {
-    if (_selectedIndex != null && _selectedIndex! < times.length) {
-      final int idx = _selectedIndex!;
+  Widget _buildHud({
+    required List<double> times,
+    required List<double> speeds,
+    required List<double> gForces,
+    required List<double> elevations,
+    required bool hasElevation,
+    required double? scrubTime,
+    required double? scrubSpeed,
+    required double? scrubGForce,
+    required double? scrubElevation,
+  }) {
+    if (scrubTime != null && scrubSpeed != null && scrubGForce != null) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1263,24 +1336,24 @@ class _TelemetryChartState extends State<TelemetryChart> {
             children: [
               _HudStat(
                 label: 'Time',
-                value: '${times[idx].toStringAsFixed(2)}s',
+                value: '${scrubTime.toStringAsFixed(2)}s',
                 valueColor: Colors.white,
               ),
               _HudStat(
                 label: 'Speed',
-                value: speeds[idx].toStringAsFixed(2),
+                value: scrubSpeed.toStringAsFixed(2),
                 valueColor: const Color(0xFF29B6F6), // Cyan
               ),
               _HudStat(
                 label: 'Accel',
-                value: '${gForces[idx].toStringAsFixed(2)}G',
+                value: '${scrubGForce.toStringAsFixed(2)}G',
                 valueColor: const Color(0xFFFF9100), // Orange
               ),
               if (hasElevation)
                 _HudStat(
                   label: 'Height',
                   value:
-                      '${elevations[idx] >= 0 ? '+' : ''}${elevations[idx].toStringAsFixed(1)}',
+                      '${(scrubElevation != null && scrubElevation >= 0) ? '+' : ''}${scrubElevation?.toStringAsFixed(1) ?? ''}',
                   valueColor: const Color(0xFF66BB6A), // Green
                 ),
             ],
@@ -1360,11 +1433,8 @@ class _TelemetryChartState extends State<TelemetryChart> {
             await _audioPlayer.setSourceDeviceFile(widget.run.audioFilePath!);
           }
 
-          if (_selectedIndex != null) {
-            final history = widget.run.metrics.history;
-            final chartSec = _selectedIndex! < history.length
-                ? history[_selectedIndex!].elapsedTime
-                : 0.0;
+          if (_scrubTime != null) {
+            final chartSec = _scrubTime!;
             final offset = widget.run.audioStartOffset ?? 0.0;
             await _audioPlayer.seek(
               Duration(milliseconds: ((chartSec + offset) * 1000).round()),
@@ -1376,7 +1446,10 @@ class _TelemetryChartState extends State<TelemetryChart> {
               });
             }
           } else {
-            final history = widget.run.metrics.history;
+            final history = trimHistoryToTime(
+              widget.run.metrics.history,
+              widget.endTime,
+            );
             final isAtEnd =
                 history.isNotEmpty &&
                 _interpolatedChartSec >= history.last.elapsedTime;
@@ -1393,7 +1466,7 @@ class _TelemetryChartState extends State<TelemetryChart> {
               );
               if (mounted) {
                 setState(() {
-                  _selectedIndex = 0;
+                  _scrubTime = 0.0;
                   _interpolatedChartSec = 0.0;
                   _lastUpdate = DateTime.now();
                 });
@@ -1539,7 +1612,10 @@ class TelemetryChartPainter extends CustomPainter {
   final List<double> elevations;
   final bool hasElevation;
   final bool isMetric;
-  final int? selectedIndex;
+  final double? scrubTime;
+  final double? scrubSpeed;
+  final double? scrubGForce;
+  final double? scrubElevation;
 
   TelemetryChartPainter({
     required this.times,
@@ -1548,7 +1624,10 @@ class TelemetryChartPainter extends CustomPainter {
     required this.elevations,
     required this.hasElevation,
     required this.isMetric,
-    this.selectedIndex,
+    this.scrubTime,
+    this.scrubSpeed,
+    this.scrubGForce,
+    this.scrubElevation,
   });
 
   @override
@@ -1713,9 +1792,8 @@ class TelemetryChartPainter extends CustomPainter {
     canvas.drawPath(gForcePath, gForcePaint);
 
     // 5. Draw Interactive Cursor and Scrub Points
-    if (selectedIndex != null && selectedIndex! < times.length) {
-      final int idx = selectedIndex!;
-      final double x = getX(times[idx]);
+    if (scrubTime != null && scrubSpeed != null && scrubGForce != null) {
+      final double x = getX(scrubTime!).clamp(0.0, width);
 
       // Vertical line
       final Paint cursorLinePaint = Paint()
@@ -1738,21 +1816,24 @@ class TelemetryChartPainter extends CustomPainter {
       }
 
       // Draw dot on speed
-      drawDot(getYSpeed(speeds[idx]), const Color(0xFF29B6F6));
+      drawDot(getYSpeed(scrubSpeed!), const Color(0xFF29B6F6));
 
       // Draw dot on gforce
-      drawDot(getYG(gForces[idx]), const Color(0xFFFF9100));
+      drawDot(getYG(scrubGForce!), const Color(0xFFFF9100));
 
       // Draw dot on elevation
-      if (hasElevation) {
-        drawDot(getYAlt(elevations[idx]), const Color(0xFF66BB6A));
+      if (hasElevation && scrubElevation != null) {
+        drawDot(getYAlt(scrubElevation!), const Color(0xFF66BB6A));
       }
     }
   }
 
   @override
   bool shouldRepaint(covariant TelemetryChartPainter oldDelegate) {
-    return oldDelegate.selectedIndex != selectedIndex ||
+    return oldDelegate.scrubTime != scrubTime ||
+        oldDelegate.scrubSpeed != scrubSpeed ||
+        oldDelegate.scrubGForce != scrubGForce ||
+        oldDelegate.scrubElevation != scrubElevation ||
         oldDelegate.isMetric != isMetric ||
         oldDelegate.times != times ||
         oldDelegate.speeds != speeds ||
