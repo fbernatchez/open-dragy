@@ -1031,6 +1031,14 @@ class _TelemetryChartState extends State<TelemetryChart> {
       if (history.isNotEmpty) {
         final minT = history.first.elapsedTime;
         final maxT = history.last.elapsedTime;
+        if (chartSec >= maxT && _isPlayingAudio) {
+          _audioPlayer.pause();
+          final offset = widget.run.audioStartOffset ?? 0.0;
+          _audioPlayer.seek(
+            Duration(milliseconds: ((maxT + offset) * 1000).round()),
+          );
+          _interpolatedChartSec = maxT;
+        }
         final clamped = chartSec.clamp(minT, maxT);
         if (_scrubTime != clamped) {
           setState(() {

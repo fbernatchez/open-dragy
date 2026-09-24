@@ -1275,8 +1275,8 @@ class _LiveWeatherWidget extends StatelessWidget {
     final isaTemp = 15.0 - 0.0065 * dragy.altitude;
     final daMeters = dragy.altitude + 120.0 * (tempC - isaTemp);
     final daStr = dragy.isMetric
-        ? '${daMeters.toStringAsFixed(0)}m'
-        : '${UnitConverter.metersToFeet(daMeters).toStringAsFixed(0)}ft';
+        ? '${daMeters.toStringAsFixed(0)} m'
+        : '${UnitConverter.metersToFeet(daMeters).toStringAsFixed(0)} ft';
 
     final humidityStr = dragy.currentHumidity != null
         ? '${dragy.currentHumidity!.toStringAsFixed(0)}%'
