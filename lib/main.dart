@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'providers/dragy_provider.dart';
+import 'providers/telemetry_provider.dart';
 import 'screens/main_navigation_screen.dart';
 
 import 'theme/app_theme.dart';
@@ -22,7 +23,13 @@ class OpenDragyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
-      providers: [ChangeNotifierProvider(create: (_) => DragyProvider())],
+      providers: [
+        ChangeNotifierProvider(create: (_) => DragyProvider()),
+        ChangeNotifierProxyProvider<DragyProvider, TelemetryProvider>(
+          create: (context) => context.read<DragyProvider>().telemetry,
+          update: (_, dragy, _) => dragy.telemetry,
+        ),
+      ],
       child: Selector<DragyProvider, ThemeMode>(
         selector: (_, dragy) => dragy.themeMode,
         builder: (context, themeMode, _) {

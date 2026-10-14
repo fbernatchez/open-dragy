@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../providers/dragy_provider.dart';
 import '../utils/unit_converter.dart';
@@ -66,7 +65,7 @@ class TestSelectionScreen extends StatelessWidget {
                     ? Center(
                         child: Text(
                           'No Custom Tests yet.',
-                          style: GoogleFonts.roboto(color: colors.textMuted),
+                          style: AppTheme.font(color: colors.textMuted),
                         ),
                       )
                     : ListView(
@@ -144,7 +143,7 @@ class _TestTile extends StatelessWidget {
               leading: iconContainer,
               title: Text(
                 test.displayName,
-                style: GoogleFonts.roboto(
+                style: AppTheme.font(
                   color: colors.textPrimary,
                   fontSize: 15,
                   fontWeight: FontWeight.w500,
@@ -164,7 +163,7 @@ class _TestTile extends StatelessWidget {
               secondary: iconContainer,
               title: Text(
                 test.displayName,
-                style: GoogleFonts.roboto(
+                style: AppTheme.font(
                   color: colors.textPrimary,
                   fontSize: 15,
                   fontWeight: FontWeight.w500,
@@ -214,7 +213,7 @@ class _AddCustomTestDialogState extends State<_AddCustomTestDialog> {
     return AlertDialog(
       title: Text(
         'New Custom Test',
-        style: GoogleFonts.roboto(color: colors.textPrimary),
+        style: AppTheme.font(color: colors.textPrimary),
       ),
       content: Column(
         mainAxisSize: MainAxisSize.min,
@@ -295,7 +294,7 @@ class _AddCustomTestDialogState extends State<_AddCustomTestDialog> {
           onPressed: () => Navigator.pop(context),
           child: Text(
             'Cancel',
-            style: GoogleFonts.roboto(color: colors.textMuted),
+            style: AppTheme.font(color: colors.textMuted),
           ),
         ),
         TextButton(
@@ -343,7 +342,7 @@ class _AddCustomTestDialogState extends State<_AddCustomTestDialog> {
           },
           child: Text(
             'Add',
-            style: GoogleFonts.roboto(color: const Color(0xFF42A5F5)),
+            style: AppTheme.font(color: const Color(0xFF42A5F5)),
           ),
         ),
       ],

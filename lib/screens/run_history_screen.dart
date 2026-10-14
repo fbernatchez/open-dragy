@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../providers/dragy_provider.dart';
 import '../models/saved_run.dart';
 import '../theme/app_theme.dart';
@@ -199,7 +198,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
             children: [
               Text(
                 'Filter by Vehicle',
-                style: GoogleFonts.comfortaa(
+                style: AppTheme.brandFont(
                   color: colors.textPrimary,
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
@@ -266,7 +265,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
             Expanded(
               child: Text(
                 title,
-                style: GoogleFonts.roboto(
+                style: AppTheme.font(
                   color: isSelected ? colors.accent : colors.textPrimary,
                   fontSize: 16,
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
@@ -287,10 +286,10 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final dragy = Provider.of<DragyProvider>(context, listen: false);
-    final (savedRuns, isMetric, useNhraRules) = context.select(
-      (DragyProvider p) => (p.savedRuns, p.isMetric, p.useNhraRules),
-    );
+    final dragy = Provider.of<DragyProvider>(context);
+    final savedRuns = dragy.savedRuns;
+    final isMetric = dragy.isMetric;
+    final useNhraRules = dragy.useNhraRules;
 
     final Map<String, String> uniqueVehicles = {};
     for (var run in savedRuns) {
@@ -349,7 +348,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                   const SizedBox(height: 16),
                   Text(
                     'No runs recorded yet.',
-                    style: GoogleFonts.roboto(
+                    style: AppTheme.font(
                       color: colors.textSecondary,
                       fontSize: 18,
                     ),
@@ -357,7 +356,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                   const SizedBox(height: 8),
                   Text(
                     'Perform a speed run to automatically log it.',
-                    style: GoogleFonts.roboto(
+                    style: AppTheme.font(
                       color: colors.textMuted,
                       fontSize: 14,
                     ),
@@ -433,7 +432,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                                 label,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: GoogleFonts.roboto(
+                                style: AppTheme.font(
                                   fontSize: 11,
                                   fontWeight: isSelected
                                       ? FontWeight.bold
@@ -446,7 +445,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                               const SizedBox(height: 4),
                               Text(
                                 pbText,
-                                style: GoogleFonts.robotoMono(
+                                style: AppTheme.numericFont(
                                   fontSize: 14,
                                   fontWeight: FontWeight.bold,
                                   color: isSelected
@@ -480,7 +479,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                               const SizedBox(height: 12),
                               Text(
                                 'No runs found for this category.',
-                                style: GoogleFonts.roboto(
+                                style: AppTheme.font(
                                   color: colors.textMuted,
                                   fontSize: 15,
                                 ),
@@ -677,7 +676,7 @@ class RunHistoryCard extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         softWrap: false,
-                        style: GoogleFonts.roboto(
+                        style: AppTheme.font(
                           fontSize: 9,
                           color: context.colors.textMuted,
                           fontWeight: FontWeight.bold,
@@ -688,7 +687,7 @@ class RunHistoryCard extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         softWrap: false,
-                        style: GoogleFonts.robotoMono(
+                        style: AppTheme.numericFont(
                           fontSize: 15,
                           color: context.colors.textPrimary,
                           fontWeight: FontWeight.bold,
@@ -705,7 +704,7 @@ class RunHistoryCard extends StatelessWidget {
                     children: [
                       Text(
                         formattedDate,
-                        style: GoogleFonts.roboto(
+                        style: AppTheme.font(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
                           color: context.colors.textPrimary,
@@ -726,7 +725,7 @@ class RunHistoryCard extends StatelessWidget {
                           const SizedBox(width: 4),
                           Text(
                             isSlopeValid ? 'Valid' : 'Invalid',
-                            style: GoogleFonts.roboto(
+                            style: AppTheme.font(
                               fontSize: 12,
                               color: isSlopeValid
                                   ? context.colors.textSecondary
@@ -741,7 +740,7 @@ class RunHistoryCard extends StatelessWidget {
                           const SizedBox(width: 12),
                           Text(
                             'Duration: ${metrics.elapsedTime.toStringAsFixed(1)}s',
-                            style: GoogleFonts.roboto(
+                            style: AppTheme.font(
                               fontSize: 12,
                               color: context.colors.textMuted,
                             ),
@@ -763,7 +762,7 @@ class RunHistoryCard extends StatelessWidget {
                                 run.vehicleName!,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: GoogleFonts.roboto(
+                                style: AppTheme.font(
                                   fontSize: 11,
                                   color: context.colors.accent,
                                   fontWeight: FontWeight.w500,
@@ -789,7 +788,7 @@ class RunHistoryCard extends StatelessWidget {
                                 run.notes!.trim(),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: GoogleFonts.roboto(
+                                style: AppTheme.font(
                                   fontSize: 11,
                                   color: context.colors.textMuted,
                                   fontStyle: FontStyle.italic,

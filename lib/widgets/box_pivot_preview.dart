@@ -1,6 +1,5 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../providers/dragy_provider.dart';
 import '../theme/app_theme.dart';
@@ -82,7 +81,7 @@ class BoxPivotPreviewWidget extends StatelessWidget {
                   children: [
                     Text(
                       'Box Pivot Orientation',
-                      style: GoogleFonts.roboto(
+                      style: AppTheme.font(
                         color: colors.textPrimary,
                         fontSize: 15,
                         fontWeight: FontWeight.w500,
@@ -91,7 +90,7 @@ class BoxPivotPreviewWidget extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       'Set mounting orientation',
-                      style: GoogleFonts.roboto(
+                      style: AppTheme.font(
                         color: colors.textMuted,
                         fontSize: 12,
                       ),
@@ -111,7 +110,7 @@ class BoxPivotPreviewWidget extends StatelessWidget {
                 ),
                 child: Text(
                   '$angle°',
-                  style: GoogleFonts.robotoMono(
+                  style: AppTheme.numericFont(
                     color: isDark ? const Color(0xFF90CAF9) : const Color(0xFF1565C0),
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
@@ -166,7 +165,7 @@ class BoxPivotPreviewWidget extends StatelessWidget {
                     top: 6,
                     child: Text(
                       'FRONT',
-                      style: GoogleFonts.roboto(
+                      style: AppTheme.font(
                         color: colors.textMuted,
                         fontSize: 9,
                         fontWeight: FontWeight.w600,
@@ -179,7 +178,7 @@ class BoxPivotPreviewWidget extends StatelessWidget {
                     bottom: 6,
                     child: Text(
                       'BACK',
-                      style: GoogleFonts.roboto(
+                      style: AppTheme.font(
                         color: colors.textMuted,
                         fontSize: 9,
                         fontWeight: FontWeight.w600,
@@ -192,7 +191,7 @@ class BoxPivotPreviewWidget extends StatelessWidget {
                     left: 6,
                     child: Text(
                       'LEFT',
-                      style: GoogleFonts.roboto(
+                      style: AppTheme.font(
                         color: colors.textMuted,
                         fontSize: 9,
                         fontWeight: FontWeight.w600,
@@ -205,7 +204,7 @@ class BoxPivotPreviewWidget extends StatelessWidget {
                     right: 6,
                     child: Text(
                       'RIGHT',
-                      style: GoogleFonts.roboto(
+                      style: AppTheme.font(
                         color: colors.textMuted,
                         fontSize: 9,
                         fontWeight: FontWeight.w600,
@@ -360,7 +359,7 @@ class BoxPivotPreviewWidget extends StatelessWidget {
         ),
         child: Text(
           label,
-          style: GoogleFonts.roboto(
+          style: AppTheme.font(
             color: isSelected ? Colors.white : colors.textSecondary,
             fontSize: 11,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.w400,

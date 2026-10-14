@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../providers/dragy_provider.dart';
 import '../widgets/firmware_update_dialog.dart';
 import '../services/firmware_service.dart';
@@ -20,30 +19,16 @@ class SettingsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dragy = Provider.of<DragyProvider>(context, listen: false);
-    final (
-      isMetric,
-      tempInCelsius,
-      themeMode,
-      useNhraRules,
-      enableTts,
-      enableAudioRecording,
-      isConnected,
-      appVersion,
-      firmwareVersion,
-    ) = context.select(
-      (DragyProvider p) => (
-        p.isMetric,
-        p.tempInCelsius,
-        p.themeMode,
-        p.useNhraRules,
-        p.enableTts,
-        p.enableAudioRecording,
-        p.isConnected,
-        p.appVersion,
-        p.firmwareVersion,
-      ),
-    );
+    final dragy = Provider.of<DragyProvider>(context);
+    final isMetric = dragy.isMetric;
+    final tempInCelsius = dragy.tempInCelsius;
+    final themeMode = dragy.themeMode;
+    final useNhraRules = dragy.useNhraRules;
+    final enableTts = dragy.enableTts;
+    final enableAudioRecording = dragy.enableAudioRecording;
+    final isConnected = dragy.isConnected;
+    final appVersion = dragy.appVersion;
+    final firmwareVersion = dragy.firmwareVersion;
     final colors = context.colors;
     final cardColor = colors.cardBackground;
     final borderColor = colors.cardBorder;
@@ -81,7 +66,7 @@ class SettingsScreen extends StatelessWidget {
               ),
               title: Text(
                 'Theme',
-                style: GoogleFonts.roboto(
+                style: AppTheme.font(
                   color: titleColor,
                   fontSize: 15,
                   fontWeight: FontWeight.w500,
@@ -89,7 +74,7 @@ class SettingsScreen extends StatelessWidget {
               ),
               subtitle: Text(
                 _themeModeLabel(themeMode),
-                style: GoogleFonts.roboto(
+                style: AppTheme.font(
                   color: subtitleColor,
                   fontSize: 12,
                 ),
@@ -170,7 +155,7 @@ class SettingsScreen extends StatelessWidget {
               ),
               title: Text(
                 'Garage',
-                style: GoogleFonts.roboto(
+                style: AppTheme.font(
                   color: titleColor,
                   fontSize: 15,
                   fontWeight: FontWeight.w500,
@@ -178,7 +163,7 @@ class SettingsScreen extends StatelessWidget {
               ),
               subtitle: Text(
                 'Manage vehicles',
-                style: GoogleFonts.roboto(color: subtitleColor, fontSize: 12),
+                style: AppTheme.font(color: subtitleColor, fontSize: 12),
               ),
               trailing: Icon(Icons.chevron_right, color: subtitleColor),
               onTap: () {
@@ -216,7 +201,7 @@ class SettingsScreen extends StatelessWidget {
               ),
               title: Text(
                 'Active Tests',
-                style: GoogleFonts.roboto(
+                style: AppTheme.font(
                   color: titleColor,
                   fontSize: 15,
                   fontWeight: FontWeight.w500,
@@ -224,7 +209,7 @@ class SettingsScreen extends StatelessWidget {
               ),
               subtitle: Text(
                 'Select which tests to track',
-                style: GoogleFonts.roboto(color: subtitleColor, fontSize: 12),
+                style: AppTheme.font(color: subtitleColor, fontSize: 12),
               ),
               trailing: Icon(Icons.chevron_right, color: subtitleColor),
               onTap: () {
@@ -262,7 +247,7 @@ class SettingsScreen extends StatelessWidget {
               ),
               title: Text(
                 'Box Pivot Orientation',
-                style: GoogleFonts.roboto(
+                style: AppTheme.font(
                   color: titleColor,
                   fontSize: 15,
                   fontWeight: FontWeight.w500,
@@ -270,7 +255,7 @@ class SettingsScreen extends StatelessWidget {
               ),
               subtitle: Text(
                 'Set device mounting orientation',
-                style: GoogleFonts.roboto(color: subtitleColor, fontSize: 12),
+                style: AppTheme.font(color: subtitleColor, fontSize: 12),
               ),
               trailing: Icon(Icons.chevron_right, color: subtitleColor),
               onTap: () => _showBoxPivotDialog(context),
@@ -308,7 +293,7 @@ class SettingsScreen extends StatelessWidget {
                     children: [
                       Text(
                         'Version',
-                        style: GoogleFonts.roboto(
+                        style: AppTheme.font(
                           color: titleColor,
                           fontSize: 15,
                           fontWeight: FontWeight.w500,
@@ -319,7 +304,7 @@ class SettingsScreen extends StatelessWidget {
                         appVersion.isNotEmpty
                             ? 'App: $appVersion'
                             : 'App: Loading...',
-                        style: GoogleFonts.roboto(
+                        style: AppTheme.font(
                           color: subtitleColor,
                           fontSize: 12,
                         ),
@@ -329,7 +314,7 @@ class SettingsScreen extends StatelessWidget {
                         const SizedBox(height: 2),
                         Text(
                           'Firmware: $firmwareVersion',
-                          style: GoogleFonts.roboto(
+                          style: AppTheme.font(
                             color: subtitleColor,
                             fontSize: 12,
                           ),
@@ -365,7 +350,7 @@ class SettingsScreen extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Text(
                 'Recommended firmware: v${SettingsScreen.minRecommendedFirmware} or higher for this app version.',
-                style: GoogleFonts.roboto(color: subtitleColor, fontSize: 11),
+                style: AppTheme.font(color: subtitleColor, fontSize: 11),
                 textAlign: TextAlign.center,
               ),
             ),
@@ -399,7 +384,7 @@ class SettingsScreen extends StatelessWidget {
           ),
           title: Text(
             'Theme',
-            style: GoogleFonts.comfortaa(
+            style: AppTheme.brandFont(
               color: colors.textPrimary,
               fontWeight: FontWeight.bold,
               fontSize: 20,
@@ -423,7 +408,7 @@ class SettingsScreen extends StatelessWidget {
                   activeColor: colors.accent,
                   title: Text(
                     'System default',
-                    style: GoogleFonts.roboto(
+                    style: AppTheme.font(
                       color: colors.textPrimary,
                       fontSize: 15,
                       fontWeight: FontWeight.w500,
@@ -436,7 +421,7 @@ class SettingsScreen extends StatelessWidget {
                   activeColor: colors.accent,
                   title: Text(
                     'Dark mode',
-                    style: GoogleFonts.roboto(
+                    style: AppTheme.font(
                       color: colors.textPrimary,
                       fontSize: 15,
                       fontWeight: FontWeight.w500,
@@ -449,7 +434,7 @@ class SettingsScreen extends StatelessWidget {
                   activeColor: colors.accent,
                   title: Text(
                     'Light mode',
-                    style: GoogleFonts.roboto(
+                    style: AppTheme.font(
                       color: colors.textPrimary,
                       fontSize: 15,
                       fontWeight: FontWeight.w500,
@@ -503,7 +488,7 @@ class _SectionHeader extends StatelessWidget {
       padding: const EdgeInsets.only(left: 16, right: 16, top: 20, bottom: 4),
       child: Text(
         label.toUpperCase(),
-        style: GoogleFonts.roboto(
+        style: AppTheme.font(
           color: context.colors.textMuted,
           fontSize: 12,
           fontWeight: FontWeight.bold,
@@ -563,7 +548,7 @@ class _SettingsToggle extends StatelessWidget {
         ),
         title: Text(
           title,
-          style: GoogleFonts.roboto(
+          style: AppTheme.font(
             color: titleColor,
             fontSize: 15,
             fontWeight: FontWeight.w500,
@@ -571,7 +556,7 @@ class _SettingsToggle extends StatelessWidget {
         ),
         subtitle: Text(
           subtitle,
-          style: GoogleFonts.roboto(color: subtitleColor, fontSize: 12),
+          style: AppTheme.font(color: subtitleColor, fontSize: 12),
         ),
         value: value,
         onChanged: onChanged,

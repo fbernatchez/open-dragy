@@ -5,7 +5,6 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:provider/provider.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:path_provider/path_provider.dart';
 import '../providers/dragy_provider.dart';
@@ -225,7 +224,7 @@ class RunDetailScreen extends StatelessWidget {
               children: [
                 Text(
                   _formatDate(run.dateTime),
-                  style: GoogleFonts.roboto(
+                  style: AppTheme.font(
                     color: colors.textMuted,
                     fontSize: 14,
                   ),
@@ -253,7 +252,7 @@ class RunDetailScreen extends StatelessWidget {
                         const SizedBox(width: 6),
                         Text(
                           run.vehicleName ?? 'No Vehicle Assigned',
-                          style: GoogleFonts.roboto(
+                          style: AppTheme.font(
                             color: run.vehicleName != null
                                 ? colors.accent
                                 : colors.textMuted,
@@ -277,7 +276,7 @@ class RunDetailScreen extends StatelessWidget {
                 // Time Display
                 Text(
                   primaryTime,
-                  style: GoogleFonts.robotoMono(
+                  style: AppTheme.numericFont(
                     color: colors.textPrimary,
                     fontSize: 64,
                     fontWeight: FontWeight.bold,
@@ -285,7 +284,7 @@ class RunDetailScreen extends StatelessWidget {
                 ),
                 Text(
                   fullLabel,
-                  style: GoogleFonts.roboto(
+                  style: AppTheme.font(
                     color: colors.accent,
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -316,7 +315,7 @@ class RunDetailScreen extends StatelessWidget {
                             const SizedBox(width: 8),
                             Text(
                               'SPEED',
-                              style: GoogleFonts.roboto(
+                              style: AppTheme.font(
                                 color: colors.textSecondary,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 13,
@@ -363,7 +362,7 @@ class RunDetailScreen extends StatelessWidget {
                             const SizedBox(width: 8),
                             Text(
                               'DISTANCE',
-                              style: GoogleFonts.roboto(
+                              style: AppTheme.font(
                                 color: colors.textSecondary,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 13,
@@ -410,7 +409,7 @@ class RunDetailScreen extends StatelessWidget {
                           const SizedBox(width: 8),
                           Text(
                             'Run Summary',
-                            style: GoogleFonts.roboto(
+                            style: AppTheme.font(
                               color: colors.textSecondary,
                               fontWeight: FontWeight.bold,
                               fontSize: 15,
@@ -601,7 +600,7 @@ class RunDetailScreen extends StatelessWidget {
             children: [
               Text(
                 'Assign Vehicle',
-                style: GoogleFonts.comfortaa(
+                style: AppTheme.brandFont(
                   color: ctx.colors.textPrimary,
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
@@ -704,7 +703,7 @@ class _DetailSlipRow extends StatelessWidget {
               const SizedBox(width: 16),
               Text(
                 label,
-                style: GoogleFonts.roboto(
+                style: AppTheme.font(
                   color: context.colors.textSecondary,
                   fontSize: 18,
                   fontWeight: FontWeight.w500,
@@ -713,7 +712,7 @@ class _DetailSlipRow extends StatelessWidget {
               const Spacer(),
               Text(
                 speedDisplay,
-                style: GoogleFonts.robotoMono(
+                style: AppTheme.numericFont(
                   color: context.colors.textPrimary,
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -748,12 +747,12 @@ class _ProfileStatRow extends StatelessWidget {
         children: [
           Text(
             label,
-            style: GoogleFonts.roboto(color: context.colors.textSecondary, fontSize: 14),
+            style: AppTheme.font(color: context.colors.textSecondary, fontSize: 14),
           ),
           const Spacer(),
           Text(
             value,
-            style: GoogleFonts.robotoMono(
+            style: AppTheme.numericFont(
               color: valueColor ?? context.colors.textPrimary,
               fontWeight: FontWeight.bold,
               fontSize: 14,
@@ -838,7 +837,7 @@ class _NoteBoxState extends State<_NoteBox> {
                   const SizedBox(width: 8),
                   Text(
                     'Notes',
-                    style: GoogleFonts.roboto(
+                    style: AppTheme.font(
                       color: context.colors.textSecondary,
                       fontWeight: FontWeight.bold,
                       fontSize: 15,
@@ -863,7 +862,7 @@ class _NoteBoxState extends State<_NoteBox> {
                           const SizedBox(width: 6),
                           Text(
                             'Saving...',
-                            style: GoogleFonts.roboto(
+                            style: AppTheme.font(
                               color: context.colors.textMuted,
                               fontSize: 12,
                             ),
@@ -880,12 +879,12 @@ class _NoteBoxState extends State<_NoteBox> {
             onChanged: _onNotesChanged,
             maxLines: null,
             keyboardType: TextInputType.multiline,
-            style: GoogleFonts.roboto(color: context.colors.textPrimary, fontSize: 14),
+            style: AppTheme.font(color: context.colors.textPrimary, fontSize: 14),
             cursorColor: context.colors.accent,
             decoration: InputDecoration(
               hintText:
                   'Add notes (e.g., tire pressure, launch RPM, track prep)...',
-              hintStyle: GoogleFonts.roboto(
+              hintStyle: AppTheme.font(
                 color: context.colors.textMuted,
                 fontSize: 14,
               ),
@@ -939,7 +938,7 @@ class _EnvironmentCard extends StatelessWidget {
               const SizedBox(width: 8),
               Text(
                 'Weather & Environment',
-                style: GoogleFonts.roboto(
+                style: AppTheme.font(
                   color: context.colors.textSecondary,
                   fontWeight: FontWeight.bold,
                   fontSize: 15,
@@ -1182,7 +1181,7 @@ class _TelemetryChartState extends State<TelemetryChart> {
             const SizedBox(height: 8),
             Text(
               'No telemetry data recorded for this run.',
-              style: GoogleFonts.roboto(color: context.colors.textSecondary, fontSize: 13),
+              style: AppTheme.font(color: context.colors.textSecondary, fontSize: 13),
               textAlign: TextAlign.center,
             ),
           ],
@@ -1316,7 +1315,7 @@ class _TelemetryChartState extends State<TelemetryChart> {
                 ),
                 child: Text(
                   'LIVE',
-                  style: GoogleFonts.roboto(
+                  style: AppTheme.font(
                     color: Colors.white,
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
@@ -1326,7 +1325,7 @@ class _TelemetryChartState extends State<TelemetryChart> {
               const SizedBox(width: 8),
               Text(
                 'Scrubbing Telemetry',
-                style: GoogleFonts.roboto(
+                style: AppTheme.font(
                   color: context.colors.textSecondary,
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
@@ -1383,7 +1382,7 @@ class _TelemetryChartState extends State<TelemetryChart> {
           children: [
             Text(
               'TELEMETRY GRAPH',
-              style: GoogleFonts.roboto(
+              style: AppTheme.font(
                 color: context.colors.textSecondary,
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
@@ -1504,7 +1503,7 @@ class _TelemetryChartState extends State<TelemetryChart> {
             const SizedBox(width: 4),
             Text(
               _isPlayingAudio ? 'PAUSE' : 'PLAY',
-              style: GoogleFonts.roboto(
+              style: AppTheme.font(
                 color: Colors.white,
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
@@ -1557,7 +1556,7 @@ class _HudStat extends StatelessWidget {
       children: [
         Text(
           label.toUpperCase(),
-          style: GoogleFonts.roboto(
+          style: AppTheme.font(
             color: context.colors.textMuted,
             fontSize: 10,
             fontWeight: FontWeight.bold,
@@ -1566,7 +1565,7 @@ class _HudStat extends StatelessWidget {
         const SizedBox(height: 2),
         Text(
           value,
-          style: GoogleFonts.robotoMono(
+          style: AppTheme.numericFont(
             color: valueColor,
             fontSize: 16,
             fontWeight: FontWeight.bold,
@@ -1598,7 +1597,7 @@ class _LegendItem extends StatelessWidget {
         const SizedBox(width: 6),
         Text(
           label,
-          style: GoogleFonts.roboto(
+          style: AppTheme.font(
             color: context.colors.textSecondary,
             fontSize: 11,
             fontWeight: FontWeight.w500,

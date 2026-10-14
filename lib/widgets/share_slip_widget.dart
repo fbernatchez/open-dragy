@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../models/race_test.dart';
 import '../models/saved_run.dart';
 import '../utils/unit_converter.dart';
@@ -92,7 +91,7 @@ class ShareSlipWidget extends StatelessWidget {
             children: [
               Text(
                 'OpenDragy',
-                style: GoogleFonts.comfortaa(
+                style: AppTheme.brandFont(
                   color: colors.textPrimary,
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
@@ -103,7 +102,7 @@ class ShareSlipWidget extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             vehicle.toUpperCase(),
-            style: GoogleFonts.roboto(
+            style: AppTheme.font(
               color: colors.textSecondary,
               fontSize: 14,
               letterSpacing: 2,
@@ -136,7 +135,7 @@ class ShareSlipWidget extends StatelessWidget {
               children: [
                 Text(
                   primaryTime,
-                  style: GoogleFonts.robotoMono(
+                  style: AppTheme.numericFont(
                     color: colors.textPrimary,
                     fontSize: 56,
                     fontWeight: FontWeight.bold,
@@ -144,7 +143,7 @@ class ShareSlipWidget extends StatelessWidget {
                 ),
                 Text(
                   primaryLabel.toUpperCase(),
-                  style: GoogleFonts.roboto(
+                  style: AppTheme.font(
                     color: colors.accent,
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -193,7 +192,7 @@ class ShareSlipWidget extends StatelessWidget {
                   children: [
                     Text(
                       'WEATHER',
-                      style: GoogleFonts.roboto(
+                      style: AppTheme.font(
                         color: colors.textMuted,
                         fontSize: 11,
                       ),
@@ -201,7 +200,7 @@ class ShareSlipWidget extends StatelessWidget {
                     Expanded(
                       child: Text(
                         weatherStr,
-                        style: GoogleFonts.robotoMono(
+                        style: AppTheme.numericFont(
                           color: colors.textPrimary,
                           fontSize: 11,
                         ),
@@ -217,7 +216,7 @@ class ShareSlipWidget extends StatelessWidget {
                   children: [
                     Text(
                       'ELEVATION',
-                      style: GoogleFonts.roboto(
+                      style: AppTheme.font(
                         color: colors.textMuted,
                         fontSize: 11,
                       ),
@@ -225,7 +224,7 @@ class ShareSlipWidget extends StatelessWidget {
                     Expanded(
                       child: Text(
                         '${displayStartAlt.toStringAsFixed(0)} $altUnit (${displayElevationDiff >= 0 ? '+' : ''}${displayElevationDiff.toStringAsFixed(1)} $altUnit) • Slope: ${effectiveAvgSlope.toStringAsFixed(2)}%',
-                        style: GoogleFonts.robotoMono(
+                        style: AppTheme.numericFont(
                           color: colors.textPrimary,
                           fontSize: 11,
                         ),
@@ -241,14 +240,14 @@ class ShareSlipWidget extends StatelessWidget {
                   children: [
                     Text(
                       'DATE',
-                      style: GoogleFonts.roboto(
+                      style: AppTheme.font(
                         color: colors.textMuted,
                         fontSize: 11,
                       ),
                     ),
                     Text(
                       run.dateTime.toString().split('.')[0],
-                      style: GoogleFonts.robotoMono(
+                      style: AppTheme.numericFont(
                         color: colors.textPrimary,
                         fontSize: 11,
                       ),
@@ -275,7 +274,7 @@ class ShareSlipWidget extends StatelessWidget {
       children: [
         Text(
           title,
-          style: GoogleFonts.roboto(
+          style: AppTheme.font(
             color: colors.accent,
             fontSize: 12,
             fontWeight: FontWeight.bold,
@@ -300,14 +299,14 @@ class ShareSlipWidget extends StatelessWidget {
               children: [
                 Text(
                   m.label,
-                  style: GoogleFonts.roboto(
+                  style: AppTheme.font(
                     color: colors.textSecondary,
                     fontSize: 13,
                   ),
                 ),
                 Text(
                   timeDisplay,
-                  style: GoogleFonts.robotoMono(
+                  style: AppTheme.numericFont(
                     color: colors.textPrimary,
                     fontSize: 13,
                     fontWeight: FontWeight.bold,

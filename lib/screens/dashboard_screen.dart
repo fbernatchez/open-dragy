@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../providers/dragy_provider.dart';
+import '../providers/telemetry_provider.dart';
 import '../widgets/device_selector_modal.dart';
 import '../widgets/firmware_update_dialog.dart';
 import '../widgets/app_segmented_switch.dart';
@@ -94,9 +94,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final dragy = Provider.of<DragyProvider>(context);
+    final telemetry = Provider.of<TelemetryProvider?>(context);
     final isMetric = dragy.isMetric;
     final isConnected = dragy.isConnected;
-    final metrics = dragy.metrics;
+    final metrics = telemetry?.metrics ?? dragy.metrics;
+    final liveElapsedTime = telemetry?.liveElapsedTime ?? dragy.liveElapsedTime;
+    final isArmed = telemetry?.isArmed ?? dragy.isArmed;
+    final hdop = telemetry?.hdop ?? dragy.hdop;
+    final onToggleArm = telemetry != null ? telemetry.toggleArm : dragy.toggleArm;
+    final onResetRace = telemetry != null ? telemetry.resetRace : dragy.resetRace;
 
     final colors = context.colors;
     final isDark = context.isDark;
@@ -124,7 +130,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       textColor = mutedTextColor;
       statusKey = "disconnected";
     } else if (metrics.isRunning) {
-      mainTime = "${dragy.liveElapsedTime.toStringAsFixed(2)}s";
+      mainTime = "${liveElapsedTime.toStringAsFixed(2)}s";
       fontSize = 80.0;
       textColor = primaryTextColor;
       statusKey = "running";
@@ -173,7 +179,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         textColor = primaryTextColor;
         statusKey = "finished";
       } else {
-        final bool isGpsReady = dragy.hdop > 0.0 && dragy.hdop <= 2.0;
+        final bool isGpsReady = hdop > 0.0 && hdop <= 2.0;
         final warningColor = colors.statusWarning;
         final warningIconColor = isDark
             ? colors.statusWarning.withValues(alpha: 0.7)
@@ -187,7 +193,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           statusIcon = Icons.satellite_alt_rounded;
           statusIconColor = warningIconColor;
           statusSubtitle = "Acquiring satellite lock";
-        } else if (dragy.isArmed) {
+        } else if (isArmed) {
           final bool isStandingStart = dragy.runMode == RunMode.drag ||
               (dragy.runMode == RunMode.interval &&
                   dragy.intervalStartSpeed == 0.0);
@@ -400,7 +406,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         const SizedBox(width: 8),
                         Text(
                           dragy.activeVehicle?.displayName ?? 'Select Vehicle',
-                          style: GoogleFonts.roboto(
+                          style: AppTheme.font(
                             color: dragy.activeVehicle != null
                                 ? colors.accent
                                 : secondaryTextColor,
@@ -457,7 +463,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               size: 18,
                             ),
                           ),
-                          style: GoogleFonts.roboto(
+                          style: AppTheme.font(
                             color: primaryTextColor,
                             fontSize: 13,
                             fontWeight: FontWeight.w500,
@@ -508,7 +514,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     size: 18,
                                   ),
                                 ),
-                                style: GoogleFonts.roboto(
+                                style: AppTheme.font(
                                   color: primaryTextColor,
                                   fontSize: 13,
                                   fontWeight: FontWeight.w500,
@@ -582,7 +588,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               const SizedBox(height: 20),
                               Text(
                                 'Disconnected',
-                                style: GoogleFonts.roboto(
+                                style: AppTheme.font(
                                   color: primaryTextColor,
                                   fontSize: 32,
                                   fontWeight: FontWeight.bold,
@@ -592,7 +598,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               const SizedBox(height: 8),
                               Text(
                                 'Tap the Bluetooth icon to connect',
-                                style: GoogleFonts.roboto(
+                                style: AppTheme.font(
                                   color: mutedTextColor,
                                   fontSize: 14,
                                 ),
@@ -640,7 +646,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                                 const SizedBox(height: 16),
                                                 Text(
                                                   mainTime,
-                                                  style: GoogleFonts.roboto(
+                                                  style: AppTheme.font(
                                                     color: textColor,
                                                     fontSize: 30,
                                                     fontWeight: FontWeight.bold,
@@ -655,7 +661,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                             const SizedBox(height: 6),
                                             Text(
                                               statusSubtitle,
-                                              style: GoogleFonts.roboto(
+                                              style: AppTheme.font(
                                                 color: secondaryTextColor,
                                                 fontSize: 13,
                                               ),
@@ -680,7 +686,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                                 isBlinking: shouldBlink,
                                                 child: Text(
                                                   mainTime,
-                                                  style: GoogleFonts.robotoMono(
+                                                  style: AppTheme.numericFont(
                                                     color: textColor,
                                                     fontSize: fontSize,
                                                     fontWeight: FontWeight.bold,
@@ -696,9 +702,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   !metrics.isRunning)) ...[
                                 SizedBox(height: statusIcon != null ? 24 : 16),
                                 ElevatedButton(
-                                  onPressed: dragy.toggleArm,
+                                  onPressed: onToggleArm,
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: dragy.isArmed
+                                    backgroundColor: isArmed
                                         ? Colors.redAccent
                                         : const Color(0xFF1565C0),
                                     foregroundColor: Colors.white,
@@ -710,7 +716,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                       borderRadius: BorderRadius.circular(30),
                                     ),
                                     elevation: 8,
-                                    shadowColor: dragy.isArmed
+                                    shadowColor: isArmed
                                         ? Colors.redAccent.withOpacity(0.5)
                                         : const Color(0xFF1565C0)
                                             .withOpacity(0.5),
@@ -719,15 +725,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Icon(
-                                        dragy.isArmed
+                                        isArmed
                                             ? Icons.stop
                                             : Icons.play_arrow,
                                         size: 20,
                                       ),
                                       const SizedBox(width: 8),
                                       Text(
-                                        dragy.isArmed ? 'DISARM' : 'ARM',
-                                        style: GoogleFonts.roboto(
+                                        isArmed ? 'DISARM' : 'ARM',
+                                        style: AppTheme.font(
                                           fontSize: 16,
                                           fontWeight: FontWeight.bold,
                                           letterSpacing: 1.2,
@@ -755,7 +761,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     const SizedBox(width: 6),
                                     Text(
                                       'Overall Slope: ${avgSlope >= 0 ? '+' : ''}${avgSlope.toStringAsFixed(2)}% (${isSlopeValid ? "Valid" : "Invalid"})',
-                                      style: GoogleFonts.roboto(
+                                      style: AppTheme.font(
                                         color: isSlopeValid
                                             ? secondaryTextColor
                                             : Colors.redAccent,
@@ -864,7 +870,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                         children: [
                                           Text(
                                             displaySpeed.toStringAsFixed(0),
-                                            style: GoogleFonts.robotoMono(
+                                            style: AppTheme.numericFont(
                                               color: primaryTextColor,
                                               fontSize: 28,
                                               fontWeight: FontWeight.bold,
@@ -873,7 +879,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                           ),
                                           Text(
                                             isMetric ? 'km/h' : 'mph',
-                                            style: GoogleFonts.robotoMono(
+                                            style: AppTheme.font(
                                               color: secondaryTextColor,
                                               fontSize: 12,
                                               fontWeight: FontWeight.w500,
@@ -940,7 +946,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                             metrics.gForce
                                                 .abs()
                                                 .toStringAsFixed(1),
-                                            style: GoogleFonts.robotoMono(
+                                            style: AppTheme.numericFont(
                                               color: primaryTextColor,
                                               fontSize: 12,
                                               fontWeight: FontWeight.bold,
@@ -949,7 +955,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                           ),
                                           Text(
                                             'g',
-                                            style: GoogleFonts.robotoMono(
+                                            style: AppTheme.font(
                                               color: secondaryTextColor,
                                               fontSize: 10,
                                             ),
@@ -971,7 +977,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               height: 120,
                               child: Center(
                                 child: InkWell(
-                                  onTap: dragy.resetRace,
+                                  onTap: onResetRace,
                                   borderRadius: BorderRadius.circular(60),
                                   child: Container(
                                     width: 110,
@@ -1019,12 +1025,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (context) {
-        return Consumer<DragyProvider>(
-          builder: (context, dragy, _) {
+        return Consumer2<DragyProvider, TelemetryProvider?>(
+          builder: (context, dragy, telemetry, _) {
             final colors = context.colors;
             final bool isConnected = dragy.isConnected;
+            final double hdop = telemetry?.hdop ?? dragy.hdop;
+            final int satellites = telemetry?.satellites ?? dragy.satellites;
             final bool isGpsReady =
-                isConnected && dragy.hdop > 0.0 && dragy.hdop <= 2.0;
+                isConnected && hdop > 0.0 && hdop <= 2.0;
 
             String statusTitle;
             String statusSubtitle;
@@ -1044,7 +1052,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               statusColor = colors.accentSecondary;
               statusIcon = Icons.check_circle_rounded;
             } else {
-              statusTitle = dragy.satellites > 0
+              statusTitle = satellites > 0
                   ? 'Acquiring Satellites'
                   : 'Searching GPS';
               statusSubtitle =
@@ -1091,7 +1099,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             const SizedBox(width: 8),
                             Text(
                               'GPS Telemetry',
-                              style: GoogleFonts.roboto(
+                              style: AppTheme.font(
                                 color: colors.textPrimary,
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
@@ -1130,7 +1138,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               children: [
                                 Text(
                                   statusTitle,
-                                  style: GoogleFonts.roboto(
+                                  style: AppTheme.font(
                                     color: statusColor,
                                     fontSize: 14,
                                     fontWeight: FontWeight.bold,
@@ -1139,7 +1147,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 const SizedBox(height: 2),
                                 Text(
                                   statusSubtitle,
-                                  style: GoogleFonts.roboto(
+                                  style: AppTheme.font(
                                     color: colors.textSecondary,
                                     fontSize: 12,
                                   ),
@@ -1169,7 +1177,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 children: [
                                   Text(
                                     'SATELLITES',
-                                    style: GoogleFonts.roboto(
+                                    style: AppTheme.font(
                                       color: colors.textMuted,
                                       fontSize: 11,
                                       fontWeight: FontWeight.w700,
@@ -1178,8 +1186,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   ),
                                   const SizedBox(height: 6),
                                   Text(
-                                    isConnected ? '${dragy.satellites}' : '--',
-                                    style: GoogleFonts.robotoMono(
+                                    isConnected ? '$satellites' : '--',
+                                    style: AppTheme.numericFont(
                                       color: colors.textPrimary,
                                       fontSize: 26,
                                       fontWeight: FontWeight.bold,
@@ -1203,7 +1211,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 children: [
                                   Text(
                                     'ACCURACY (HDOP)',
-                                    style: GoogleFonts.roboto(
+                                    style: AppTheme.font(
                                       color: colors.textMuted,
                                       fontSize: 11,
                                       fontWeight: FontWeight.w700,
@@ -1212,10 +1220,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   ),
                                   const SizedBox(height: 6),
                                   Text(
-                                    isConnected && dragy.hdop > 0
-                                        ? dragy.hdop.toStringAsFixed(1)
+                                    isConnected && hdop > 0
+                                        ? hdop.toStringAsFixed(1)
                                         : '--',
-                                    style: GoogleFonts.robotoMono(
+                                    style: AppTheme.numericFont(
                                       color: colors.textPrimary,
                                       fontSize: 26,
                                       fontWeight: FontWeight.bold,
@@ -1245,7 +1253,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           Expanded(
                             child: Text(
                               'OpenDragy requires HDOP <= 2.0.',
-                              style: GoogleFonts.roboto(
+                              style: AppTheme.font(
                                 color: colors.textSecondary,
                                 fontSize: 11,
                               ),
@@ -1335,7 +1343,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 children: [
                   Text(
                     'Select Vehicle',
-                    style: GoogleFonts.roboto(
+                    style: AppTheme.font(
                       color: colors.textPrimary,
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -1353,7 +1361,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     },
                     child: Text(
                       'Manage Garage',
-                      style: GoogleFonts.roboto(
+                      style: AppTheme.font(
                         color: colors.accent,
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
@@ -1377,7 +1385,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         const SizedBox(height: 8),
                         Text(
                           'No vehicles in garage yet',
-                          style: GoogleFonts.roboto(color: colors.textMuted),
+                          style: AppTheme.font(color: colors.textMuted),
                         ),
                         const SizedBox(height: 14),
                         ElevatedButton.icon(
@@ -1451,7 +1459,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               Expanded(
                                 child: Text(
                                   v.displayName,
-                                  style: GoogleFonts.roboto(
+                                  style: AppTheme.font(
                                     color: isSelected
                                         ? colors.textPrimary
                                         : colors.textSecondary,
@@ -1517,7 +1525,7 @@ class _ResultRow extends StatelessWidget {
         // Label
         Text(
           label,
-          style: GoogleFonts.roboto(
+          style: AppTheme.font(
             color: colors.textPrimary,
             fontSize: 24,
             fontWeight: FontWeight.w500,
@@ -1531,7 +1539,7 @@ class _ResultRow extends StatelessWidget {
                     ? '${time!.toStringAsFixed(2)}s@${trapSpeed!.toStringAsFixed(2)}'
                     : '${time!.toStringAsFixed(2)}s')
               : '-.--s',
-          style: GoogleFonts.robotoMono(
+          style: AppTheme.numericFont(
             color: colors.textPrimary,
             fontSize: 24,
             fontWeight: FontWeight.bold,
@@ -1662,7 +1670,7 @@ class _LiveWeatherWidget extends StatelessWidget {
         ),
         child: Text(
           '$tempStr · $humidityStr · DA: $daStr',
-          style: GoogleFonts.robotoMono(
+          style: AppTheme.numericFont(
             color: colors.textSecondary,
             fontSize: 11,
             fontWeight: FontWeight.w500,

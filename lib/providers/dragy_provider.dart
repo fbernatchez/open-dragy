@@ -1,8 +1,6 @@
 import 'dart:async';
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
-import 'package:wakelock_plus/wakelock_plus.dart';
 import '../models/race_metrics.dart';
 import '../models/saved_run.dart';
 import '../models/vehicle.dart';
@@ -19,6 +17,7 @@ import '../services/tts_service.dart';
 import '../services/audio_recording_service.dart';
 import '../services/firmware_service.dart';
 import 'dart:io';
+import 'telemetry_provider.dart';
 
 export '../models/race_test.dart';
 
@@ -33,11 +32,10 @@ class DragyProvider extends ChangeNotifier {
   final AudioRecordingService _audioService = AudioRecordingService();
   final FirmwareService _firmwareService = FirmwareService();
 
-  double? _latitude;
-  double? get latitude => _latitude;
+  late final TelemetryProvider telemetry;
 
-  double? _longitude;
-  double? get longitude => _longitude;
+  double? get latitude => telemetry.latitude;
+  double? get longitude => telemetry.longitude;
 
   double? _currentTemperature;
   double? get currentTemperature => _currentTemperature;
@@ -51,8 +49,7 @@ class DragyProvider extends ChangeNotifier {
   Timer? _weatherTimer;
   bool _isFetchingWeather = false;
 
-  RaceMetrics _metrics = RaceMetrics();
-  RaceMetrics get metrics => _metrics;
+  RaceMetrics get metrics => telemetry.metrics;
 
   bool _isConnected = false;
   bool get isConnected => _isConnected;
@@ -60,14 +57,9 @@ class DragyProvider extends ChangeNotifier {
   BluetoothDevice? _connectedDevice;
   BluetoothDevice? get connectedDevice => _connectedDevice;
 
-  int _satellites = 0;
-  int get satellites => _satellites;
-
-  double _hdop = 0.0;
-  double get hdop => _hdop;
-
-  double _altitude = 0.0;
-  double get altitude => _altitude;
+  int get satellites => telemetry.satellites;
+  double get hdop => telemetry.hdop;
+  double get altitude => telemetry.altitude;
 
   bool _isMetric = false;
   bool get isMetric => _isMetric;
@@ -99,13 +91,10 @@ class DragyProvider extends ChangeNotifier {
   }
 
   // --- Arming & Run Modes ---
-  bool _isArmed = false;
-  bool get isArmed => _isArmed;
+  bool get isArmed => telemetry.isArmed;
 
   RunMode _runMode = RunMode.drag;
   RunMode get runMode => _runMode;
-
-  double _launchChartOffset = 0.0;
 
   RaceIntervalTest _activeIntervalTest = RaceIntervalTest.sixtyToOneThirtyMph;
   RaceIntervalTest get activeIntervalTest => _activeIntervalTest;
@@ -194,17 +183,7 @@ class DragyProvider extends ChangeNotifier {
         (_isMetric ? SpeedUnit.kmh : SpeedUnit.mph);
   }
 
-  bool get isSpeedConstant {
-    if (_metrics.speedKmh == 0.0) return true;
-    if (_recentSpeeds.length < 4) return false;
-    double minSpeed = _recentSpeeds[0];
-    double maxSpeed = _recentSpeeds[0];
-    for (int i = 1; i < _recentSpeeds.length; i++) {
-      if (_recentSpeeds[i] < minSpeed) minSpeed = _recentSpeeds[i];
-      if (_recentSpeeds[i] > maxSpeed) maxSpeed = _recentSpeeds[i];
-    }
-    return (maxSpeed - minSpeed) < 0.2;
-  }
+  bool get isSpeedConstant => telemetry.isSpeedConstant;
 
   // --- Garage ---
   List<Vehicle> _vehicles = [];
@@ -225,50 +204,12 @@ class DragyProvider extends ChangeNotifier {
   int _boxPivotAngle = 0;
   int get boxPivotAngle => _boxPivotAngle;
 
-  double _gravX = 0.0;
-  double _gravY = 0.0;
-  double _gravZ = 1.0;
-  bool _hasGravEstimate = false;
-  DateTime? _lastGpsUpdateTime;
+  double get liveElapsedTime => telemetry.liveElapsedTime;
 
-  double get liveElapsedTime {
-    double baseTime = _metrics.elapsedTime;
-    if (_metrics.isRunning && _lastGpsUpdateTime != null) {
-      final delta =
-          DateTime.now().difference(_lastGpsUpdateTime!).inMicroseconds /
-          1000000.0;
-      final clampedDelta = delta.clamp(0.0, _physicsEngine.lastValidDt);
-      baseTime += clampedDelta;
-    }
-
-    final isStandingStart = _runMode == RunMode.drag ||
-        (_runMode == RunMode.interval && testStartSpeed == 0.0);
-
-    if (_useNhraRules && isStandingStart) {
-      if (_metrics.rolloutTime1ft != null) {
-        return max(0.0, baseTime - _metrics.rolloutTime1ft!);
-      } else {
-        return 0.0;
-      }
-    }
-
-    return baseTime;
-  }
-
-  StreamSubscription? _ubxSubscription;
-  StreamSubscription? _imuSubscription;
   StreamSubscription? _connectionSubscription;
-
-  final List<double> _recentSpeeds = [];
 
   List<SavedRun> _savedRuns = [];
   List<SavedRun> get savedRuns => _savedRuns;
-
-  double _gForceAccumulator = 0.0;
-  int _gForceCount = 0;
-
-  Timer? _uiTimer;
-  bool _needsUiUpdate = false;
 
   String _appVersion = '';
   String get appVersion => _appVersion;
@@ -280,23 +221,23 @@ class DragyProvider extends ChangeNotifier {
     try {
       final packageInfo = await PackageInfo.fromPlatform();
       _appVersion = packageInfo.version;
-      _needsUiUpdate = true;
+      notifyListeners();
     } catch (_) {}
   }
 
   DragyProvider() {
+    telemetry = TelemetryProvider(
+      bleService: _bleService,
+      physicsEngine: _physicsEngine,
+      ttsService: _ttsService,
+      audioService: _audioService,
+      dragyProvider: this,
+    );
     loadSavedRuns();
     _loadGarage();
     _loadSettings();
     _loadAppVersion();
     _startWeatherTimer();
-
-    _uiTimer = Timer.periodic(const Duration(milliseconds: 16), (_) {
-      if (_needsUiUpdate || _metrics.isRunning) {
-        notifyListeners();
-        _needsUiUpdate = false;
-      }
-    });
 
     _connectionSubscription = _bleService.connectionStateStream.listen((
       connected,
@@ -305,194 +246,13 @@ class DragyProvider extends ChangeNotifier {
       if (!connected) {
         _connectedDevice = null;
         _firmwareVersion = '';
-        _isArmed = false;
-        _metrics = _physicsEngine.reset();
-        _lastGpsUpdateTime = null;
-        _recentSpeeds.clear();
-        _audioService.abort();
-        WakelockPlus.disable();
-      } else {
-        WakelockPlus.enable();
       }
-      _needsUiUpdate = true;
+      notifyListeners();
     });
 
     _bleService.firmwareVersionStream.listen((version) {
       _firmwareVersion = version;
-      _needsUiUpdate = true;
-    });
-
-    _ubxSubscription = _bleService.ubxStream.listen((pvt) {
-      bool updated = false;
-
-      if (pvt.fixType >= 2) {
-        // 2 = 2D fix, 3 = 3D fix
-        _satellites = pvt.numSV;
-        _hdop = pvt.pDOP;
-        _altitude = pvt.hMSL;
-        _latitude = pvt.lat;
-        _longitude = pvt.lon;
-        _triggerWeatherFetchIfNull();
-
-        double speedKmh = pvt.gSpeed * 3.6; // m/s to km/h
-
-        _recentSpeeds.add(speedKmh);
-        if (_recentSpeeds.length > 5) {
-          _recentSpeeds.removeAt(0);
-        }
-
-        final wasRunning = _metrics.isRunning;
-        final activeTestsList = [...officialTests, ..._customTests];
-        final oldTests = _enableTts && wasRunning
-            ? getCompletedTests(
-                _metrics,
-                useNhraRules: _useNhraRules,
-                activeTests: activeTestsList,
-              )
-            : <RaceTest>[];
-
-        double avgGForce = _gForceCount > 0
-            ? _gForceAccumulator / _gForceCount
-            : _metrics.gForce;
-        _gForceAccumulator = 0.0;
-        _gForceCount = 0;
-
-        _metrics = _metrics.copyWith(gForce: avgGForce);
-
-        _metrics = _physicsEngine.updateMetrics(
-          _metrics,
-          speedKmh,
-          _altitude,
-          isArmed: _isArmed,
-          runMode: _runMode,
-          testDistance: testDistance,
-          testDistanceUnit: testDistanceUnit,
-          testStartSpeed: testStartSpeed,
-          testEndSpeed: testEndSpeed,
-          testSpeedUnit: testSpeedUnit,
-          intervalStartSpeed: intervalStartSpeed,
-          intervalEndSpeed: intervalEndSpeed,
-          gpsTimeSeconds: pvt.iTOW / 1000.0,
-          activeTests: [...officialTests, ..._customTests],
-        );
-        final isRunning = _metrics.isRunning;
-
-        if (!wasRunning && isRunning) {
-          if (_enableAudioRecording) {
-            _launchChartOffset = _metrics.elapsedTime;
-            _audioService.commitLaunch();
-          }
-        }
-
-        if (_enableTts && wasRunning) {
-          final newTests = getCompletedTests(
-            _metrics,
-            useNhraRules: _useNhraRules,
-            activeTests: activeTestsList,
-          );
-          for (final test in newTests) {
-            if (!isTestEnabled(test.id)) continue;
-            if (!oldTests.any((t) => t.id == test.id)) {
-              if (!test.enableTts ||
-                  test.ttsPhrase == null ||
-                  test.ttsPhrase!.isEmpty)
-                continue;
-              if (test.speedUnit != null) {
-                if (_isMetric && test.speedUnit != SpeedUnit.kmh) continue;
-                if (!_isMetric && test.speedUnit != SpeedUnit.mph) continue;
-              }
-              _ttsService.speak(test.ttsPhrase!);
-            }
-          }
-        }
-
-        if (isRunning) {
-          _lastGpsUpdateTime = DateTime.now();
-        } else {
-          _lastGpsUpdateTime = null;
-          if (wasRunning) {
-            _isArmed = false; // Auto-disarm on completion
-          }
-        }
-
-        // Check if run just finished
-        if (wasRunning && !isRunning && _metrics.history.isNotEmpty) {
-          final metricsToSave = _metrics;
-
-          if (_enableAudioRecording) {
-            _audioService.stopAndSaveRun().then((audioData) {
-              _saveRunToHistory(
-                metricsToSave,
-                audioFilePath: audioData?['path'] as String?,
-                audioStartOffset: (audioData?['offset'] as double?) != null
-                    ? (audioData!['offset'] as double) - _launchChartOffset
-                    : null,
-              );
-            });
-          } else {
-            _saveRunToHistory(metricsToSave);
-          }
-        }
-
-        updated = true;
-      }
-
-      if (updated) {
-        _needsUiUpdate = true;
-      }
-    });
-
-    _imuSubscription = _bleService.imuStream.listen((csv) {
-      try {
-        final parts = csv.split(',');
-        if (parts.length >= 3) {
-          final rawX = int.parse(parts[0].trim());
-          final rawY = int.parse(parts[1].trim());
-          final rawZ = int.parse(parts[2].trim());
-
-          // 16384 LSB/g is standard for +/- 2G range on BMI160
-          final double gx = rawX / 16384.0;
-          final double gy = rawY / 16384.0;
-          final double gz = rawZ / 16384.0;
-
-          if (!_metrics.isRunning && isSpeedConstant) {
-            const double alpha = 0.02;
-            if (!_hasGravEstimate) {
-              _gravX = gx;
-              _gravY = gy;
-              _gravZ = gz;
-              _hasGravEstimate = true;
-            } else {
-              _gravX = _gravX * (1.0 - alpha) + gx * alpha;
-              _gravY = _gravY * (1.0 - alpha) + gy * alpha;
-              _gravZ = _gravZ * (1.0 - alpha) + gz * alpha;
-            }
-          }
-
-          final double gForce = computeLeveledGForce(
-            boxPivotAngle: _boxPivotAngle,
-            gx: gx,
-            gy: gy,
-            gz: gz,
-            gravX: _gravX,
-            gravY: _gravY,
-            gravZ: _gravZ,
-          );
-
-          double calibratedGForce = gForce;
-          if (calibratedGForce.abs() < 0.05) {
-            calibratedGForce = 0.0;
-          }
-
-          _gForceAccumulator += calibratedGForce;
-          _gForceCount++;
-
-          _metrics = _metrics.copyWith(gForce: calibratedGForce);
-          _needsUiUpdate = true;
-        }
-      } catch (e) {
-        // Ignore parsing errors for individual frames
-      }
+      notifyListeners();
     });
   }
 
@@ -528,17 +288,25 @@ class DragyProvider extends ChangeNotifier {
     await _bleService.performOtaUpdate(firmwareBytes, onProgress);
   }
 
-  void resetRace() {
-    _metrics = _physicsEngine.reset();
-    _lastGpsUpdateTime = null;
-    notifyListeners();
-  }
+  void resetRace() => telemetry.resetRace();
 
   // --- Local History Methods ---
 
   Future<void> loadSavedRuns() async {
     _savedRuns = await _historyService.loadRuns();
     notifyListeners();
+  }
+
+  Future<void> saveRun(
+    RaceMetrics runMetrics, {
+    String? audioFilePath,
+    double? audioStartOffset,
+  }) async {
+    await _saveRunToHistory(
+      runMetrics,
+      audioFilePath: audioFilePath,
+      audioStartOffset: audioStartOffset,
+    );
   }
 
   Future<void> _saveRunToHistory(
@@ -566,12 +334,11 @@ class DragyProvider extends ChangeNotifier {
       // Save run locally and show in UI immediately
       await _historyService.saveRun(savedRun);
       _savedRuns.insert(0, savedRun);
-      _needsUiUpdate = true;
       notifyListeners();
 
       // Fetch weather asynchronously in the background if coordinates are available
-      final lat = _latitude;
-      final lon = _longitude;
+      final lat = latitude;
+      final lon = longitude;
       if (lat != null && lon != null && (lat != 0.0 || lon != 0.0)) {
         _fetchAndApplyWeather(runId, lat, lon);
       }
@@ -604,7 +371,6 @@ class DragyProvider extends ChangeNotifier {
         );
         _savedRuns[index] = updatedRun;
         await _historyService.updateRun(updatedRun);
-        _needsUiUpdate = true;
         notifyListeners();
       }
     }
@@ -669,10 +435,7 @@ class DragyProvider extends ChangeNotifier {
   void setactiveDragTest(RaceDragTest target) {
     if (_activeDragTest != target) {
       _activeDragTest = target;
-      _isArmed = false; // Disarm on target change
-      _audioService.abort();
-      _metrics = _physicsEngine.reset();
-      _lastGpsUpdateTime = null;
+      telemetry.resetRace();
       _saveSettings();
       notifyListeners();
     }
@@ -732,11 +495,6 @@ class DragyProvider extends ChangeNotifier {
   void setEnableAudioRecording(bool value) {
     if (_enableAudioRecording != value) {
       _enableAudioRecording = value;
-      if (!_enableAudioRecording) {
-        _audioService.abort();
-      } else if (_isArmed && !_metrics.isRunning) {
-        _audioService.startArmedBuffer();
-      }
       _saveSettings();
       notifyListeners();
     }
@@ -759,76 +517,25 @@ class DragyProvider extends ChangeNotifier {
     double gravX = 0.0,
     double gravY = 0.0,
     double gravZ = 1.0,
-  }) {
-    final gravNorm = sqrt(gravX * gravX + gravY * gravY + gravZ * gravZ);
-    final double ux;
-    final double uy;
-    final double uz;
-    if (gravNorm > 0.001) {
-      ux = gravX / gravNorm;
-      uy = gravY / gravNorm;
-      uz = gravZ / gravNorm;
-    } else {
-      ux = 0.0;
-      uy = 0.0;
-      uz = 1.0;
-    }
+  }) =>
+      TelemetryProvider.computeLeveledGForce(
+        boxPivotAngle: boxPivotAngle,
+        gx: gx,
+        gy: gy,
+        gz: gz,
+        gravX: gravX,
+        gravY: gravY,
+        gravZ: gravZ,
+      );
 
-    final rad = boxPivotAngle * (pi / 180.0);
-    final bx = -sin(rad);
-    final by = cos(rad);
-    const bz = 0.0;
-
-    final dotBU = bx * ux + by * uy + bz * uz;
-    final px = bx - dotBU * ux;
-    final py = by - dotBU * uy;
-    final pz = bz - dotBU * uz;
-    final pLen = sqrt(px * px + py * py + pz * pz);
-
-    final double fx;
-    final double fy;
-    final double fz;
-    if (pLen > 0.001) {
-      fx = px / pLen;
-      fy = py / pLen;
-      fz = pz / pLen;
-    } else {
-      fx = bx;
-      fy = by;
-      fz = bz;
-    }
-
-    return gx * fx + gy * fy + gz * fz;
-  }
-
-  void toggleArm() {
-    if (_metrics.isRunning) {
-      _isArmed = false;
-      _audioService.abort();
-      _metrics = _physicsEngine.reset();
-      _lastGpsUpdateTime = null;
-    } else {
-      _isArmed = !_isArmed;
-      if (_isArmed) {
-        _metrics = _physicsEngine.reset().copyWith(speedKmh: _metrics.speedKmh);
-        _lastGpsUpdateTime = null;
-        if (_enableAudioRecording) {
-          _audioService.startArmedBuffer();
-        }
-      } else {
-        _audioService.abort();
-      }
-    }
-    notifyListeners();
-  }
+  void toggleArm() => telemetry.toggleArm();
+  void arm() => telemetry.arm();
+  void disarm() => telemetry.disarm();
 
   void setRunMode(RunMode mode) {
     if (_runMode != mode) {
       _runMode = mode;
-      _isArmed = false; // Disarm on mode change
-      _audioService.abort();
-      _metrics = _physicsEngine.reset();
-      _lastGpsUpdateTime = null;
+      telemetry.resetRace();
       _saveSettings();
       notifyListeners();
     }
@@ -837,10 +544,7 @@ class DragyProvider extends ChangeNotifier {
   void setactiveIntervalTest(RaceIntervalTest target) {
     if (_activeIntervalTest != target) {
       _activeIntervalTest = target;
-      _isArmed = false; // Disarm on target change
-      _audioService.abort();
-      _metrics = _physicsEngine.reset();
-      _lastGpsUpdateTime = null;
+      telemetry.resetRace();
       _saveSettings();
       notifyListeners();
     }
@@ -849,10 +553,7 @@ class DragyProvider extends ChangeNotifier {
   void setCustomIntervalRange(double start, double end) {
     _customIntervalStartSpeed = start.roundToDouble();
     _customIntervalEndSpeed = end.roundToDouble();
-    _isArmed = false; // Disarm on range change
-    _audioService.abort();
-    _metrics = _physicsEngine.reset();
-    _lastGpsUpdateTime = null;
+    telemetry.resetRace();
     _saveSettings();
     notifyListeners();
   }
@@ -1030,13 +731,16 @@ class DragyProvider extends ChangeNotifier {
 
   @override
   void dispose() {
-    _uiTimer?.cancel();
-    _ubxSubscription?.cancel();
-    _imuSubscription?.cancel();
-    _connectionSubscription?.cancel();
-    WakelockPlus.disable();
-    _weatherTimer?.cancel();
-    super.dispose();
+    try {
+      _weatherTimer?.cancel();
+      _weatherTimer = null;
+      _connectionSubscription?.cancel();
+      if (!telemetry.isDisposed) {
+        telemetry.dispose();
+      }
+    } finally {
+      super.dispose();
+    }
   }
 
   void _startWeatherTimer() {
@@ -1045,18 +749,18 @@ class DragyProvider extends ChangeNotifier {
       _fetchCurrentWeather();
     });
     // Trigger immediately
-    _triggerWeatherFetchIfNull();
+    triggerWeatherFetchIfNull();
   }
 
-  void _triggerWeatherFetchIfNull() {
+  void triggerWeatherFetchIfNull() {
     if (_currentTemperature == null && !_isFetchingWeather) {
       _fetchCurrentWeather();
     }
   }
 
   Future<void> _fetchCurrentWeather() async {
-    final lat = _latitude;
-    final lon = _longitude;
+    final lat = latitude;
+    final lon = longitude;
     if (lat != null && lon != null && (lat != 0.0 || lon != 0.0)) {
       if (_isFetchingWeather) return;
       _isFetchingWeather = true;
@@ -1066,7 +770,7 @@ class DragyProvider extends ChangeNotifier {
           _currentTemperature = weather['temp'];
           _currentHumidity = weather['humid'];
           _currentWeatherCode = weather['weatherCode']?.toInt();
-          _needsUiUpdate = true;
+          notifyListeners();
         }
       } finally {
         _isFetchingWeather = false;

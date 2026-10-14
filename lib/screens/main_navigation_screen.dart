@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../providers/dragy_provider.dart';
 import '../theme/app_theme.dart';
@@ -77,7 +76,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
               Expanded(
                 child: Text(
                   'Run in progress. Finish or reset before switching tabs.',
-                  style: GoogleFonts.roboto(color: Colors.white, fontSize: 13),
+                  style: AppTheme.font(color: Colors.white, fontSize: 13),
                 ),
               ),
             ],
@@ -131,10 +130,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           unselectedItemColor: unselectedColor,
           selectedFontSize: 11,
           unselectedFontSize: 11,
-          selectedLabelStyle: GoogleFonts.roboto(
+          selectedLabelStyle: AppTheme.font(
             fontWeight: FontWeight.w600,
           ),
-          unselectedLabelStyle: GoogleFonts.roboto(
+          unselectedLabelStyle: AppTheme.font(
             fontWeight: FontWeight.normal,
           ),
           onTap: _onTabTapped,

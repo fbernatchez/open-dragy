@@ -5,6 +5,7 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
 import 'package:open_dragy/main.dart';
 import 'package:open_dragy/providers/dragy_provider.dart';
+import 'package:open_dragy/providers/telemetry_provider.dart';
 import 'package:open_dragy/models/race_metrics.dart';
 import 'package:open_dragy/models/saved_run.dart';
 import 'package:open_dragy/screens/dashboard_screen.dart';
@@ -20,6 +21,34 @@ import 'dart:io';
 import 'package:hive/hive.dart';
 
 class MockDragyProvider extends ChangeNotifier implements DragyProvider {
+  @override
+  late TelemetryProvider telemetry = TelemetryProvider(
+    dragyProvider: this,
+    startTimer: false,
+  );
+
+  @override
+  void triggerWeatherFetchIfNull() {}
+
+  @override
+  Future<void> saveRun(
+    RaceMetrics runMetrics, {
+    String? audioFilePath,
+    double? audioStartOffset,
+  }) async {}
+
+  @override
+  void arm() {
+    isArmed = true;
+    notifyListeners();
+  }
+
+  @override
+  void disarm() {
+    isArmed = false;
+    notifyListeners();
+  }
+
   @override
   bool isConnected = false;
 

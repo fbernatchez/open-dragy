@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../theme/app_theme.dart';
 
@@ -48,7 +47,7 @@ class AppSegmentedSwitch<T> extends StatelessWidget {
           ),
           child: Text(
             item.label,
-            style: GoogleFonts.roboto(
+            style: AppTheme.font(
               color: isSelected ? Colors.white : unselectedTextColor,
               fontSize: 13,
               fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,

@@ -174,7 +174,7 @@ class AppTheme {
         surface: Color(0xFF141414),
         onSurface: Colors.white,
       ),
-      textTheme: GoogleFonts.interTextTheme(
+      textTheme: GoogleFonts.robotoTextTheme(
         ThemeData.dark().textTheme,
       ).apply(bodyColor: Colors.white, displayColor: Colors.white),
       appBarTheme: AppBarTheme(
@@ -257,7 +257,7 @@ class AppTheme {
         surface: Colors.white,
         onSurface: Color(0xFF333336),
       ),
-      textTheme: GoogleFonts.interTextTheme(
+      textTheme: GoogleFonts.robotoTextTheme(
         ThemeData.light().textTheme,
       ).apply(
         bodyColor: const Color(0xFF333336),
@@ -328,6 +328,59 @@ class AppTheme {
       ),
       extensions: const [AppColors.light],
       useMaterial3: true,
+    );
+  }
+
+  static TextStyle font({
+    double? fontSize,
+    FontWeight? fontWeight,
+    Color? color,
+    double? height,
+    double? letterSpacing,
+    TextDecoration? decoration,
+    FontStyle? fontStyle,
+  }) {
+    return GoogleFonts.roboto(
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+      color: color,
+      height: height,
+      letterSpacing: letterSpacing,
+      decoration: decoration,
+      fontStyle: fontStyle,
+    );
+  }
+
+  static TextStyle numericFont({
+    double? fontSize,
+    FontWeight? fontWeight,
+    Color? color,
+    double? height,
+    double? letterSpacing,
+    FontStyle? fontStyle,
+  }) {
+    return GoogleFonts.roboto(
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+      color: color,
+      height: height,
+      letterSpacing: letterSpacing,
+      fontStyle: fontStyle,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+  }
+
+  static TextStyle brandFont({
+    double? fontSize,
+    FontWeight? fontWeight,
+    Color? color,
+    double? letterSpacing,
+  }) {
+    return GoogleFonts.comfortaa(
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+      color: color,
+      letterSpacing: letterSpacing,
     );
   }
 }

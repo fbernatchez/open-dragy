@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../providers/dragy_provider.dart';
 import '../models/vehicle.dart';
 import '../theme/app_theme.dart';
@@ -454,7 +453,7 @@ class _VehicleFormSheetState extends State<_VehicleFormSheet> {
                 ),
                 Text(
                   isEdit ? 'Edit Vehicle' : 'Add Vehicle',
-                  style: GoogleFonts.comfortaa(
+                  style: AppTheme.brandFont(
                     color: colors.textPrimary,
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
