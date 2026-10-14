@@ -140,7 +140,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           items: const [
             BottomNavigationBarItem(
               icon: Icon(Icons.speed),
-              label: 'Meter',
+              label: 'Dashboard',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.history),

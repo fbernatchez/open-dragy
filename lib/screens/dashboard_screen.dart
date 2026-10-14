@@ -127,7 +127,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (!isConnected) {
       mainTime = "Disconnected";
       fontSize = statusFontSize;
-      textColor = mutedTextColor;
+      textColor = primaryTextColor.withValues(alpha: 0.7);
       statusKey = "disconnected";
     } else if (metrics.isRunning) {
       mainTime = "${liveElapsedTime.toStringAsFixed(2)}s";
@@ -168,8 +168,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           );
           if (t != null && t > maxTime) {
             maxTime = t;
-            completedTime = t;
           }
+          completedTime = maxTime > 0.0 ? maxTime : null;
         }
       }
 
@@ -181,9 +181,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       } else {
         final bool isGpsReady = hdop > 0.0 && hdop <= 2.0;
         final warningColor = colors.statusWarning;
-        final warningIconColor = isDark
-            ? colors.statusWarning.withValues(alpha: 0.7)
-            : colors.statusWarning;
 
         if (!isGpsReady) {
           mainTime = "Waiting for GPS";
@@ -191,7 +188,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           textColor = warningColor;
           statusKey = "waiting_gps";
           statusIcon = Icons.satellite_alt_rounded;
-          statusIconColor = warningIconColor;
+          statusIconColor = colors.statusWarning;
           statusSubtitle = "Acquiring satellite lock";
         } else if (isArmed) {
           final bool isStandingStart = dragy.runMode == RunMode.drag ||
@@ -205,7 +202,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               statusKey = "stop";
               shouldBlink = true;
               statusIcon = Icons.front_hand_rounded;
-              statusIconColor = colors.statusDanger.withValues(alpha: 0.9);
+              statusIconColor = colors.statusDanger;
               statusSubtitle = "Bring vehicle to a complete stop";
             } else {
               mainTime = "Ready to Launch";
@@ -213,7 +210,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               textColor = primaryTextColor;
               statusKey = "armed";
               statusIcon = Icons.sports_score_rounded;
-              statusIconColor = colors.accentSecondary.withValues(alpha: isDark ? 0.7 : 0.9);
+              statusIconColor = colors.accentSecondary;
               statusSubtitle = "Launch whenever ready";
             }
           } else {
@@ -228,7 +225,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               textColor = warningColor;
               statusKey = "slow_down";
               statusIcon = Icons.arrow_downward_rounded;
-              statusIconColor = warningIconColor;
+              statusIconColor = colors.statusWarning;
               statusSubtitle = "Current speed is above target entry speed";
             } else if (isBraking && metrics.speedKmh < startSpeed) {
               mainTime = "Speed Up";
@@ -236,7 +233,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               textColor = warningColor;
               statusKey = "speed_up";
               statusIcon = Icons.arrow_upward_rounded;
-              statusIconColor = warningIconColor;
+              statusIconColor = colors.statusWarning;
               statusSubtitle = "Accelerate to reach target entry speed";
             } else {
               mainTime = isBraking ? "Ready to Brake" : "Ready to Run";
@@ -244,7 +241,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               textColor = primaryTextColor;
               statusKey = "armed";
               statusIcon = Icons.speed_rounded;
-              statusIconColor = colors.accentSecondary.withValues(alpha: isDark ? 0.7 : 0.9);
+              statusIconColor = colors.accentSecondary;
               statusSubtitle = isBraking
                   ? "Apply brakes to begin test"
                   : "Accelerate to start test";
@@ -256,7 +253,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           textColor = mutedTextColor;
           statusKey = "disarmed";
           statusIcon = Icons.shield_outlined;
-          statusIconColor = colors.textMuted.withValues(alpha: isDark ? 0.35 : 0.6);
+          statusIconColor = colors.textMuted;
           statusSubtitle = "Tap ARM when ready";
         }
       }
@@ -303,7 +300,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (displaySpeed < 1.0) {
       speedColor = colors.instrumentRing;
     } else if (displaySpeed > maxSpeed || metrics.gForce < 0) {
-      speedColor = Colors.redAccent;
+      speedColor = colors.statusDanger;
     } else {
       speedColor = colors.accentSecondary;
     }
@@ -315,7 +312,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (metrics.gForce == 0.0) {
       gColor = colors.instrumentRing;
     } else if (metrics.gForce < 0) {
-      gColor = Colors.redAccent;
+      gColor = colors.statusDanger;
     } else {
       gColor = colors.accentSecondary;
     }
@@ -583,13 +580,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               Icon(
                                 Icons.link_off_rounded,
                                 size: 84,
-                                color: mutedTextColor,
+                                color: mutedTextColor.withValues(alpha: 0.7),
                               ),
                               const SizedBox(height: 20),
                               Text(
                                 'Disconnected',
                                 style: AppTheme.font(
-                                  color: primaryTextColor,
+                                  color: textColor,
                                   fontSize: 32,
                                   fontWeight: FontWeight.bold,
                                   letterSpacing: -0.5,
@@ -599,7 +596,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               Text(
                                 'Tap the Bluetooth icon to connect',
                                 style: AppTheme.font(
-                                  color: mutedTextColor,
+                                  color: mutedTextColor.withValues(alpha: 0.7),
                                   fontSize: 14,
                                 ),
                               ),

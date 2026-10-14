@@ -51,7 +51,7 @@ class AppColors extends ThemeExtension<AppColors> {
     textSecondary: Color(0xB3FFFFFF),
     textMuted: Color(0x61FFFFFF),
     statusWarning: Color(0xFFFFD54F),
-    statusDanger: Color(0xFFFF5252),
+    statusDanger: Color(0xFFFF3B30),
     buttonForeground: Colors.black,
     accent: Color(0xFFFFBF00),
     accentSecondary: Color(0xFF39FF14),
@@ -70,11 +70,11 @@ class AppColors extends ThemeExtension<AppColors> {
     textPrimary: Color(0xFF333336),
     textSecondary: Color(0xFF6E6E73),
     textMuted: Color(0xFF8E8E93),
-    statusWarning: Color(0xFFD97706),
-    statusDanger: Color(0xFFDC2626),
+    statusWarning: Color(0xFFFF9500),
+    statusDanger: Color(0xFFFF3B30),
     buttonForeground: Colors.white,
     accent: Color(0xFF228DEB),
-    accentSecondary: Color(0xFF28A745),
+    accentSecondary: Color(0xFF31D32D),
     instrumentRing: Color(0xFFD1D1D6),
     instrumentFace: Colors.white,
     modalHandle: Color(0xFFC7C7CC),
@@ -251,11 +251,11 @@ class AppTheme {
       scaffoldBackgroundColor: AppColors.light.background,
       cardColor: AppColors.light.cardBackground,
       primaryColor: AppColors.light.accent,
-      colorScheme: const ColorScheme.light(
-        primary: Color(0xFF148DEB),
-        secondary: Color(0xFF28A745),
+      colorScheme: ColorScheme.light(
+        primary: AppColors.light.accent,
+        secondary: AppColors.light.accentSecondary,
         surface: Colors.white,
-        onSurface: Color(0xFF333336),
+        onSurface: const Color(0xFF333336),
       ),
       textTheme: GoogleFonts.robotoTextTheme(
         ThemeData.light().textTheme,
@@ -290,19 +290,19 @@ class AppTheme {
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
       ),
-      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+      bottomNavigationBarTheme: BottomNavigationBarThemeData(
         backgroundColor: Colors.white,
-        selectedItemColor: Color(0xFF148DEB),
-        unselectedItemColor: Color(0xFF8E8E93),
+        selectedItemColor: AppColors.light.accent,
+        unselectedItemColor: const Color(0xFF8E8E93),
       ),
       dividerTheme: const DividerThemeData(
         color: Color(0xFFE5E5EA),
         thickness: 1,
       ),
-      tabBarTheme: const TabBarThemeData(
-        indicatorColor: Color(0xFF148DEB),
-        labelColor: Color(0xFF148DEB),
-        unselectedLabelColor: Color(0xFF8E8E93),
+      tabBarTheme: TabBarThemeData(
+        indicatorColor: AppColors.light.accent,
+        labelColor: AppColors.light.accent,
+        unselectedLabelColor: const Color(0xFF8E8E93),
       ),
       switchTheme: SwitchThemeData(
         thumbColor: WidgetStateProperty.resolveWith((states) {

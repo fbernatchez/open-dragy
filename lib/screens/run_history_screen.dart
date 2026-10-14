@@ -322,7 +322,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Run History'),
+        title: const Text('History'),
         actions: [
           IconButton(
             icon: Icon(
@@ -661,9 +661,9 @@ class RunHistoryCard extends StatelessWidget {
                     shape: BoxShape.circle,
                     border: Border.all(
                       color: isSlopeValid
-                          ? context.colors.accentSecondary.withOpacity(0.3)
-                          : Colors.redAccent.withOpacity(0.3),
-                      width: 1.5,
+                          ? context.colors.accentSecondary
+                          : context.colors.statusDanger,
+                      width: 1.0,
                     ),
                   ),
                   child: Column(
