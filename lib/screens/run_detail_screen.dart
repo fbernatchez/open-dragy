@@ -10,11 +10,10 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:path_provider/path_provider.dart';
 import '../providers/dragy_provider.dart';
 import '../models/saved_run.dart';
-import '../models/race_metrics.dart';
-import '../models/race_test.dart';
 import '../utils/unit_converter.dart';
 import 'package:share_plus/share_plus.dart';
 import '../widgets/share_slip_widget.dart';
+import '../theme/app_theme.dart';
 
 class RunDetailScreen extends StatelessWidget {
   final SavedRun run;
@@ -201,17 +200,11 @@ class RunDetailScreen extends StatelessWidget {
         ? "$primaryLabel (NHRA rules)"
         : primaryLabel;
 
+    final colors = context.colors;
+
     return Scaffold(
-      backgroundColor: Colors.black,
       appBar: AppBar(
-        title: Text(
-          'Run Details',
-          style: GoogleFonts.comfortaa(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        iconTheme: const IconThemeData(color: Colors.white),
+        title: const Text('Run Details'),
         actions: [
           IconButton(
             icon: const Icon(Icons.share, color: Colors.blueAccent),
@@ -233,7 +226,7 @@ class RunDetailScreen extends StatelessWidget {
                 Text(
                   _formatDate(run.dateTime),
                   style: GoogleFonts.roboto(
-                    color: Colors.white38,
+                    color: colors.textMuted,
                     fontSize: 14,
                   ),
                 ),
@@ -253,8 +246,8 @@ class RunDetailScreen extends StatelessWidget {
                         Icon(
                           Icons.directions_car,
                           color: run.vehicleName != null
-                              ? const Color(0xFFFFBF00)
-                              : Colors.white38,
+                              ? colors.accent
+                              : colors.textMuted,
                           size: 14,
                         ),
                         const SizedBox(width: 6),
@@ -262,8 +255,8 @@ class RunDetailScreen extends StatelessWidget {
                           run.vehicleName ?? 'No Vehicle Assigned',
                           style: GoogleFonts.roboto(
                             color: run.vehicleName != null
-                                ? const Color(0xFFFFBF00)
-                                : Colors.white38,
+                                ? colors.accent
+                                : colors.textMuted,
                             fontSize: 13,
                             fontWeight: FontWeight.w500,
                           ),
@@ -272,8 +265,8 @@ class RunDetailScreen extends StatelessWidget {
                         Icon(
                           Icons.edit_outlined,
                           color: run.vehicleName != null
-                              ? const Color(0xFFFFBF00)
-                              : Colors.white38,
+                              ? colors.accent
+                              : colors.textMuted,
                           size: 12,
                         ),
                       ],
@@ -285,7 +278,7 @@ class RunDetailScreen extends StatelessWidget {
                 Text(
                   primaryTime,
                   style: GoogleFonts.robotoMono(
-                    color: Colors.white,
+                    color: colors.textPrimary,
                     fontSize: 64,
                     fontWeight: FontWeight.bold,
                   ),
@@ -293,7 +286,7 @@ class RunDetailScreen extends StatelessWidget {
                 Text(
                   fullLabel,
                   style: GoogleFonts.roboto(
-                    color: const Color(0xFFFFBF00), // Neon Amber
+                    color: colors.accent,
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 1.2,
@@ -306,25 +299,25 @@ class RunDetailScreen extends StatelessWidget {
                     width: double.infinity,
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF111111),
+                      color: colors.cardBackground,
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.white.withOpacity(0.05)),
+                      border: Border.all(color: colors.cardBorder),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
                           children: [
-                            const Icon(
+                            Icon(
                               Icons.speed,
-                              color: Color(0xFFFFBF00),
+                              color: colors.accent,
                               size: 18,
                             ),
                             const SizedBox(width: 8),
                             Text(
                               'SPEED',
                               style: GoogleFonts.roboto(
-                                color: Colors.white70,
+                                color: colors.textSecondary,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 13,
                                 letterSpacing: 1.2,
@@ -353,25 +346,25 @@ class RunDetailScreen extends StatelessWidget {
                     width: double.infinity,
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF111111),
+                      color: colors.cardBackground,
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.white.withOpacity(0.05)),
+                      border: Border.all(color: colors.cardBorder),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
                           children: [
-                            const Icon(
+                            Icon(
                               Icons.flag_outlined,
-                              color: Color(0xFFFFBF00),
+                              color: colors.accent,
                               size: 18,
                             ),
                             const SizedBox(width: 8),
                             Text(
                               'DISTANCE',
                               style: GoogleFonts.roboto(
-                                color: Colors.white70,
+                                color: colors.textSecondary,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 13,
                                 letterSpacing: 1.2,
@@ -400,25 +393,25 @@ class RunDetailScreen extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF111111),
+                    color: colors.cardBackground,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.white.withOpacity(0.05)),
+                    border: Border.all(color: colors.cardBorder),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.summarize_outlined,
-                            color: Color(0xFFFFBF00),
+                            color: colors.accent,
                             size: 18,
                           ),
                           const SizedBox(width: 8),
                           Text(
                             'Run Summary',
                             style: GoogleFonts.roboto(
-                              color: Colors.white70,
+                              color: colors.textSecondary,
                               fontWeight: FontWeight.bold,
                               fontSize: 15,
                             ),
@@ -445,7 +438,7 @@ class RunDetailScreen extends StatelessWidget {
                         value:
                             '${displayElevationDiff >= 0 ? '+' : ''}${displayElevationDiff.toStringAsFixed(1)} $altUnit',
                         valueColor: displayElevationDiff >= 0
-                            ? const Color(0xFF39FF14)
+                            ? colors.accentSecondary
                             : Colors.redAccent,
                       ),
                       _ProfileStatRow(
@@ -453,12 +446,12 @@ class RunDetailScreen extends StatelessWidget {
                         value:
                             '${avgSlope >= 0 ? '+' : ''}${avgSlope.toStringAsFixed(2)}%',
                         valueColor: isSlopeValid
-                            ? const Color(0xFF39FF14)
+                            ? colors.accentSecondary
                             : Colors.redAccent,
                         trailing: isSlopeValid
-                            ? const Icon(
+                            ? Icon(
                                 Icons.check_circle_outline,
-                                color: Color(0xFF39FF14),
+                                color: colors.accentSecondary,
                                 size: 16,
                               )
                             : const Icon(
@@ -533,7 +526,7 @@ class RunDetailScreen extends StatelessWidget {
       final text =
           'OpenDragy Run\n$primaryLabel: $primaryTime\nVehicle: $vehicle\n\nGenerated by OpenDragy';
 
-      await Share.shareXFiles([XFile(file.path)], text: text);
+      await SharePlus.instance.share(ShareParams(files: [XFile(file.path)], text: text));
     } catch (e) {
       debugPrint('Error sharing image: $e');
       if (context.mounted) {
@@ -548,18 +541,18 @@ class RunDetailScreen extends StatelessWidget {
     showDialog(
       context: context,
       builder: (diagContext) => AlertDialog(
-        backgroundColor: Colors.grey.shade900,
-        title: const Text('Delete Run', style: TextStyle(color: Colors.white)),
-        content: const Text(
+        backgroundColor: diagContext.colors.cardBackground,
+        title: Text('Delete Run', style: TextStyle(color: diagContext.colors.textPrimary)),
+        content: Text(
           'Are you sure you want to permanently delete this run from your history?',
-          style: TextStyle(color: Colors.white70),
+          style: TextStyle(color: diagContext.colors.textSecondary),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(diagContext),
-            child: const Text(
+            child: Text(
               'Cancel',
-              style: TextStyle(color: Colors.white54),
+              style: TextStyle(color: diagContext.colors.textMuted),
             ),
           ),
           TextButton(
@@ -571,9 +564,9 @@ class RunDetailScreen extends StatelessWidget {
               Navigator.pop(diagContext); // Pop dialog
               Navigator.pop(context); // Pop detail screen
             },
-            child: const Text(
+            child: Text(
               'Delete',
-              style: TextStyle(color: Colors.redAccent),
+              style: TextStyle(color: diagContext.colors.statusDanger),
             ),
           ),
         ],
@@ -599,7 +592,7 @@ class RunDetailScreen extends StatelessWidget {
             right: 24,
           ),
           decoration: BoxDecoration(
-            color: Colors.grey.shade900,
+            color: ctx.colors.cardBackground,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           ),
           child: Column(
@@ -609,18 +602,18 @@ class RunDetailScreen extends StatelessWidget {
               Text(
                 'Assign Vehicle',
                 style: GoogleFonts.comfortaa(
-                  color: Colors.white,
+                  color: ctx.colors.textPrimary,
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
                 ),
               ),
               const SizedBox(height: 16),
               if (dragy.vehicles.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 20),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 20),
                   child: Text(
                     'Your garage is empty.',
-                    style: TextStyle(color: Colors.white54),
+                    style: TextStyle(color: ctx.colors.textSecondary),
                   ),
                 )
               else
@@ -631,22 +624,22 @@ class RunDetailScreen extends StatelessWidget {
                     leading: Icon(
                       Icons.directions_car,
                       color: isSelected
-                          ? const Color(0xFFFFBF00)
-                          : Colors.white54,
+                          ? ctx.colors.accent
+                          : ctx.colors.textSecondary,
                     ),
                     title: Text(
                       v.displayName,
                       style: TextStyle(
                         color: isSelected
-                            ? const Color(0xFFFFBF00)
-                            : Colors.white,
+                            ? ctx.colors.accent
+                            : ctx.colors.textPrimary,
                         fontWeight: isSelected
                             ? FontWeight.bold
                             : FontWeight.normal,
                       ),
                     ),
                     trailing: isSelected
-                        ? const Icon(Icons.check, color: Color(0xFFFFBF00))
+                        ? Icon(Icons.check, color: ctx.colors.accent)
                         : null,
                     onTap: () {
                       dragy.updateRunVehicle(
@@ -703,8 +696,8 @@ class _DetailSlipRow extends StatelessWidget {
               Container(
                 width: 8,
                 height: 8,
-                decoration: const BoxDecoration(
-                  color: Color(0xFF39FF14),
+                decoration: BoxDecoration(
+                  color: context.colors.accentSecondary,
                   shape: BoxShape.circle,
                 ),
               ),
@@ -712,7 +705,7 @@ class _DetailSlipRow extends StatelessWidget {
               Text(
                 label,
                 style: GoogleFonts.roboto(
-                  color: Colors.white70,
+                  color: context.colors.textSecondary,
                   fontSize: 18,
                   fontWeight: FontWeight.w500,
                 ),
@@ -721,7 +714,7 @@ class _DetailSlipRow extends StatelessWidget {
               Text(
                 speedDisplay,
                 style: GoogleFonts.robotoMono(
-                  color: Colors.white,
+                  color: context.colors.textPrimary,
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                 ),
@@ -755,13 +748,13 @@ class _ProfileStatRow extends StatelessWidget {
         children: [
           Text(
             label,
-            style: GoogleFonts.roboto(color: Colors.white54, fontSize: 14),
+            style: GoogleFonts.roboto(color: context.colors.textSecondary, fontSize: 14),
           ),
           const Spacer(),
           Text(
             value,
             style: GoogleFonts.robotoMono(
-              color: valueColor ?? Colors.white,
+              color: valueColor ?? context.colors.textPrimary,
               fontWeight: FontWeight.bold,
               fontSize: 14,
             ),
@@ -825,9 +818,9 @@ class _NoteBoxState extends State<_NoteBox> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF111111),
+        color: context.colors.cardBackground,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.05)),
+        border: Border.all(color: context.colors.cardBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -837,16 +830,16 @@ class _NoteBoxState extends State<_NoteBox> {
             children: [
               Row(
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.note_alt_outlined,
-                    color: Color(0xFFFFBF00),
+                    color: context.colors.accent,
                     size: 18,
                   ),
                   const SizedBox(width: 8),
                   Text(
                     'Notes',
                     style: GoogleFonts.roboto(
-                      color: Colors.white70,
+                      color: context.colors.textSecondary,
                       fontWeight: FontWeight.bold,
                       fontSize: 15,
                     ),
@@ -859,19 +852,19 @@ class _NoteBoxState extends State<_NoteBox> {
                 child: _isSaving
                     ? Row(
                         children: [
-                          const SizedBox(
+                          SizedBox(
                             width: 10,
                             height: 10,
                             child: CircularProgressIndicator(
                               strokeWidth: 1.5,
-                              color: Color(0xFFFFBF00),
+                              color: context.colors.accent,
                             ),
                           ),
                           const SizedBox(width: 6),
                           Text(
                             'Saving...',
                             style: GoogleFonts.roboto(
-                              color: Colors.white38,
+                              color: context.colors.textMuted,
                               fontSize: 12,
                             ),
                           ),
@@ -887,13 +880,13 @@ class _NoteBoxState extends State<_NoteBox> {
             onChanged: _onNotesChanged,
             maxLines: null,
             keyboardType: TextInputType.multiline,
-            style: GoogleFonts.roboto(color: Colors.white, fontSize: 14),
-            cursorColor: const Color(0xFFFFBF00),
+            style: GoogleFonts.roboto(color: context.colors.textPrimary, fontSize: 14),
+            cursorColor: context.colors.accent,
             decoration: InputDecoration(
               hintText:
                   'Add notes (e.g., tire pressure, launch RPM, track prep)...',
               hintStyle: GoogleFonts.roboto(
-                color: Colors.white38,
+                color: context.colors.textMuted,
                 fontSize: 14,
               ),
               isDense: true,
@@ -929,25 +922,25 @@ class _EnvironmentCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF111111),
+        color: context.colors.cardBackground,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.05)),
+        border: Border.all(color: context.colors.cardBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(
+              Icon(
                 Icons.wb_sunny_outlined,
-                color: Color(0xFFFFBF00),
+                color: context.colors.accent,
                 size: 18,
               ),
               const SizedBox(width: 8),
               Text(
                 'Weather & Environment',
                 style: GoogleFonts.roboto(
-                  color: Colors.white70,
+                  color: context.colors.textSecondary,
                   fontWeight: FontWeight.bold,
                   fontSize: 15,
                 ),
@@ -1179,17 +1172,17 @@ class _TelemetryChartState extends State<TelemetryChart> {
         width: double.infinity,
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: const Color(0xFF111111),
+          color: context.colors.cardBackground,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withOpacity(0.05)),
+          border: Border.all(color: context.colors.cardBorder),
         ),
         child: Column(
           children: [
-            const Icon(Icons.show_chart, color: Colors.white24, size: 40),
+            Icon(Icons.show_chart, color: context.colors.textMuted, size: 40),
             const SizedBox(height: 8),
             Text(
               'No telemetry data recorded for this run.',
-              style: GoogleFonts.roboto(color: Colors.white54, fontSize: 13),
+              style: GoogleFonts.roboto(color: context.colors.textSecondary, fontSize: 13),
               textAlign: TextAlign.center,
             ),
           ],
@@ -1230,6 +1223,8 @@ class _TelemetryChartState extends State<TelemetryChart> {
       }
     }
 
+    final isDark = context.isDark;
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final double width = constraints.maxWidth;
@@ -1237,9 +1232,9 @@ class _TelemetryChartState extends State<TelemetryChart> {
           width: double.infinity,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: const Color(0xFF111111),
+            color: context.colors.cardBackground,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.white.withOpacity(0.05)),
+            border: Border.all(color: context.colors.cardBorder),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1281,6 +1276,7 @@ class _TelemetryChartState extends State<TelemetryChart> {
                     elevations: elevations,
                     hasElevation: hasElevation,
                     isMetric: isMetric,
+                    isDark: isDark,
                     scrubTime: _scrubTime,
                     scrubSpeed: scrubSpeed,
                     scrubGForce: scrubGForce,
@@ -1331,7 +1327,7 @@ class _TelemetryChartState extends State<TelemetryChart> {
               Text(
                 'Scrubbing Telemetry',
                 style: GoogleFonts.roboto(
-                  color: Colors.white54,
+                  color: context.colors.textSecondary,
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
                 ),
@@ -1347,7 +1343,7 @@ class _TelemetryChartState extends State<TelemetryChart> {
               _HudStat(
                 label: 'Time',
                 value: '${scrubTime.toStringAsFixed(2)}s',
-                valueColor: Colors.white,
+                valueColor: context.colors.textPrimary,
               ),
               _HudStat(
                 label: 'Speed',
@@ -1388,7 +1384,7 @@ class _TelemetryChartState extends State<TelemetryChart> {
             Text(
               'TELEMETRY GRAPH',
               style: GoogleFonts.roboto(
-                color: Colors.white70,
+                color: context.colors.textSecondary,
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
                 letterSpacing: 1.2,
@@ -1562,7 +1558,7 @@ class _HudStat extends StatelessWidget {
         Text(
           label.toUpperCase(),
           style: GoogleFonts.roboto(
-            color: Colors.white38,
+            color: context.colors.textMuted,
             fontSize: 10,
             fontWeight: FontWeight.bold,
           ),
@@ -1603,7 +1599,7 @@ class _LegendItem extends StatelessWidget {
         Text(
           label,
           style: GoogleFonts.roboto(
-            color: Colors.white54,
+            color: context.colors.textSecondary,
             fontSize: 11,
             fontWeight: FontWeight.w500,
           ),
@@ -1620,6 +1616,7 @@ class TelemetryChartPainter extends CustomPainter {
   final List<double> elevations;
   final bool hasElevation;
   final bool isMetric;
+  final bool isDark;
   final double? scrubTime;
   final double? scrubSpeed;
   final double? scrubGForce;
@@ -1632,6 +1629,7 @@ class TelemetryChartPainter extends CustomPainter {
     required this.elevations,
     required this.hasElevation,
     required this.isMetric,
+    this.isDark = true,
     this.scrubTime,
     this.scrubSpeed,
     this.scrubGForce,
@@ -1713,7 +1711,7 @@ class TelemetryChartPainter extends CustomPainter {
     // Draw Grid Lines (horizontal)
     final int gridLinesCount = 4;
     final Paint gridPaint = Paint()
-      ..color = Colors.white.withOpacity(0.08)
+      ..color = (isDark ? Colors.white : const Color(0xFF333336)).withOpacity(0.08)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.0;
 
@@ -1805,13 +1803,18 @@ class TelemetryChartPainter extends CustomPainter {
 
       // Vertical line
       final Paint cursorLinePaint = Paint()
-        ..color = Colors.white.withOpacity(0.25)
+        ..color = (isDark ? Colors.white : const Color(0xFF333336)).withOpacity(0.25)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.0;
       canvas.drawLine(Offset(x, 0), Offset(x, height), cursorLinePaint);
 
-      // Draw intersection dots
+      // Draw intersection dots with crisp white halo and soft elevation shadow
       void drawDot(double y, Color color) {
+        final Paint shadowPaint = Paint()
+          ..color = Colors.black.withOpacity(isDark ? 0.4 : 0.16)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.0);
+        canvas.drawCircle(Offset(x, y + 0.8), 5.5, shadowPaint);
+
         final Paint borderPaint = Paint()
           ..color = Colors.white
           ..style = PaintingStyle.fill;
@@ -1843,6 +1846,7 @@ class TelemetryChartPainter extends CustomPainter {
         oldDelegate.scrubGForce != scrubGForce ||
         oldDelegate.scrubElevation != scrubElevation ||
         oldDelegate.isMetric != isMetric ||
+        oldDelegate.isDark != isDark ||
         oldDelegate.times != times ||
         oldDelegate.speeds != speeds ||
         oldDelegate.gForces != gForces ||

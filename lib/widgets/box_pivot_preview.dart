@@ -3,17 +3,19 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../providers/dragy_provider.dart';
+import '../theme/app_theme.dart';
 
 class BoxPivotDialog extends StatelessWidget {
   const BoxPivotDialog({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Dialog(
-      backgroundColor: const Color(0xFF141414),
+      backgroundColor: colors.cardBackground,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
-        side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+        side: BorderSide(color: colors.cardBorder),
       ),
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       child: const Padding(
@@ -43,15 +45,17 @@ class BoxPivotPreviewWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final dragy = Provider.of<DragyProvider>(context);
     final angle = dragy.boxPivotAngle;
+    final colors = context.colors;
+    final isDark = context.isDark;
 
     return Container(
       padding: isDialogMode ? EdgeInsets.zero : const EdgeInsets.all(16),
       decoration: isDialogMode
           ? null
           : BoxDecoration(
-              color: const Color(0xFF111111),
+              color: colors.cardBackground,
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+              border: Border.all(color: colors.cardBorder),
             ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -62,7 +66,7 @@ class BoxPivotPreviewWidget extends StatelessWidget {
                 width: 38,
                 height: 38,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1565C0).withValues(alpha: 0.2),
+                  color: const Color(0xFF1565C0).withValues(alpha: isDark ? 0.2 : 0.12),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Icon(
@@ -79,7 +83,7 @@ class BoxPivotPreviewWidget extends StatelessWidget {
                     Text(
                       'Box Pivot Orientation',
                       style: GoogleFonts.roboto(
-                        color: Colors.white,
+                        color: colors.textPrimary,
                         fontSize: 15,
                         fontWeight: FontWeight.w500,
                       ),
@@ -88,7 +92,7 @@ class BoxPivotPreviewWidget extends StatelessWidget {
                     Text(
                       'Set mounting orientation',
                       style: GoogleFonts.roboto(
-                        color: Colors.white38,
+                        color: colors.textMuted,
                         fontSize: 12,
                       ),
                     ),
@@ -99,7 +103,7 @@ class BoxPivotPreviewWidget extends StatelessWidget {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1565C0).withValues(alpha: 0.25),
+                  color: const Color(0xFF1565C0).withValues(alpha: isDark ? 0.25 : 0.15),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
                     color: const Color(0xFF42A5F5).withValues(alpha: 0.5),
@@ -108,7 +112,7 @@ class BoxPivotPreviewWidget extends StatelessWidget {
                 child: Text(
                   '$angle°',
                   style: GoogleFonts.robotoMono(
-                    color: const Color(0xFF90CAF9),
+                    color: isDark ? const Color(0xFF90CAF9) : const Color(0xFF1565C0),
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
                   ),
@@ -117,7 +121,7 @@ class BoxPivotPreviewWidget extends StatelessWidget {
               if (isDialogMode) ...[
                 const SizedBox(width: 8),
                 IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white54, size: 20),
+                  icon: Icon(Icons.close, color: colors.textMuted, size: 20),
                   onPressed: () => Navigator.of(context).pop(),
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
@@ -142,12 +146,12 @@ class BoxPivotPreviewWidget extends StatelessWidget {
                       shape: BoxShape.circle,
                       gradient: RadialGradient(
                         colors: [
-                          const Color(0xFF1565C0).withValues(alpha: 0.08),
+                          const Color(0xFF1565C0).withValues(alpha: isDark ? 0.08 : 0.04),
                           Colors.transparent,
                         ],
                       ),
                       border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.12),
+                        color: colors.cardBorder,
                         width: 1.5,
                       ),
                     ),
@@ -155,7 +159,7 @@ class BoxPivotPreviewWidget extends StatelessWidget {
 
                   CustomPaint(
                     size: const Size(220, 220),
-                    painter: _CrosshairPainter(),
+                    painter: _CrosshairPainter(isDark: isDark),
                   ),
 
                   Positioned(
@@ -163,7 +167,7 @@ class BoxPivotPreviewWidget extends StatelessWidget {
                     child: Text(
                       'FRONT',
                       style: GoogleFonts.roboto(
-                        color: Colors.white38,
+                        color: colors.textMuted,
                         fontSize: 9,
                         fontWeight: FontWeight.w600,
                         letterSpacing: 0.8,
@@ -176,7 +180,7 @@ class BoxPivotPreviewWidget extends StatelessWidget {
                     child: Text(
                       'BACK',
                       style: GoogleFonts.roboto(
-                        color: Colors.white38,
+                        color: colors.textMuted,
                         fontSize: 9,
                         fontWeight: FontWeight.w600,
                         letterSpacing: 0.8,
@@ -189,7 +193,7 @@ class BoxPivotPreviewWidget extends StatelessWidget {
                     child: Text(
                       'LEFT',
                       style: GoogleFonts.roboto(
-                        color: Colors.white38,
+                        color: colors.textMuted,
                         fontSize: 9,
                         fontWeight: FontWeight.w600,
                         letterSpacing: 0.8,
@@ -202,7 +206,7 @@ class BoxPivotPreviewWidget extends StatelessWidget {
                     child: Text(
                       'RIGHT',
                       style: GoogleFonts.roboto(
-                        color: Colors.white38,
+                        color: colors.textMuted,
                         fontSize: 9,
                         fontWeight: FontWeight.w600,
                         letterSpacing: 0.8,
@@ -217,7 +221,7 @@ class BoxPivotPreviewWidget extends StatelessWidget {
                       decoration: BoxDecoration(
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFF2196F3).withValues(alpha: 0.2),
+                            color: const Color(0xFF2196F3).withValues(alpha: isDark ? 0.2 : 0.15),
                             blurRadius: 16,
                             spreadRadius: 2,
                           ),
@@ -242,21 +246,25 @@ class BoxPivotPreviewWidget extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
               _buildPresetChip(
+                context: context,
                 label: '0°',
                 isSelected: angle == 0,
                 onTap: () => dragy.setBoxPivotAngle(0),
               ),
               _buildPresetChip(
+                context: context,
                 label: '90°',
                 isSelected: angle == 90,
                 onTap: () => dragy.setBoxPivotAngle(90),
               ),
               _buildPresetChip(
+                context: context,
                 label: '180°',
                 isSelected: angle == 180,
                 onTap: () => dragy.setBoxPivotAngle(180),
               ),
               _buildPresetChip(
+                context: context,
                 label: '270°',
                 isSelected: angle == 270,
                 onTap: () => dragy.setBoxPivotAngle(270),
@@ -269,8 +277,8 @@ class BoxPivotPreviewWidget extends StatelessWidget {
           Row(
             children: [
               IconButton(
-                icon: const Icon(Icons.remove_circle_outline,
-                    color: Colors.white54, size: 22),
+                icon: Icon(Icons.remove_circle_outline,
+                    color: colors.textMuted, size: 22),
                 tooltip: '-1 Degree',
                 onPressed: () => dragy.setBoxPivotAngle((angle - 1 + 360) % 360),
               ),
@@ -279,7 +287,7 @@ class BoxPivotPreviewWidget extends StatelessWidget {
                   data: SliderTheme.of(context).copyWith(
                     trackHeight: 3,
                     activeTrackColor: const Color(0xFF1E88E5),
-                    inactiveTrackColor: Colors.white12,
+                    inactiveTrackColor: isDark ? Colors.white12 : Colors.black12,
                     thumbColor: const Color(0xFF42A5F5),
                     overlayColor: const Color(0xFF2196F3).withValues(alpha: 0.2),
                     thumbShape:
@@ -294,14 +302,13 @@ class BoxPivotPreviewWidget extends StatelessWidget {
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.add_circle_outline,
-                    color: Colors.white54, size: 22),
+                icon: Icon(Icons.add_circle_outline,
+                    color: colors.textMuted, size: 22),
                 tooltip: '+1 Degree',
                 onPressed: () => dragy.setBoxPivotAngle((angle + 1) % 360),
               ),
             ],
           ),
-
 
           if (isDialogMode) ...[
             const SizedBox(height: 16),
@@ -327,10 +334,12 @@ class BoxPivotPreviewWidget extends StatelessWidget {
   }
 
   Widget _buildPresetChip({
+    required BuildContext context,
     required String label,
     required bool isSelected,
     required VoidCallback onTap,
   }) {
+    final colors = context.colors;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
@@ -340,19 +349,19 @@ class BoxPivotPreviewWidget extends StatelessWidget {
         decoration: BoxDecoration(
           color: isSelected
               ? const Color(0xFF1565C0)
-              : Colors.white.withValues(alpha: 0.05),
+              : colors.subtleBackground,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: isSelected
                 ? const Color(0xFF42A5F5)
-                : Colors.white.withValues(alpha: 0.08),
+                : colors.cardBorder,
             width: 1,
           ),
         ),
         child: Text(
           label,
           style: GoogleFonts.roboto(
-            color: isSelected ? Colors.white : Colors.white60,
+            color: isSelected ? Colors.white : colors.textSecondary,
             fontSize: 11,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.w400,
           ),
@@ -363,10 +372,14 @@ class BoxPivotPreviewWidget extends StatelessWidget {
 }
 
 class _CrosshairPainter extends CustomPainter {
+  final bool isDark;
+
+  _CrosshairPainter({this.isDark = true});
+
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.06)
+      ..color = (isDark ? Colors.white : Colors.black).withValues(alpha: 0.08)
       ..strokeWidth = 1.0;
 
     final center = Offset(size.width / 2, size.height / 2);
@@ -385,5 +398,6 @@ class _CrosshairPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _CrosshairPainter oldDelegate) =>
+      oldDelegate.isDark != isDark;
 }

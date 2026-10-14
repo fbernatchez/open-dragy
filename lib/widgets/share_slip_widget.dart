@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../models/race_test.dart';
 import '../models/saved_run.dart';
 import '../utils/unit_converter.dart';
+import '../theme/app_theme.dart';
 
 class ShareSlipWidget extends StatelessWidget {
   final SavedRun run;
@@ -32,6 +33,8 @@ class ShareSlipWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
+    final isDark = context.isDark;
     final vehicle = run.vehicleName ?? 'Unknown Vehicle';
 
     final double startAlt = run.metrics.startAltitudeOrZero;
@@ -68,12 +71,16 @@ class ShareSlipWidget extends StatelessWidget {
 
     return Container(
       width: 400,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
+        color: colors.background,
         gradient: LinearGradient(
-          colors: [Color(0xFF1a1a1a), Color(0xFF000000)],
+          colors: isDark
+              ? const [Color(0xFF1a1a1a), Color(0xFF000000)]
+              : const [Color(0xFFFFFFFF), Color(0xFFF2F2F7)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
+        border: isDark ? null : Border.all(color: colors.cardBorder),
       ),
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -86,7 +93,7 @@ class ShareSlipWidget extends StatelessWidget {
               Text(
                 'OpenDragy',
                 style: GoogleFonts.comfortaa(
-                  color: Colors.white,
+                  color: colors.textPrimary,
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
                 ),
@@ -97,7 +104,7 @@ class ShareSlipWidget extends StatelessWidget {
           Text(
             vehicle.toUpperCase(),
             style: GoogleFonts.roboto(
-              color: Colors.white70,
+              color: colors.textSecondary,
               fontSize: 14,
               letterSpacing: 2,
             ),
@@ -109,18 +116,28 @@ class ShareSlipWidget extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 24),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.05),
+              color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: const Color(0xFFFFBF00).withOpacity(0.3),
+                color: colors.accent.withOpacity(isDark ? 0.3 : 0.4),
+                width: isDark ? 1.0 : 1.5,
               ),
+              boxShadow: isDark
+                  ? null
+                  : [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.04),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
             ),
             child: Column(
               children: [
                 Text(
                   primaryTime,
                   style: GoogleFonts.robotoMono(
-                    color: Colors.white,
+                    color: colors.textPrimary,
                     fontSize: 56,
                     fontWeight: FontWeight.bold,
                   ),
@@ -128,7 +145,7 @@ class ShareSlipWidget extends StatelessWidget {
                 Text(
                   primaryLabel.toUpperCase(),
                   style: GoogleFonts.roboto(
-                    color: const Color(0xFFFFBF00),
+                    color: colors.accent,
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 1.5,
@@ -145,11 +162,12 @@ class ShareSlipWidget extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (speedMilestones.isNotEmpty)
-                  _buildMilestoneColumn('SPEED', speedMilestones, isMetric),
+                  _buildMilestoneColumn(context, 'SPEED', speedMilestones, isMetric),
                 if (speedMilestones.isNotEmpty && distanceMilestones.isNotEmpty)
                   const SizedBox(height: 24),
                 if (distanceMilestones.isNotEmpty)
                   _buildMilestoneColumn(
+                    context,
                     'DISTANCE',
                     distanceMilestones,
                     isMetric,
@@ -164,8 +182,9 @@ class ShareSlipWidget extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.02),
+              color: isDark ? Colors.white.withOpacity(0.02) : Colors.white,
               borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: colors.cardBorder),
             ),
             child: Column(
               children: [
@@ -175,7 +194,7 @@ class ShareSlipWidget extends StatelessWidget {
                     Text(
                       'WEATHER',
                       style: GoogleFonts.roboto(
-                        color: Colors.white54,
+                        color: colors.textMuted,
                         fontSize: 11,
                       ),
                     ),
@@ -183,7 +202,7 @@ class ShareSlipWidget extends StatelessWidget {
                       child: Text(
                         weatherStr,
                         style: GoogleFonts.robotoMono(
-                          color: Colors.white,
+                          color: colors.textPrimary,
                           fontSize: 11,
                         ),
                         textAlign: TextAlign.right,
@@ -199,7 +218,7 @@ class ShareSlipWidget extends StatelessWidget {
                     Text(
                       'ELEVATION',
                       style: GoogleFonts.roboto(
-                        color: Colors.white54,
+                        color: colors.textMuted,
                         fontSize: 11,
                       ),
                     ),
@@ -207,7 +226,7 @@ class ShareSlipWidget extends StatelessWidget {
                       child: Text(
                         '${displayStartAlt.toStringAsFixed(0)} $altUnit (${displayElevationDiff >= 0 ? '+' : ''}${displayElevationDiff.toStringAsFixed(1)} $altUnit) • Slope: ${effectiveAvgSlope.toStringAsFixed(2)}%',
                         style: GoogleFonts.robotoMono(
-                          color: Colors.white,
+                          color: colors.textPrimary,
                           fontSize: 11,
                         ),
                         textAlign: TextAlign.right,
@@ -223,14 +242,14 @@ class ShareSlipWidget extends StatelessWidget {
                     Text(
                       'DATE',
                       style: GoogleFonts.roboto(
-                        color: Colors.white54,
+                        color: colors.textMuted,
                         fontSize: 11,
                       ),
                     ),
                     Text(
                       run.dateTime.toString().split('.')[0],
                       style: GoogleFonts.robotoMono(
-                        color: Colors.white,
+                        color: colors.textPrimary,
                         fontSize: 11,
                       ),
                     ),
@@ -245,17 +264,19 @@ class ShareSlipWidget extends StatelessWidget {
   }
 
   Widget _buildMilestoneColumn(
+    BuildContext context,
     String title,
     List<ReachedMilestone> milestones,
     bool isMetric,
   ) {
+    final colors = context.colors;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           title,
           style: GoogleFonts.roboto(
-            color: const Color(0xFFFFBF00),
+            color: colors.accent,
             fontSize: 12,
             fontWeight: FontWeight.bold,
             letterSpacing: 1.5,
@@ -280,14 +301,14 @@ class ShareSlipWidget extends StatelessWidget {
                 Text(
                   m.label,
                   style: GoogleFonts.roboto(
-                    color: Colors.white70,
+                    color: colors.textSecondary,
                     fontSize: 13,
                   ),
                 ),
                 Text(
                   timeDisplay,
                   style: GoogleFonts.robotoMono(
-                    color: Colors.white,
+                    color: colors.textPrimary,
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
                   ),

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../providers/dragy_provider.dart';
 import '../models/saved_run.dart';
+import '../theme/app_theme.dart';
 import 'run_detail_screen.dart';
 
 class RunHistoryScreen extends StatefulWidget {
@@ -179,6 +180,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (context) {
+        final colors = context.colors;
         return Container(
           padding: const EdgeInsets.only(
             top: 24,
@@ -187,8 +189,9 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
             right: 24,
           ),
           decoration: BoxDecoration(
-            color: Colors.grey.shade900,
+            color: colors.cardBackground,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            border: Border.all(color: colors.cardBorder),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -197,7 +200,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
               Text(
                 'Filter by Vehicle',
                 style: GoogleFonts.comfortaa(
-                  color: Colors.white,
+                  color: colors.textPrimary,
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
                 ),
@@ -210,9 +213,9 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                 isSelected: _selectedVehicleId == 'all',
               ),
               if (availableVehicles.isNotEmpty) ...[
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 8.0),
-                  child: Divider(color: Colors.white10, height: 1),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8.0),
+                  child: Divider(color: colors.cardBorder, height: 1),
                 ),
                 ...availableVehicles.map(
                   (v) => _buildFilterOption(
@@ -236,6 +239,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
     required String title,
     required bool isSelected,
   }) {
+    final colors = context.colors;
     return InkWell(
       onTap: () {
         setState(() {
@@ -248,12 +252,12 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
         padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
         decoration: BoxDecoration(
           color: isSelected
-              ? const Color(0xFFFFBF00).withOpacity(0.1)
+              ? colors.accent.withOpacity(0.1)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isSelected
-                ? const Color(0xFFFFBF00).withOpacity(0.5)
+                ? colors.accent.withOpacity(0.5)
                 : Colors.transparent,
           ),
         ),
@@ -263,16 +267,16 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
               child: Text(
                 title,
                 style: GoogleFonts.roboto(
-                  color: isSelected ? const Color(0xFFFFBF00) : Colors.white,
+                  color: isSelected ? colors.accent : colors.textPrimary,
                   fontSize: 16,
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                 ),
               ),
             ),
             if (isSelected)
-              const Icon(
+              Icon(
                 Icons.check_circle,
-                color: Color(0xFFFFBF00),
+                color: colors.accent,
                 size: 20,
               ),
           ],
@@ -283,16 +287,19 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final dragy = Provider.of<DragyProvider>(context);
+    final dragy = Provider.of<DragyProvider>(context, listen: false);
+    final (savedRuns, isMetric, useNhraRules) = context.select(
+      (DragyProvider p) => (p.savedRuns, p.isMetric, p.useNhraRules),
+    );
 
     final Map<String, String> uniqueVehicles = {};
-    for (var run in dragy.savedRuns) {
+    for (var run in savedRuns) {
       if (run.vehicleId != null && run.vehicleName != null) {
         uniqueVehicles[run.vehicleId!] = run.vehicleName!;
       }
     }
     final availableVehicles = uniqueVehicles.entries.toList();
-    List<SavedRun> baseRuns = dragy.savedRuns;
+    List<SavedRun> baseRuns = savedRuns;
 
     if (_selectedVehicleId != 'all') {
       baseRuns = baseRuns
@@ -300,8 +307,6 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
           .toList();
     }
     final runs = baseRuns;
-    final isMetric = dragy.isMetric;
-    final useNhraRules = dragy.useNhraRules;
 
     final categories = _getCategories(runs, isMetric, useNhraRules);
     if (!categories.any((c) => c.id == _selectedCategory)) {
@@ -314,17 +319,11 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
       isMetric,
     );
 
+    final colors = context.colors;
+
     return Scaffold(
-      backgroundColor: Colors.black,
       appBar: AppBar(
-        title: Text(
-          'Run History',
-          style: GoogleFonts.comfortaa(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        iconTheme: const IconThemeData(color: Colors.white),
+        title: const Text('Run History'),
         actions: [
           IconButton(
             icon: Icon(
@@ -332,8 +331,8 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                   ? Icons.filter_alt_outlined
                   : Icons.filter_alt,
               color: _selectedVehicleId == 'all'
-                  ? Colors.white
-                  : const Color(0xFFFFBF00),
+                  ? colors.textPrimary
+                  : colors.accent,
             ),
             tooltip: 'Filter by Vehicle',
             onPressed: () =>
@@ -346,12 +345,12 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.history, size: 80, color: Colors.grey.shade800),
+                  Icon(Icons.history, size: 80, color: colors.instrumentRing),
                   const SizedBox(height: 16),
                   Text(
                     'No runs recorded yet.',
                     style: GoogleFonts.roboto(
-                      color: Colors.white54,
+                      color: colors.textSecondary,
                       fontSize: 18,
                     ),
                   ),
@@ -359,7 +358,7 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                   Text(
                     'Perform a speed run to automatically log it.',
                     style: GoogleFonts.roboto(
-                      color: Colors.white38,
+                      color: colors.textMuted,
                       fontSize: 14,
                     ),
                   ),
@@ -407,21 +406,19 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                           ),
                           decoration: BoxDecoration(
                             color: isSelected
-                                ? const Color(0xFFFFBF00).withOpacity(0.12)
-                                : const Color(0xFF111111),
+                                ? colors.accent.withOpacity(0.12)
+                                : colors.cardBackground,
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
                               color: isSelected
-                                  ? const Color(0xFFFFBF00)
-                                  : Colors.white.withOpacity(0.08),
+                                  ? colors.accent
+                                  : colors.cardBorder,
                               width: isSelected ? 1.5 : 1.0,
                             ),
                             boxShadow: isSelected
                                 ? [
                                     BoxShadow(
-                                      color: const Color(
-                                        0xFFFFBF00,
-                                      ).withOpacity(0.15),
+                                      color: colors.accent.withOpacity(0.15),
                                       blurRadius: 6,
                                       spreadRadius: 1,
                                     ),
@@ -442,8 +439,8 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                                       ? FontWeight.bold
                                       : FontWeight.normal,
                                   color: isSelected
-                                      ? const Color(0xFFFFBF00)
-                                      : Colors.white70,
+                                      ? colors.accent
+                                      : colors.textSecondary,
                                 ),
                               ),
                               const SizedBox(height: 4),
@@ -453,8 +450,8 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                                   fontSize: 14,
                                   fontWeight: FontWeight.bold,
                                   color: isSelected
-                                      ? Colors.white
-                                      : Colors.white54,
+                                      ? colors.textPrimary
+                                      : colors.textMuted,
                                 ),
                               ),
                             ],
@@ -464,9 +461,9 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                     },
                   ),
                 ),
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16.0),
-                  child: Divider(color: Colors.white10, height: 1),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: Divider(color: colors.cardBorder, height: 1),
                 ),
                 // Runs list
                 Expanded(
@@ -478,13 +475,13 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
                               Icon(
                                 Icons.filter_list_off,
                                 size: 50,
-                                color: Colors.grey.shade800,
+                                color: colors.instrumentRing,
                               ),
                               const SizedBox(height: 12),
                               Text(
                                 'No runs found for this category.',
                                 style: GoogleFonts.roboto(
-                                  color: Colors.white38,
+                                  color: colors.textMuted,
                                   fontSize: 15,
                                 ),
                               ),
@@ -515,21 +512,21 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
   }
 
   void _confirmDelete(BuildContext context, DragyProvider dragy, SavedRun run) {
+    final colors = context.colors;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: Colors.grey.shade900,
-        title: const Text('Delete Run', style: TextStyle(color: Colors.white)),
-        content: const Text(
+        title: Text('Delete Run', style: TextStyle(color: colors.textPrimary)),
+        content: Text(
           'Are you sure you want to permanently delete this run from your history?',
-          style: TextStyle(color: Colors.white70),
+          style: TextStyle(color: colors.textSecondary),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text(
+            child: Text(
               'Cancel',
-              style: TextStyle(color: Colors.white54),
+              style: TextStyle(color: colors.textMuted),
             ),
           ),
           TextButton(
@@ -537,9 +534,9 @@ class _RunHistoryScreenState extends State<RunHistoryScreen> {
               dragy.deleteRun(run.id);
               Navigator.pop(context);
             },
-            child: const Text(
+            child: Text(
               'Delete',
-              style: TextStyle(color: Colors.redAccent),
+              style: TextStyle(color: colors.statusDanger),
             ),
           ),
         ],
@@ -635,9 +632,9 @@ class RunHistoryCard extends StatelessWidget {
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
-          color: const Color(0xFF111111),
+          color: context.colors.cardBackground,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withOpacity(0.05), width: 1),
+          border: Border.all(color: context.colors.cardBorder, width: 1),
         ),
         child: InkWell(
           onTap: () {
@@ -661,11 +658,11 @@ class RunHistoryCard extends StatelessWidget {
                   width: 70,
                   height: 70,
                   decoration: BoxDecoration(
-                    color: Colors.white12,
+                    color: context.colors.subtleBackground,
                     shape: BoxShape.circle,
                     border: Border.all(
                       color: isSlopeValid
-                          ? const Color(0xFF39FF14).withOpacity(0.3)
+                          ? context.colors.accentSecondary.withOpacity(0.3)
                           : Colors.redAccent.withOpacity(0.3),
                       width: 1.5,
                     ),
@@ -682,7 +679,7 @@ class RunHistoryCard extends StatelessWidget {
                         softWrap: false,
                         style: GoogleFonts.roboto(
                           fontSize: 9,
-                          color: Colors.white54,
+                          color: context.colors.textMuted,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -693,7 +690,7 @@ class RunHistoryCard extends StatelessWidget {
                         softWrap: false,
                         style: GoogleFonts.robotoMono(
                           fontSize: 15,
-                          color: Colors.white,
+                          color: context.colors.textPrimary,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -711,7 +708,7 @@ class RunHistoryCard extends StatelessWidget {
                         style: GoogleFonts.roboto(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                          color: context.colors.textPrimary,
                         ),
                       ),
                       const SizedBox(height: 6),
@@ -723,7 +720,7 @@ class RunHistoryCard extends StatelessWidget {
                                 : Icons.warning_amber_outlined,
                             size: 14,
                             color: isSlopeValid
-                                ? const Color(0xFF39FF14)
+                                ? context.colors.accentSecondary
                                 : Colors.redAccent,
                           ),
                           const SizedBox(width: 4),
@@ -732,21 +729,21 @@ class RunHistoryCard extends StatelessWidget {
                             style: GoogleFonts.roboto(
                               fontSize: 12,
                               color: isSlopeValid
-                                  ? Colors.white70
+                                  ? context.colors.textSecondary
                                   : Colors.redAccent,
                             ),
                           ),
                           const SizedBox(width: 12),
-                          const Text(
+                          Text(
                             '•',
-                            style: TextStyle(color: Colors.white38),
+                            style: TextStyle(color: context.colors.textMuted),
                           ),
                           const SizedBox(width: 12),
                           Text(
                             'Duration: ${metrics.elapsedTime.toStringAsFixed(1)}s',
                             style: GoogleFonts.roboto(
                               fontSize: 12,
-                              color: Colors.white54,
+                              color: context.colors.textMuted,
                             ),
                           ),
                         ],
@@ -755,10 +752,10 @@ class RunHistoryCard extends StatelessWidget {
                         const SizedBox(height: 4),
                         Row(
                           children: [
-                            const Icon(
+                            Icon(
                               Icons.directions_car,
                               size: 12,
-                              color: Color(0xFFFFBF00),
+                              color: context.colors.accent,
                             ),
                             const SizedBox(width: 4),
                             Expanded(
@@ -768,7 +765,7 @@ class RunHistoryCard extends StatelessWidget {
                                 overflow: TextOverflow.ellipsis,
                                 style: GoogleFonts.roboto(
                                   fontSize: 11,
-                                  color: const Color(0xFFFFBF00),
+                                  color: context.colors.accent,
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
@@ -781,10 +778,10 @@ class RunHistoryCard extends StatelessWidget {
                         const SizedBox(height: 6),
                         Row(
                           children: [
-                            const Icon(
+                            Icon(
                               Icons.note_alt_outlined,
                               size: 12,
-                              color: Color(0xFFFFBF00),
+                              color: context.colors.accent,
                             ),
                             const SizedBox(width: 4),
                             Expanded(
@@ -794,7 +791,7 @@ class RunHistoryCard extends StatelessWidget {
                                 overflow: TextOverflow.ellipsis,
                                 style: GoogleFonts.roboto(
                                   fontSize: 11,
-                                  color: Colors.white38,
+                                  color: context.colors.textMuted,
                                   fontStyle: FontStyle.italic,
                                 ),
                               ),
@@ -806,10 +803,10 @@ class RunHistoryCard extends StatelessWidget {
                   ),
                 ),
                 // Arrow
-                const Icon(
+                Icon(
                   Icons.arrow_forward_ios,
                   size: 16,
-                  color: Colors.white38,
+                  color: context.colors.textMuted,
                 ),
               ],
             ),

@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../providers/dragy_provider.dart';
 import '../services/ble_service.dart';
+import '../theme/app_theme.dart';
 
 class DeviceSelectorModal extends StatefulWidget {
   const DeviceSelectorModal({super.key});
@@ -17,7 +18,7 @@ class DeviceSelectorModal extends StatefulWidget {
 class _DeviceSelectorModalState extends State<DeviceSelectorModal> {
   String? _connectingDeviceId;
   late final BleService bleService;
-  // Accumulated device map — devices are added but never removed
+  // Accumulated device map - devices are added but never removed
   final Map<String, ScanResult> _devicesFound = {};
   StreamSubscription<List<ScanResult>>? _scanSubscription;
 
@@ -76,6 +77,8 @@ class _DeviceSelectorModalState extends State<DeviceSelectorModal> {
         )
         .toList();
 
+    final buttonTextColor = context.colors.buttonForeground;
+
     return Container(
       color: Theme.of(context).colorScheme.surface,
       padding: const EdgeInsets.all(16),
@@ -92,8 +95,8 @@ class _DeviceSelectorModalState extends State<DeviceSelectorModal> {
           const SizedBox(height: 16),
           Expanded(
             child: results.isEmpty
-                ? const Center(
-                    child: CircularProgressIndicator(color: Color(0xFFFFBF00)),
+                ? Center(
+                    child: CircularProgressIndicator(color: Theme.of(context).primaryColor),
                   )
                 : ListView.builder(
                     itemCount: results.length,
@@ -110,7 +113,7 @@ class _DeviceSelectorModalState extends State<DeviceSelectorModal> {
                         trailing: ElevatedButton(
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Theme.of(context).primaryColor,
-                            foregroundColor: Colors.black,
+                            foregroundColor: buttonTextColor,
                           ),
                           onPressed: _connectingDeviceId != null
                               ? null
@@ -138,12 +141,12 @@ class _DeviceSelectorModalState extends State<DeviceSelectorModal> {
                                   }
                                 },
                           child: isConnectingToThis
-                              ? const SizedBox(
+                              ? SizedBox(
                                   width: 20,
                                   height: 20,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
-                                    color: Colors.black,
+                                    color: buttonTextColor,
                                   ),
                                 )
                               : const Text('Connect'),

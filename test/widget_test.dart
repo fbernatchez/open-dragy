@@ -246,7 +246,19 @@ class MockDragyProvider extends ChangeNotifier implements DragyProvider {
     notifyListeners();
   }
 
+  @override
+  void setActiveDragTest(RaceDragTest test) => setactiveDragTest(test);
+
   // --- Settings ---
+  @override
+  ThemeMode themeMode = ThemeMode.system;
+
+  @override
+  void setThemeMode(ThemeMode mode) {
+    themeMode = mode;
+    notifyListeners();
+  }
+
   @override
   bool tempInCelsius = true;
 
@@ -1114,6 +1126,21 @@ void main() {
 
     // Verify version info is displayed
     expect(find.text('App: 1.0.0-mock'), findsOneWidget);
+
+    // Verify theme tile and tap to open dialog
+    expect(find.text('Theme'), findsOneWidget);
+    expect(find.text('System default'), findsOneWidget);
+    await tester.tap(find.text('Theme'));
+    await tester.pumpAndSettle();
+
+    // Verify dialog opens with options
+    expect(find.text('Dark mode'), findsOneWidget);
+    expect(find.text('Light mode'), findsOneWidget);
+
+    // Select Dark mode
+    await tester.tap(find.text('Dark mode'));
+    await tester.pumpAndSettle();
+    expect(mockProvider.themeMode, ThemeMode.dark);
   });
 
   testWidgets('GarageScreen displays empty state and lists vehicles', (

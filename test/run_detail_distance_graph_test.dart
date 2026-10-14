@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:open_dragy/models/race_metrics.dart';
-import 'package:open_dragy/models/race_test.dart';
 import 'package:open_dragy/models/saved_run.dart';
 import 'package:open_dragy/providers/dragy_provider.dart';
 import 'package:open_dragy/screens/run_detail_screen.dart';

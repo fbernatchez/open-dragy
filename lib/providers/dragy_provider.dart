@@ -88,6 +88,16 @@ class DragyProvider extends ChangeNotifier {
   bool _enableAudioRecording = true;
   bool get enableAudioRecording => _enableAudioRecording;
 
+  ThemeMode _themeMode = ThemeMode.system;
+  ThemeMode get themeMode => _themeMode;
+
+  void setThemeMode(ThemeMode mode) {
+    if (_themeMode == mode) return;
+    _themeMode = mode;
+    _saveSettings();
+    notifyListeners();
+  }
+
   // --- Arming & Run Modes ---
   bool _isArmed = false;
   bool get isArmed => _isArmed;
@@ -668,6 +678,8 @@ class DragyProvider extends ChangeNotifier {
     }
   }
 
+  void setActiveDragTest(RaceDragTest target) => setactiveDragTest(target);
+
   // --- Settings Methods ---
 
   void setMetric(bool isMetric) {
@@ -904,6 +916,10 @@ class DragyProvider extends ChangeNotifier {
     _useNhraRules = data['useNhraRules'] as bool? ?? true;
     _enableTts = data['enableTts'] as bool? ?? true;
     _enableAudioRecording = data['enableAudioRecording'] as bool? ?? true;
+    final themeModeStr = data['themeMode'] as String?;
+    _themeMode = themeModeStr != null
+        ? (ThemeMode.values.asNameMap()[themeModeStr] ?? ThemeMode.system)
+        : ThemeMode.system;
     _boxPivotAngle = (data['boxPivotAngle'] as num?)?.toInt() ?? 0;
     final modeStr = data['runMode'] as String?;
     _runMode = modeStr != null
@@ -954,6 +970,7 @@ class DragyProvider extends ChangeNotifier {
       'useNhraRules': _useNhraRules,
       'enableTts': _enableTts,
       'enableAudioRecording': _enableAudioRecording,
+      'themeMode': _themeMode.name,
       'boxPivotAngle': _boxPivotAngle,
       'runMode': _runMode.name,
       'activeDragTest': _activeDragTest.name,

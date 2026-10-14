@@ -5,7 +5,9 @@ import '../providers/dragy_provider.dart';
 import '../widgets/firmware_update_dialog.dart';
 import '../services/firmware_service.dart';
 import '../widgets/box_pivot_preview.dart';
+import '../theme/app_theme.dart';
 import 'test_selection_screen.dart';
+import 'garage_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   static const String minRecommendedFirmware =
@@ -18,26 +20,84 @@ class SettingsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dragy = Provider.of<DragyProvider>(context);
-    final isMetric = dragy.isMetric;
-    final tempInCelsius = dragy.tempInCelsius;
+    final dragy = Provider.of<DragyProvider>(context, listen: false);
+    final (
+      isMetric,
+      tempInCelsius,
+      themeMode,
+      useNhraRules,
+      enableTts,
+      enableAudioRecording,
+      isConnected,
+      appVersion,
+      firmwareVersion,
+    ) = context.select(
+      (DragyProvider p) => (
+        p.isMetric,
+        p.tempInCelsius,
+        p.themeMode,
+        p.useNhraRules,
+        p.enableTts,
+        p.enableAudioRecording,
+        p.isConnected,
+        p.appVersion,
+        p.firmwareVersion,
+      ),
+    );
+    final colors = context.colors;
+    final cardColor = colors.cardBackground;
+    final borderColor = colors.cardBorder;
+    final titleColor = colors.textPrimary;
+    final subtitleColor = colors.textMuted;
 
     return Scaffold(
-      backgroundColor: Colors.black,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1565C0),
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: Text(
-          'Settings',
-          style: GoogleFonts.roboto(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        elevation: 0,
+        title: const Text('Settings'),
       ),
       body: ListView(
         children: [
+          // Appearance section
+          _SectionHeader(label: 'Appearance'),
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            decoration: BoxDecoration(
+              color: cardColor,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: borderColor),
+            ),
+            child: ListTile(
+              leading: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF9C27B0).withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.brightness_6_rounded,
+                  color: Color(0xFFBA68C8),
+                  size: 22,
+                ),
+              ),
+              title: Text(
+                'Theme',
+                style: GoogleFonts.roboto(
+                  color: titleColor,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              subtitle: Text(
+                _themeModeLabel(themeMode),
+                style: GoogleFonts.roboto(
+                  color: subtitleColor,
+                  fontSize: 12,
+                ),
+              ),
+              onTap: () => _showThemeDialog(context, dragy),
+            ),
+          ),
+
           // Units section
           _SectionHeader(label: 'Units'),
           _SettingsToggle(
@@ -59,10 +119,10 @@ class SettingsScreen extends StatelessWidget {
           _SettingsToggle(
             icon: Icons.timer_outlined,
             title: 'NHRA Rules',
-            subtitle: dragy.useNhraRules
+            subtitle: useNhraRules
                 ? 'Applies 1ft rollout and 66ft trap speed'
                 : 'Standard timing without NHRA rules',
-            value: dragy.useNhraRules,
+            value: useNhraRules,
             onChanged: (v) => dragy.setUseNhraRules(v),
           ),
 
@@ -70,36 +130,82 @@ class SettingsScreen extends StatelessWidget {
           _SettingsToggle(
             icon: Icons.record_voice_over_outlined,
             title: 'Voice Announcements',
-            subtitle: dragy.enableTts
+            subtitle: enableTts
                 ? 'Announces completed milestones'
                 : 'TTS is disabled',
-            value: dragy.enableTts,
+            value: enableTts,
             onChanged: (v) => dragy.setEnableTts(v),
           ),
           _SettingsToggle(
             icon: Icons.mic_none,
             title: 'Audio Recording',
-            subtitle: dragy.enableAudioRecording
+            subtitle: enableAudioRecording
                 ? 'Records audio during runs'
                 : 'Microphone recording is disabled',
-            value: dragy.enableAudioRecording,
+            value: enableAudioRecording,
             onChanged: (v) => dragy.setEnableAudioRecording(v),
           ),
 
-          _SectionHeader(label: 'Tests'),
+          _SectionHeader(label: 'Garage'),
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
             decoration: BoxDecoration(
-              color: const Color(0xFF111111),
+              color: cardColor,
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.white.withOpacity(0.06)),
+              border: Border.all(color: borderColor),
             ),
             child: ListTile(
               leading: Container(
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1565C0).withOpacity(0.2),
+                  color: const Color(0xFF1565C0).withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.directions_car_outlined,
+                  color: Color(0xFF42A5F5),
+                  size: 22,
+                ),
+              ),
+              title: Text(
+                'Garage',
+                style: GoogleFonts.roboto(
+                  color: titleColor,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              subtitle: Text(
+                'Manage vehicles',
+                style: GoogleFonts.roboto(color: subtitleColor, fontSize: 12),
+              ),
+              trailing: Icon(Icons.chevron_right, color: subtitleColor),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const GarageScreen(),
+                  ),
+                );
+              },
+            ),
+          ),
+
+          _SectionHeader(label: 'Tests'),
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            decoration: BoxDecoration(
+              color: cardColor,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: borderColor),
+            ),
+            child: ListTile(
+              leading: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1565C0).withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Icon(
@@ -111,16 +217,16 @@ class SettingsScreen extends StatelessWidget {
               title: Text(
                 'Active Tests',
                 style: GoogleFonts.roboto(
-                  color: Colors.white,
+                  color: titleColor,
                   fontSize: 15,
                   fontWeight: FontWeight.w500,
                 ),
               ),
               subtitle: Text(
                 'Select which tests to track',
-                style: GoogleFonts.roboto(color: Colors.white38, fontSize: 12),
+                style: GoogleFonts.roboto(color: subtitleColor, fontSize: 12),
               ),
-              trailing: const Icon(Icons.chevron_right, color: Colors.white38),
+              trailing: Icon(Icons.chevron_right, color: subtitleColor),
               onTap: () {
                 Navigator.push(
                   context,
@@ -136,16 +242,16 @@ class SettingsScreen extends StatelessWidget {
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
             decoration: BoxDecoration(
-              color: const Color(0xFF111111),
+              color: cardColor,
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.white.withOpacity(0.06)),
+              border: Border.all(color: borderColor),
             ),
             child: ListTile(
               leading: Container(
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1565C0).withOpacity(0.2),
+                  color: const Color(0xFF1565C0).withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Icon(
@@ -157,16 +263,16 @@ class SettingsScreen extends StatelessWidget {
               title: Text(
                 'Box Pivot Orientation',
                 style: GoogleFonts.roboto(
-                  color: Colors.white,
+                  color: titleColor,
                   fontSize: 15,
                   fontWeight: FontWeight.w500,
                 ),
               ),
               subtitle: Text(
                 'Set device mounting orientation',
-                style: GoogleFonts.roboto(color: Colors.white38, fontSize: 12),
+                style: GoogleFonts.roboto(color: subtitleColor, fontSize: 12),
               ),
-              trailing: const Icon(Icons.chevron_right, color: Colors.white38),
+              trailing: Icon(Icons.chevron_right, color: subtitleColor),
               onTap: () => _showBoxPivotDialog(context),
             ),
           ),
@@ -176,9 +282,9 @@ class SettingsScreen extends StatelessWidget {
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFF111111),
+              color: cardColor,
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.white.withOpacity(0.06)),
+              border: Border.all(color: borderColor),
             ),
             child: Row(
               children: [
@@ -186,7 +292,7 @@ class SettingsScreen extends StatelessWidget {
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1565C0).withOpacity(0.15),
+                    color: const Color(0xFF1565C0).withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(
@@ -203,28 +309,28 @@ class SettingsScreen extends StatelessWidget {
                       Text(
                         'Version',
                         style: GoogleFonts.roboto(
-                          color: Colors.white,
+                          color: titleColor,
                           fontSize: 15,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        dragy.appVersion.isNotEmpty
-                            ? 'App: ${dragy.appVersion}'
+                        appVersion.isNotEmpty
+                            ? 'App: $appVersion'
                             : 'App: Loading...',
                         style: GoogleFonts.roboto(
-                          color: Colors.white38,
+                          color: subtitleColor,
                           fontSize: 12,
                         ),
                       ),
-                      if (dragy.isConnected &&
-                          dragy.firmwareVersion.isNotEmpty) ...[
+                      if (isConnected &&
+                          firmwareVersion.isNotEmpty) ...[
                         const SizedBox(height: 2),
                         Text(
-                          'Firmware: ${dragy.firmwareVersion}',
+                          'Firmware: $firmwareVersion',
                           style: GoogleFonts.roboto(
-                            color: Colors.white38,
+                            color: subtitleColor,
                             fontSize: 12,
                           ),
                         ),
@@ -236,8 +342,8 @@ class SettingsScreen extends StatelessWidget {
             ),
           ),
 
-          if (dragy.isConnected &&
-              SettingsScreen.isUpdateAvailable(dragy.firmwareVersion)) ...[
+          if (isConnected &&
+              SettingsScreen.isUpdateAvailable(firmwareVersion)) ...[
             const SizedBox(height: 16),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -259,24 +365,111 @@ class SettingsScreen extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Text(
                 'Recommended firmware: v${SettingsScreen.minRecommendedFirmware} or higher for this app version.',
-                style: GoogleFonts.roboto(color: Colors.white38, fontSize: 11),
+                style: GoogleFonts.roboto(color: subtitleColor, fontSize: 11),
                 textAlign: TextAlign.center,
               ),
             ),
           ],
-
           const SizedBox(height: 32),
-          // App info
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8),
-            child: Text(
-              'OpenDragy',
-              style: GoogleFonts.comfortaa(color: Colors.white24, fontSize: 13),
-              textAlign: TextAlign.center,
-            ),
-          ),
         ],
       ),
+    );
+  }
+
+  static String _themeModeLabel(ThemeMode mode) {
+    switch (mode) {
+      case ThemeMode.system:
+        return 'System default';
+      case ThemeMode.dark:
+        return 'Dark mode';
+      case ThemeMode.light:
+        return 'Light mode';
+    }
+  }
+
+  void _showThemeDialog(BuildContext context, DragyProvider dragy) {
+    final colors = context.colors;
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          backgroundColor: colors.cardBackground,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: Text(
+            'Theme',
+            style: GoogleFonts.comfortaa(
+              color: colors.textPrimary,
+              fontWeight: FontWeight.bold,
+              fontSize: 20,
+            ),
+          ),
+          contentPadding: const EdgeInsets.symmetric(vertical: 8),
+          content: RadioGroup<ThemeMode>(
+            groupValue: dragy.themeMode,
+            onChanged: (mode) {
+              if (mode != null) {
+                dragy.setThemeMode(mode);
+                Navigator.pop(ctx);
+              }
+            },
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                RadioListTile<ThemeMode>(
+                  value: ThemeMode.system,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  activeColor: colors.accent,
+                  title: Text(
+                    'System default',
+                    style: GoogleFonts.roboto(
+                      color: colors.textPrimary,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                RadioListTile<ThemeMode>(
+                  value: ThemeMode.dark,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  activeColor: colors.accent,
+                  title: Text(
+                    'Dark mode',
+                    style: GoogleFonts.roboto(
+                      color: colors.textPrimary,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                RadioListTile<ThemeMode>(
+                  value: ThemeMode.light,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  activeColor: colors.accent,
+                  title: Text(
+                    'Light mode',
+                    style: GoogleFonts.roboto(
+                      color: colors.textPrimary,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(
+                'Cancel',
+                style: TextStyle(color: colors.textSecondary),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -311,7 +504,7 @@ class _SectionHeader extends StatelessWidget {
       child: Text(
         label.toUpperCase(),
         style: GoogleFonts.roboto(
-          color: Colors.white38,
+          color: context.colors.textMuted,
           fontSize: 12,
           fontWeight: FontWeight.bold,
           letterSpacing: 1.5,
@@ -338,12 +531,19 @@ class _SettingsToggle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
+    final cardColor = colors.cardBackground;
+    final borderColor = colors.cardBorder;
+    final titleColor = colors.textPrimary;
+    final subtitleColor = colors.textMuted;
+    final isDark = context.isDark;
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       decoration: BoxDecoration(
-        color: const Color(0xFF111111),
+        color: cardColor,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border: Border.all(color: borderColor),
       ),
       child: SwitchListTile(
         secondary: Container(
@@ -351,34 +551,35 @@ class _SettingsToggle extends StatelessWidget {
           height: 40,
           decoration: BoxDecoration(
             color: value
-                ? const Color(0xFF1565C0).withOpacity(0.2)
-                : Colors.white.withOpacity(0.05),
+                ? const Color(0xFF1565C0).withValues(alpha: 0.2)
+                : colors.subtleBackground,
             borderRadius: BorderRadius.circular(10),
           ),
           child: Icon(
             icon,
-            color: value ? const Color(0xFF42A5F5) : Colors.white38,
+            color: value ? const Color(0xFF42A5F5) : subtitleColor,
             size: 22,
           ),
         ),
         title: Text(
           title,
           style: GoogleFonts.roboto(
-            color: Colors.white,
+            color: titleColor,
             fontSize: 15,
             fontWeight: FontWeight.w500,
           ),
         ),
         subtitle: Text(
           subtitle,
-          style: GoogleFonts.roboto(color: Colors.white38, fontSize: 12),
+          style: GoogleFonts.roboto(color: subtitleColor, fontSize: 12),
         ),
         value: value,
         onChanged: onChanged,
         activeThumbColor: const Color(0xFF42A5F5),
         activeTrackColor: const Color(0xFF1565C0),
-        inactiveThumbColor: Colors.white38,
-        inactiveTrackColor: Colors.white12,
+        inactiveThumbColor: isDark ? subtitleColor : const Color(0xFF8E8E93),
+        inactiveTrackColor: isDark ? Colors.white12 : const Color(0xFFE5E5EA),
+        trackOutlineColor: const WidgetStatePropertyAll(Colors.transparent),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),

@@ -5,11 +5,11 @@ import 'package:google_fonts/google_fonts.dart';
 import '../providers/dragy_provider.dart';
 import '../widgets/device_selector_modal.dart';
 import '../widgets/firmware_update_dialog.dart';
+import '../widgets/app_segmented_switch.dart';
 import '../services/firmware_service.dart';
-import 'run_history_screen.dart';
 import 'garage_screen.dart';
-import 'settings_screen.dart';
 import '../utils/unit_converter.dart';
+import '../theme/app_theme.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -98,23 +98,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final isConnected = dragy.isConnected;
     final metrics = dragy.metrics;
 
+    final colors = context.colors;
+    final isDark = context.isDark;
+    final primaryTextColor = colors.textPrimary;
+    final secondaryTextColor = colors.textSecondary;
+    final mutedTextColor = colors.textMuted;
+    final surfaceCardColor = colors.subtleBackground;
+    final surfaceBorderColor = colors.cardBorder;
+
     // Determine the main highlighted time or status message
     String mainTime = "0.00s";
     double fontSize = 80.0;
-    Color textColor = Colors.white;
+    Color textColor = primaryTextColor;
     String statusKey = "ready";
     const double statusFontSize = 52.0;
     bool shouldBlink = false;
 
+    IconData? statusIcon;
+    Color? statusIconColor;
+    String? statusSubtitle;
+
     if (!isConnected) {
       mainTime = "Disconnected";
       fontSize = statusFontSize;
-      textColor = Colors.white38;
+      textColor = mutedTextColor;
       statusKey = "disconnected";
     } else if (metrics.isRunning) {
       mainTime = "${dragy.liveElapsedTime.toStringAsFixed(2)}s";
       fontSize = 80.0;
-      textColor = Colors.white;
+      textColor = primaryTextColor;
       statusKey = "running";
     } else {
       double? completedTime;
@@ -158,16 +170,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (completedTime != null) {
         mainTime = "${completedTime.toStringAsFixed(2)}s";
         fontSize = 80.0;
-        textColor = Colors.white;
+        textColor = primaryTextColor;
         statusKey = "finished";
       } else {
-        final bool isGpsReady =
-            dragy.satellites >= 4 && dragy.hdop > 0.0 && dragy.hdop <= 2.0;
+        final bool isGpsReady = dragy.hdop > 0.0 && dragy.hdop <= 2.0;
+        final warningColor = colors.statusWarning;
+        final warningIconColor = isDark
+            ? colors.statusWarning.withValues(alpha: 0.7)
+            : colors.statusWarning;
+
         if (!isGpsReady) {
           mainTime = "Waiting for GPS";
           fontSize = statusFontSize;
-          textColor = const Color(0xFFFFD54F);
+          textColor = warningColor;
           statusKey = "waiting_gps";
+          statusIcon = Icons.satellite_alt_rounded;
+          statusIconColor = warningIconColor;
+          statusSubtitle = "Acquiring satellite lock";
         } else if (dragy.isArmed) {
           final bool isStandingStart = dragy.runMode == RunMode.drag ||
               (dragy.runMode == RunMode.interval &&
@@ -176,14 +195,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
             if (metrics.speedKmh > 0.0) {
               mainTime = "STOP";
               fontSize = statusFontSize;
-              textColor = Colors.redAccent;
+              textColor = colors.statusDanger;
               statusKey = "stop";
               shouldBlink = true;
+              statusIcon = Icons.front_hand_rounded;
+              statusIconColor = colors.statusDanger.withValues(alpha: 0.9);
+              statusSubtitle = "Bring vehicle to a complete stop";
             } else {
               mainTime = "Ready to Launch";
               fontSize = statusFontSize;
-              textColor = Colors.white;
+              textColor = primaryTextColor;
               statusKey = "armed";
+              statusIcon = Icons.sports_score_rounded;
+              statusIconColor = colors.accentSecondary.withValues(alpha: isDark ? 0.7 : 0.9);
+              statusSubtitle = "Launch whenever ready";
             }
           } else {
             // Rolling Interval Mode
@@ -194,25 +219,39 @@ class _DashboardScreenState extends State<DashboardScreen> {
             if (!isBraking && metrics.speedKmh > startSpeed) {
               mainTime = "Slow Down";
               fontSize = statusFontSize;
-              textColor = const Color(0xFFFFD54F);
+              textColor = warningColor;
               statusKey = "slow_down";
+              statusIcon = Icons.arrow_downward_rounded;
+              statusIconColor = warningIconColor;
+              statusSubtitle = "Current speed is above target entry speed";
             } else if (isBraking && metrics.speedKmh < startSpeed) {
               mainTime = "Speed Up";
               fontSize = statusFontSize;
-              textColor = const Color(0xFFFFD54F);
+              textColor = warningColor;
               statusKey = "speed_up";
+              statusIcon = Icons.arrow_upward_rounded;
+              statusIconColor = warningIconColor;
+              statusSubtitle = "Accelerate to reach target entry speed";
             } else {
               mainTime = isBraking ? "Ready to Brake" : "Ready to Run";
               fontSize = statusFontSize;
-              textColor = Colors.white;
+              textColor = primaryTextColor;
               statusKey = "armed";
+              statusIcon = Icons.speed_rounded;
+              statusIconColor = colors.accentSecondary.withValues(alpha: isDark ? 0.7 : 0.9);
+              statusSubtitle = isBraking
+                  ? "Apply brakes to begin test"
+                  : "Accelerate to start test";
             }
           }
         } else {
           mainTime = "Disarmed";
           fontSize = statusFontSize;
-          textColor = Colors.white54;
+          textColor = mutedTextColor;
           statusKey = "disarmed";
+          statusIcon = Icons.shield_outlined;
+          statusIconColor = colors.textMuted.withValues(alpha: isDark ? 0.35 : 0.6);
+          statusSubtitle = "Tap ARM when ready";
         }
       }
     }
@@ -256,11 +295,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     Color speedColor;
     if (displaySpeed < 1.0) {
-      speedColor = Colors.grey.shade800;
+      speedColor = colors.instrumentRing;
     } else if (displaySpeed > maxSpeed || metrics.gForce < 0) {
       speedColor = Colors.redAccent;
     } else {
-      speedColor = const Color(0xFF39FF14);
+      speedColor = colors.accentSecondary;
     }
 
     double maxG = 1.0;
@@ -268,631 +307,505 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     Color gColor;
     if (metrics.gForce == 0.0) {
-      gColor = Colors.grey.shade800;
+      gColor = colors.instrumentRing;
     } else if (metrics.gForce < 0) {
       gColor = Colors.redAccent;
     } else {
-      gColor = const Color(0xFF39FF14);
+      gColor = colors.accentSecondary;
     }
 
     return Scaffold(
       resizeToAvoidBottomInset: false,
-      backgroundColor: Colors.black, // Background mimicking camera off state
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.satellite_alt_rounded),
+          color: isConnected ? primaryTextColor : mutedTextColor,
+          tooltip: 'GPS Telemetry',
+          onPressed: () => _showGpsStatusModal(context),
+        ),
+        title: const Text('OpenDragy'),
+        actions: [
+          IconButton(
+            onPressed: () {
+              if (isConnected) {
+                _showDisconnectDialog(context, dragy);
+              } else {
+                _showDeviceSelector(context);
+              }
+            },
+            tooltip: isConnected ? 'Disconnect' : 'Connect',
+            icon: Icon(
+              isConnected
+                  ? Icons.bluetooth_connected
+                  : Icons.bluetooth_disabled,
+              color: isConnected
+                  ? colors.accentSecondary
+                  : mutedTextColor,
+            ),
+          ),
+        ],
+      ),
       body: Stack(
         children: [
-          // Background gradient to give it depth
+          // Background subtle gradient
           Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Colors.black, Colors.grey.shade900, Colors.black],
-              ),
-            ),
-          ),
-
-          // Top Bar (Signal Confidence and Connection)
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 20.0,
-                vertical: 16.0,
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  // Signal Confidence (Top Left) & Weather
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isConnected
-                              ? Colors.amberAccent.withOpacity(0.1)
-                              : Colors.white.withOpacity(0.04),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: isConnected
-                                ? Colors.amberAccent.withOpacity(0.5)
-                                : Colors.white.withOpacity(0.12),
-                          ),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.satellite_alt,
-                                  color: isConnected
-                                      ? Colors.amberAccent
-                                      : Colors.white30,
-                                  size: 16,
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  isConnected
-                                      ? '${dragy.satellites} SAT'
-                                      : 'NO GPS',
-                                  style: GoogleFonts.robotoMono(
-                                    color: isConnected
-                                        ? Colors.amberAccent
-                                        : Colors.white30,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              isConnected
-                                  ? 'HDOP: ${dragy.hdop.toStringAsFixed(1)}'
-                                  : 'Offline',
-                              style: GoogleFonts.robotoMono(
-                                color: isConnected
-                                    ? Colors.amberAccent.withOpacity(0.8)
-                                    : Colors.white24,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                    ],
-                  ),
-
-                  // Action buttons (Garage, History, Settings & Connection)
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Garage Button
-                      InkWell(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const GarageScreen(),
-                            ),
-                          );
-                        },
-                        borderRadius: BorderRadius.circular(20),
-                        child: Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: dragy.activeVehicle != null
-                                ? const Color(0xFFFFBF00).withOpacity(0.12)
-                                : Colors.white10,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: dragy.activeVehicle != null
-                                  ? const Color(0xFFFFBF00).withOpacity(0.5)
-                                  : Colors.white24,
-                            ),
-                          ),
-                          child: Icon(
-                            Icons.directions_car_outlined,
-                            color: dragy.activeVehicle != null
-                                ? const Color(0xFFFFBF00)
-                                : Colors.white54,
-                            size: 16,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      // History Button
-                      InkWell(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const RunHistoryScreen(),
-                            ),
-                          );
-                        },
-                        borderRadius: BorderRadius.circular(20),
-                        child: Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: Colors.white10,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: Colors.white24),
-                          ),
-                          child: const Icon(
-                            Icons.history,
-                            color: Colors.white70,
-                            size: 16,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      // Settings Button
-                      InkWell(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const SettingsScreen(),
-                            ),
-                          );
-                        },
-                        borderRadius: BorderRadius.circular(20),
-                        child: Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: Colors.white10,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: Colors.white24),
-                          ),
-                          child: const Icon(
-                            Icons.settings_outlined,
-                            color: Colors.white54,
-                            size: 16,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      // Connection Button
-                      InkWell(
-                        onTap: () {
-                          if (isConnected) {
-                            showDialog(
-                              context: context,
-                              builder: (context) => AlertDialog(
-                                backgroundColor: Colors.grey.shade900,
-                                title: const Text(
-                                  'Disconnect',
-                                  style: TextStyle(color: Colors.white),
-                                ),
-                                content: Text(
-                                  'Disconnect from ${dragy.connectedDevice?.platformName ?? "device"}?',
-                                  style: const TextStyle(color: Colors.white70),
-                                ),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(context),
-                                    child: const Text(
-                                      'Cancel',
-                                      style: TextStyle(color: Colors.white54),
-                                    ),
-                                  ),
-                                  TextButton(
-                                    onPressed: () {
-                                      dragy.disconnect();
-                                      Navigator.pop(context);
-                                    },
-                                    child: const Text(
-                                      'Disconnect',
-                                      style: TextStyle(color: Colors.redAccent),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          } else {
-                            _showDeviceSelector(context);
-                          }
-                        },
-                        borderRadius: BorderRadius.circular(20),
-                        child: Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: isConnected
-                                ? Colors.greenAccent.withOpacity(0.12)
-                                : Colors.white10,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: isConnected
-                                  ? Colors.greenAccent.withOpacity(0.5)
-                                  : Colors.white24,
-                            ),
-                          ),
-                          child: Icon(
-                            isConnected
-                                ? Icons.bluetooth_connected
-                                : Icons.bluetooth_disabled,
-                            color: isConnected
-                                ? Colors.greenAccent
-                                : Colors.white54,
-                            size: 16,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+                colors: colors.dashboardGradient,
               ),
             ),
           ),
 
           SafeArea(
+            top: false,
+            bottom: false,
             child: Column(
               children: [
-                // Top flexible area that perfectly centers the text block
-                // between the top of the screen and the bottom widgets
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.max,
+
+                const SizedBox(height: 6),
+                const _LiveWeatherWidget(),
+                const SizedBox(height: 8),
+
+                // 2. Active Vehicle Pill
+                GestureDetector(
+                  onTap: () => _showVehicleSelectorSheet(context, dragy),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: dragy.activeVehicle != null
+                          ? colors.accent.withOpacity(isDark ? 0.08 : 0.12)
+                          : colors.subtleBackground,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: dragy.activeVehicle != null
+                            ? colors.accent.withOpacity(0.35)
+                            : surfaceBorderColor,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        const SizedBox(height: 72), // Clearance for top icons
-                        const SizedBox(height: 12),
-                        // Dragy Logo Text
+                        Icon(
+                          Icons.directions_car,
+                          color: dragy.activeVehicle != null
+                              ? colors.accent
+                              : mutedTextColor,
+                          size: 14,
+                        ),
+                        const SizedBox(width: 8),
                         Text(
-                          'OpenDragy',
-                          style: GoogleFonts.comfortaa(
-                            color: Colors.white,
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
+                          dragy.activeVehicle?.displayName ?? 'Select Vehicle',
+                          style: GoogleFonts.roboto(
+                            color: dragy.activeVehicle != null
+                                ? colors.accent
+                                : secondaryTextColor,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
-                        if (dragy.activeVehicle != null) ...[
-                          const SizedBox(height: 12),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFFFBF00).withOpacity(0.08),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: const Color(0xFFFFBF00).withOpacity(0.3),
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(
-                                  Icons.directions_car,
-                                  color: Color(0xFFFFBF00),
-                                  size: 14,
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  dragy.activeVehicle!.displayName,
-                                  style: GoogleFonts.roboto(
-                                    color: const Color(0xFFFFBF00),
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                        const _LiveWeatherWidget(),
-                        if (!metrics.isRunning && metrics.history.isEmpty) ...[
-                          const SizedBox(height: 12),
-                          // Mode Selector
-                          Container(
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.05),
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: Colors.white12),
-                            ),
-                            padding: const EdgeInsets.all(4),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                _ModeButton(
-                                  label: 'DRAG',
-                                  isActive: dragy.runMode == RunMode.drag,
-                                  onTap: () => dragy.setRunMode(RunMode.drag),
-                                ),
-                                _ModeButton(
-                                  label: 'INTERVAL',
-                                  isActive: dragy.runMode == RunMode.interval,
-                                  onTap: () => dragy.setRunMode(RunMode.interval),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          // Test Selector
-                          if (dragy.runMode == RunMode.drag)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.03),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: Colors.white.withOpacity(0.06),
-                                ),
-                              ),
-                              child: DropdownButtonHideUnderline(
-                                child: DropdownButton<RaceDragTest>(
-                                  value: dragy.activeDragTest,
-                                  dropdownColor: Colors.grey.shade900,
-                                  icon: const Icon(
-                                    Icons.arrow_drop_down,
-                                    color: Colors.white54,
-                                  ),
-                                  style: GoogleFonts.roboto(
-                                    color: Colors.white,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                  onChanged: (val) {
-                                    if (val != null) {
-                                      dragy.setactiveDragTest(val);
-                                    }
-                                  },
-                                  items: RaceDragTest.values
-                                      .map(
-                                        (t) => DropdownMenuItem(
-                                          value: t,
-                                          child: Text(t.label),
-                                        ),
-                                      )
-                                      .toList(),
-                                ),
-                              ),
-                            )
-                          else
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.03),
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                      color: Colors.white.withOpacity(0.06),
-                                    ),
-                                  ),
-                                  child: DropdownButtonHideUnderline(
-                                    child: DropdownButton<RaceIntervalTest>(
-                                      key: const Key('intervalTestDropdown'),
-                                      value: dragy.activeIntervalTest,
-                                      dropdownColor: Colors.grey.shade900,
-                                      icon: const Icon(
-                                        Icons.arrow_drop_down,
-                                        color: Colors.white54,
-                                      ),
-                                      style: GoogleFonts.roboto(
-                                        color: Colors.white,
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                      onChanged: (val) {
-                                        if (val != null) {
-                                          dragy.setactiveIntervalTest(val);
-                                        }
-                                      },
-                                      items: RaceIntervalTest.values
-                                          .where(
-                                            (t) =>
-                                                t ==
-                                                    RaceIntervalTest.custom ||
-                                                (dragy.isMetric
-                                                    ? t.id.contains('kmh')
-                                                    : t.id.contains('mph')),
-                                          )
-                                          .map(
-                                            (t) => DropdownMenuItem(
-                                              value: t,
-                                              child: Text(t.label),
-                                            ),
-                                          )
-                                          .toList(),
-                                    ),
-                                  ),
-                                ),
-                                if (dragy.activeIntervalTest ==
-                                    RaceIntervalTest.custom) ...[
-                                  const SizedBox(width: 8),
-                                  IconButton(
-                                    onPressed: () =>
-                                        _showCustomRangeDialog(context, dragy),
-                                    icon: const Icon(
-                                      Icons.edit_road,
-                                      color: Color(0xFF42A5F5),
-                                    ),
-                                    tooltip: 'Edit Custom Range',
-                                  ),
-                                ],
-                              ],
-                            ),
-                          const SizedBox(height: 24),
-                        ],
-                        // Large Time/Status Display
-                        SizedBox(
-                          height: 110,
-                          width: double.infinity,
-                          child: Center(
-                            child: AnimatedSwitcher(
-                              duration: const Duration(milliseconds: 150),
-                              transitionBuilder:
-                                  (Widget child, Animation<double> animation) {
-                                    return FadeTransition(
-                                      opacity: animation,
-                                      child: ScaleTransition(
-                                        scale: Tween<double>(
-                                          begin: 0.95,
-                                          end: 1.0,
-                                        ).animate(animation),
-                                        child: child,
-                                      ),
-                                    );
-                                  },
-                              child: FittedBox(
-                                key: ValueKey<String>(statusKey),
-                                fit: BoxFit.scaleDown,
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16.0,
-                                  ),
-                                  child: _BlinkingWidget(
-                                    isBlinking: shouldBlink,
-                                    child: Text(
-                                      mainTime,
-                                      style: mainTime.endsWith('s')
-                                          ? GoogleFonts.robotoMono(
-                                              color: textColor,
-                                              fontSize: fontSize,
-                                              fontWeight: FontWeight.bold,
-                                            )
-                                          : GoogleFonts.roboto(
-                                              color: textColor,
-                                              fontSize: fontSize,
-                                              fontWeight: FontWeight.bold,
-                                              letterSpacing: -0.5,
-                                            ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        if (isConnected &&
-                            !(metrics.history.isNotEmpty &&
-                                !metrics.isRunning)) ...[
-                          const SizedBox(height: 16),
-                          ElevatedButton(
-                            onPressed: dragy.toggleArm,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: dragy.isArmed
-                                  ? Colors.redAccent
-                                  : const Color(0xFF1565C0),
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 40,
-                                vertical: 16,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(30),
-                              ),
-                              elevation: 8,
-                              shadowColor: dragy.isArmed
-                                  ? Colors.redAccent.withOpacity(0.5)
-                                  : const Color(0xFF1565C0).withOpacity(0.5),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  dragy.isArmed ? Icons.stop : Icons.play_arrow,
-                                  size: 20,
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  dragy.isArmed ? 'DISARM' : 'ARM',
-                                  style: GoogleFonts.roboto(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: 1.2,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                        if (metrics.history.isNotEmpty &&
-                            !metrics.isRunning) ...[
-                          const SizedBox(height: 6),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                isSlopeValid
-                                    ? Icons.check_circle_outline
-                                    : Icons.warning_amber_outlined,
-                                size: 14,
-                                color: isSlopeValid
-                                    ? const Color(0xFF39FF14)
-                                    : Colors.redAccent,
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                'Overall Slope: ${avgSlope >= 0 ? '+' : ''}${avgSlope.toStringAsFixed(2)}% (${isSlopeValid ? "Valid" : "Invalid"})',
-                                style: GoogleFonts.roboto(
-                                  color: isSlopeValid
-                                      ? Colors.white70
-                                      : Colors.redAccent,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                        if (reachedMilestones.isNotEmpty) ...[
-                          const SizedBox(height: 24),
-                          const Divider(color: Colors.white24, height: 1),
-                          const SizedBox(height: 16),
-                          Flexible(
-                            child: SingleChildScrollView(
-                              controller: _scrollController,
-                              child: Column(
-                                children: reachedMilestones.map((m) {
-                                  return Padding(
-                                    padding: const EdgeInsets.only(
-                                      bottom: 12.0,
-                                    ),
-                                    child: _ResultRow(
-                                      label: m.label,
-                                      time: m.time,
-                                      trapSpeed: m.trapSpeed != null
-                                          ? (isMetric
-                                                ? m.trapSpeed!
-                                                : UnitConverter.kmhToMph(
-                                                    m.trapSpeed!,
-                                                  ))
-                                          : null,
-                                      isMetric: isMetric,
-                                    ),
-                                  );
-                                }).toList(),
-                              ),
-                            ),
-                          ),
-                        ],
                       ],
                     ),
                   ),
                 ),
 
-                // Bottom Elements
+                // 3. Mode & Target Selectors (Hidden during running run or while viewing finished run)
+                if (!metrics.isRunning && metrics.history.isEmpty) ...[
+                  const SizedBox(height: 10),
+                  // Mode Selector
+                  AppSegmentedSwitch<RunMode>(
+                    selectedValue: dragy.runMode,
+                    items: const [
+                      SegmentedSwitchItem(
+                        value: RunMode.drag,
+                        label: 'DRAG',
+                      ),
+                      SegmentedSwitchItem(
+                        value: RunMode.interval,
+                        label: 'INTERVAL',
+                      ),
+                    ],
+                    onChanged: (mode) => dragy.setRunMode(mode),
+                  ),
+                  const SizedBox(height: 10),
+                  // Target Test Dropdown Pill
+                  if (dragy.runMode == RunMode.drag)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 7,
+                      ),
+                      decoration: BoxDecoration(
+                        color: surfaceCardColor,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: surfaceBorderColor),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<RaceDragTest>(
+                          isDense: true,
+                          value: dragy.activeDragTest,
+                          dropdownColor: surfaceCardColor,
+                          icon: Padding(
+                            padding: const EdgeInsets.only(left: 6.0),
+                            child: Icon(
+                              Icons.expand_more,
+                              color: mutedTextColor,
+                              size: 18,
+                            ),
+                          ),
+                          style: GoogleFonts.roboto(
+                            color: primaryTextColor,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          onChanged: (val) {
+                            if (val != null) {
+                              dragy.setActiveDragTest(val);
+                            }
+                          },
+                          items: RaceDragTest.values
+                              .map(
+                                (t) => DropdownMenuItem(
+                                  value: t,
+                                  child: Text(t.label),
+                                ),
+                              )
+                              .toList(),
+                        ),
+                      ),
+                    )
+                  else
+                    IntrinsicHeight(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 7,
+                            ),
+                            decoration: BoxDecoration(
+                              color: surfaceCardColor,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: surfaceBorderColor),
+                            ),
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<RaceIntervalTest>(
+                                key: const Key('intervalTestDropdown'),
+                                isDense: true,
+                                value: dragy.activeIntervalTest,
+                                dropdownColor: surfaceCardColor,
+                                icon: Padding(
+                                  padding: const EdgeInsets.only(left: 6.0),
+                                  child: Icon(
+                                    Icons.expand_more,
+                                    color: mutedTextColor,
+                                    size: 18,
+                                  ),
+                                ),
+                                style: GoogleFonts.roboto(
+                                  color: primaryTextColor,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                onChanged: (val) {
+                                  if (val != null) {
+                                    dragy.setactiveIntervalTest(val);
+                                  }
+                                },
+                                items: RaceIntervalTest.values
+                                    .where(
+                                      (t) =>
+                                          t == RaceIntervalTest.custom ||
+                                          (dragy.isMetric
+                                              ? t.id.contains('kmh')
+                                              : t.id.contains('mph')),
+                                    )
+                                    .map(
+                                      (t) => DropdownMenuItem(
+                                        value: t,
+                                        child: Text(t.label),
+                                      ),
+                                    )
+                                    .toList(),
+                              ),
+                            ),
+                          ),
+                          if (dragy.activeIntervalTest ==
+                              RaceIntervalTest.custom) ...[
+                            const SizedBox(width: 8),
+                            InkWell(
+                              onTap: () =>
+                                  _showCustomRangeDialog(context, dragy),
+                              borderRadius: BorderRadius.circular(10),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                ),
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                  color: surfaceCardColor,
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: surfaceBorderColor),
+                                ),
+                                child: const Icon(
+                                  Icons.edit_road,
+                                  color: Color(0xFF42A5F5),
+                                  size: 18,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                ],
+
+                // 4. Center Content (Disconnected Graphic OR Active Race HUD)
+                Expanded(
+                  child: !isConnected
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.start,
+                            children: [
+                              const SizedBox(height: 48),
+                              Icon(
+                                Icons.link_off_rounded,
+                                size: 84,
+                                color: mutedTextColor,
+                              ),
+                              const SizedBox(height: 20),
+                              Text(
+                                'Disconnected',
+                                style: GoogleFonts.roboto(
+                                  color: primaryTextColor,
+                                  fontSize: 32,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: -0.5,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Tap the Bluetooth icon to connect',
+                                style: GoogleFonts.roboto(
+                                  color: mutedTextColor,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.start,
+                            children: [
+                              const SizedBox(height: 16),
+                              // Large Time / Status Display
+                              AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 200),
+                                transitionBuilder: (child, animation) {
+                                  return FadeTransition(
+                                    opacity: animation,
+                                    child: ScaleTransition(
+                                      scale: Tween<double>(
+                                        begin: 0.95,
+                                        end: 1.0,
+                                      ).animate(animation),
+                                      child: child,
+                                    ),
+                                  );
+                                },
+                                child: statusIcon != null
+                                    ? Column(
+                                        key: ValueKey<String>(statusKey),
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          _BlinkingWidget(
+                                            isBlinking: shouldBlink,
+                                            child: Column(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                const SizedBox(height: 12),
+                                                Icon(
+                                                  statusIcon,
+                                                  size: 64,
+                                                  color: statusIconColor,
+                                                ),
+                                                const SizedBox(height: 16),
+                                                Text(
+                                                  mainTime,
+                                                  style: GoogleFonts.roboto(
+                                                    color: textColor,
+                                                    fontSize: 30,
+                                                    fontWeight: FontWeight.bold,
+                                                    letterSpacing: -0.5,
+                                                  ),
+                                                  textAlign: TextAlign.center,
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          if (statusSubtitle != null) ...[
+                                            const SizedBox(height: 6),
+                                            Text(
+                                              statusSubtitle,
+                                              style: GoogleFonts.roboto(
+                                                color: secondaryTextColor,
+                                                fontSize: 13,
+                                              ),
+                                              textAlign: TextAlign.center,
+                                            ),
+                                          ],
+                                        ],
+                                      )
+                                    : SizedBox(
+                                        key: ValueKey<String>(statusKey),
+                                        height: 100,
+                                        width: double.infinity,
+                                        child: Center(
+                                          child: FittedBox(
+                                            fit: BoxFit.scaleDown,
+                                            child: Padding(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                horizontal: 16.0,
+                                              ),
+                                              child: _BlinkingWidget(
+                                                isBlinking: shouldBlink,
+                                                child: Text(
+                                                  mainTime,
+                                                  style: GoogleFonts.robotoMono(
+                                                    color: textColor,
+                                                    fontSize: fontSize,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                              ),
+                              if (!(metrics.history.isNotEmpty &&
+                                  !metrics.isRunning)) ...[
+                                SizedBox(height: statusIcon != null ? 24 : 16),
+                                ElevatedButton(
+                                  onPressed: dragy.toggleArm,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: dragy.isArmed
+                                        ? Colors.redAccent
+                                        : const Color(0xFF1565C0),
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 40,
+                                      vertical: 14,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(30),
+                                    ),
+                                    elevation: 8,
+                                    shadowColor: dragy.isArmed
+                                        ? Colors.redAccent.withOpacity(0.5)
+                                        : const Color(0xFF1565C0)
+                                            .withOpacity(0.5),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        dragy.isArmed
+                                            ? Icons.stop
+                                            : Icons.play_arrow,
+                                        size: 20,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        dragy.isArmed ? 'DISARM' : 'ARM',
+                                        style: GoogleFonts.roboto(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                          letterSpacing: 1.2,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                              if (metrics.history.isNotEmpty &&
+                                  !metrics.isRunning) ...[
+                                const SizedBox(height: 6),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      isSlopeValid
+                                          ? Icons.check_circle_outline
+                                          : Icons.warning_amber_outlined,
+                                      size: 14,
+                                      color: isSlopeValid
+                                          ? colors.accentSecondary
+                                          : Colors.redAccent,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      'Overall Slope: ${avgSlope >= 0 ? '+' : ''}${avgSlope.toStringAsFixed(2)}% (${isSlopeValid ? "Valid" : "Invalid"})',
+                                      style: GoogleFonts.roboto(
+                                        color: isSlopeValid
+                                            ? secondaryTextColor
+                                            : Colors.redAccent,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                              if (reachedMilestones.isNotEmpty) ...[
+                                const SizedBox(height: 16),
+                                Divider(color: surfaceBorderColor, height: 1),
+                                const SizedBox(height: 12),
+                                Flexible(
+                                  child: SingleChildScrollView(
+                                    controller: _scrollController,
+                                    child: Column(
+                                      children: reachedMilestones.map((m) {
+                                        return Padding(
+                                          padding: const EdgeInsets.only(
+                                            bottom: 12.0,
+                                          ),
+                                          child: _ResultRow(
+                                            label: m.label,
+                                            time: m.time,
+                                            trapSpeed: m.trapSpeed != null
+                                                ? (isMetric
+                                                    ? m.trapSpeed!
+                                                    : UnitConverter.kmhToMph(
+                                                        m.trapSpeed!,
+                                                      ))
+                                                : null,
+                                            isMetric: isMetric,
+                                          ),
+                                        );
+                                      }).toList(),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                ),
+
+                // 5. Bottom Instrument Cluster (Speedometer, G-Force, Reset)
                 if (isConnected)
                   Padding(
-                    padding: const EdgeInsets.only(bottom: 35),
+                    padding: const EdgeInsets.only(bottom: 16),
                     child: SizedBox(
                       height: 120,
                       width: double.infinity,
@@ -910,23 +823,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 child: Stack(
                                   alignment: Alignment.center,
                                   children: [
-                                    // Grey Background Track
                                     Container(
                                       width: 110,
                                       height: 110,
                                       decoration: BoxDecoration(
-                                        color: Colors.grey.shade800,
+                                        color: colors.instrumentRing,
                                         shape: BoxShape.circle,
-                                        boxShadow: const [
+                                        boxShadow: [
                                           BoxShadow(
-                                            color: Colors.black45,
+                                            color: isDark
+                                                ? Colors.black45
+                                                : Colors.black12,
                                             blurRadius: 10,
-                                            offset: Offset(0, 5),
+                                            offset: const Offset(0, 5),
                                           ),
                                         ],
                                       ),
                                     ),
-                                    // Animated Color Fill
                                     AnimatedContainer(
                                       duration: const Duration(
                                         milliseconds: 100,
@@ -938,12 +851,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                         shape: BoxShape.circle,
                                       ),
                                     ),
-                                    // Black Center
                                     Container(
                                       width: 70,
                                       height: 70,
-                                      decoration: const BoxDecoration(
-                                        color: Colors.black,
+                                      decoration: BoxDecoration(
+                                        color: colors.instrumentFace,
                                         shape: BoxShape.circle,
                                       ),
                                       child: Column(
@@ -953,7 +865,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                           Text(
                                             displaySpeed.toStringAsFixed(0),
                                             style: GoogleFonts.robotoMono(
-                                              color: Colors.white,
+                                              color: primaryTextColor,
                                               fontSize: 28,
                                               fontWeight: FontWeight.bold,
                                               height: 1.0,
@@ -962,7 +874,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                           Text(
                                             isMetric ? 'km/h' : 'mph',
                                             style: GoogleFonts.robotoMono(
-                                              color: Colors.white,
+                                              color: secondaryTextColor,
                                               fontSize: 12,
                                               fontWeight: FontWeight.w500,
                                             ),
@@ -977,10 +889,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ),
                           // G-Force Meter
                           Align(
-                            alignment: const Alignment(
-                              -0.15,
-                              1.0,
-                            ), // Closer to speed
+                            alignment: const Alignment(-0.15, 1.0),
                             child: SizedBox(
                               width: 80,
                               height: 80,
@@ -988,23 +897,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 child: Stack(
                                   alignment: Alignment.center,
                                   children: [
-                                    // Grey Background Track
                                     Container(
                                       width: 70,
                                       height: 70,
                                       decoration: BoxDecoration(
-                                        color: Colors.grey.shade800,
+                                        color: colors.instrumentRing,
                                         shape: BoxShape.circle,
-                                        boxShadow: const [
+                                        boxShadow: [
                                           BoxShadow(
-                                            color: Colors.black45,
+                                            color: isDark
+                                                ? Colors.black45
+                                                : Colors.black12,
                                             blurRadius: 10,
-                                            offset: Offset(0, 5),
+                                            offset: const Offset(0, 5),
                                           ),
                                         ],
                                       ),
                                     ),
-                                    // Animated Color Fill
                                     AnimatedContainer(
                                       duration: const Duration(
                                         milliseconds: 100,
@@ -1016,12 +925,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                         shape: BoxShape.circle,
                                       ),
                                     ),
-                                    // Black Center
                                     Container(
                                       width: 46,
                                       height: 46,
-                                      decoration: const BoxDecoration(
-                                        color: Colors.black,
+                                      decoration: BoxDecoration(
+                                        color: colors.instrumentFace,
                                         shape: BoxShape.circle,
                                       ),
                                       child: Column(
@@ -1033,7 +941,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                                 .abs()
                                                 .toStringAsFixed(1),
                                             style: GoogleFonts.robotoMono(
-                                              color: Colors.white,
+                                              color: primaryTextColor,
                                               fontSize: 12,
                                               fontWeight: FontWeight.bold,
                                               height: 1.0,
@@ -1042,7 +950,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                           Text(
                                             'g',
                                             style: GoogleFonts.robotoMono(
-                                              color: Colors.white70,
+                                              color: secondaryTextColor,
                                               fontSize: 10,
                                             ),
                                           ),
@@ -1069,20 +977,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     width: 110,
                                     height: 110,
                                     decoration: BoxDecoration(
-                                      color: Colors.grey.shade800,
+                                      color: colors.instrumentRing,
                                       shape: BoxShape.circle,
-                                      boxShadow: const [
+                                      boxShadow: [
                                         BoxShadow(
-                                          color: Colors.black45,
+                                          color: isDark
+                                              ? Colors.black45
+                                              : Colors.black12,
                                           blurRadius: 10,
-                                          offset: Offset(0, 5),
+                                          offset: const Offset(0, 5),
                                         ),
                                       ],
                                     ),
-                                    child: const Center(
+                                    child: Center(
                                       child: Icon(
                                         Icons.refresh,
-                                        color: Colors.white,
+                                        color: primaryTextColor,
                                         size: 40,
                                       ),
                                     ),
@@ -1100,6 +1010,475 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  void _showGpsStatusModal(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) {
+        return Consumer<DragyProvider>(
+          builder: (context, dragy, _) {
+            final colors = context.colors;
+            final bool isConnected = dragy.isConnected;
+            final bool isGpsReady =
+                isConnected && dragy.hdop > 0.0 && dragy.hdop <= 2.0;
+
+            String statusTitle;
+            String statusSubtitle;
+            Color statusColor;
+            IconData statusIcon;
+
+            if (!isConnected) {
+              statusTitle = 'OpenDragy Disconnected';
+              statusSubtitle =
+                  'Connect your OpenDragy device to receive live GPS telemetry.';
+              statusColor = colors.textMuted;
+              statusIcon = Icons.link_off_rounded;
+            } else if (isGpsReady) {
+              statusTitle = 'GPS Locked';
+              statusSubtitle =
+                  'High-precision GNSS fix ready for performance timing.';
+              statusColor = colors.accentSecondary;
+              statusIcon = Icons.check_circle_rounded;
+            } else {
+              statusTitle = dragy.satellites > 0
+                  ? 'Acquiring Satellites'
+                  : 'Searching GPS';
+              statusSubtitle =
+                  'Waiting for optimal constellation geometry (HDOP <= 2.0).';
+              statusColor = const Color(0xFFFFB300);
+              statusIcon = Icons.sync_rounded;
+            }
+
+            return Container(
+              decoration: BoxDecoration(
+                color: colors.cardBackground,
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(24)),
+                border: Border.all(color: colors.cardBorder),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+              child: SafeArea(
+                top: false,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: colors.modalHandle,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.satellite_alt_rounded,
+                              color: colors.textPrimary,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'GPS Telemetry',
+                              style: GoogleFonts.roboto(
+                                color: colors.textPrimary,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                        IconButton(
+                          icon: Icon(Icons.close,
+                              color: colors.textMuted, size: 20),
+                          visualDensity: VisualDensity.compact,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    // Status banner
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: statusColor.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(12),
+                        border:
+                            Border.all(color: statusColor.withOpacity(0.25)),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(statusIcon, color: statusColor, size: 20),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  statusTitle,
+                                  style: GoogleFonts.roboto(
+                                    color: statusColor,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  statusSubtitle,
+                                  style: GoogleFonts.roboto(
+                                    color: colors.textSecondary,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // Metric cards
+                    IntrinsicHeight(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(
+                            child: Container(
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: colors.subtleBackground,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: colors.subtleBorder),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'SATELLITES',
+                                    style: GoogleFonts.roboto(
+                                      color: colors.textMuted,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    isConnected ? '${dragy.satellites}' : '--',
+                                    style: GoogleFonts.robotoMono(
+                                      color: colors.textPrimary,
+                                      fontSize: 26,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Container(
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: colors.subtleBackground,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: colors.subtleBorder),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'ACCURACY (HDOP)',
+                                    style: GoogleFonts.roboto(
+                                      color: colors.textMuted,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    isConnected && dragy.hdop > 0
+                                        ? dragy.hdop.toStringAsFixed(1)
+                                        : '--',
+                                    style: GoogleFonts.robotoMono(
+                                      color: colors.textPrimary,
+                                      fontSize: 26,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // Dragy hardware note
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: colors.subtleBackground,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.info_outline,
+                              color: colors.textMuted, size: 16),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'OpenDragy requires HDOP <= 2.0.',
+                              style: GoogleFonts.roboto(
+                                color: colors.textSecondary,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showDisconnectDialog(BuildContext context, DragyProvider dragy) {
+    final colors = context.colors;
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          'Disconnect',
+          style: TextStyle(color: colors.textPrimary),
+        ),
+        content: Text(
+          'Disconnect from ${dragy.connectedDevice?.platformName ?? "device"}?',
+          style: TextStyle(color: colors.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: colors.textMuted),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              dragy.disconnect();
+              Navigator.pop(context);
+            },
+            child: Text(
+              'Disconnect',
+              style: TextStyle(color: colors.statusDanger),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showVehicleSelectorSheet(BuildContext context, DragyProvider dragy) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) {
+        final colors = context.colors;
+        final vehicles = dragy.vehicles;
+        return Container(
+          decoration: BoxDecoration(
+            color: colors.cardBackground,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            border: Border.all(color: colors.cardBorder),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: colors.modalHandle,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Select Vehicle',
+                    style: GoogleFonts.roboto(
+                      color: colors.textPrimary,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const GarageScreen(),
+                        ),
+                      );
+                    },
+                    child: Text(
+                      'Manage Garage',
+                      style: GoogleFonts.roboto(
+                        color: colors.accent,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              if (vehicles.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 20.0),
+                  child: Center(
+                    child: Column(
+                      children: [
+                        Icon(
+                          Icons.directions_car_outlined,
+                          size: 48,
+                          color: colors.textMuted,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'No vehicles in garage yet',
+                          style: GoogleFonts.roboto(color: colors.textMuted),
+                        ),
+                        const SizedBox(height: 14),
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: colors.accent,
+                            foregroundColor: colors.buttonForeground,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                          onPressed: () {
+                            Navigator.pop(context);
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const GarageScreen(),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.add, size: 18),
+                          label: const Text('Add Vehicle'),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              else
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.of(context).size.height * 0.45,
+                  ),
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: vehicles.length,
+                    itemBuilder: (context, index) {
+                      final v = vehicles[index];
+                      final isSelected = v.id == dragy.activeVehicleId;
+                      return InkWell(
+                        onTap: () {
+                          dragy.setActiveVehicle(v.id);
+                          Navigator.pop(context);
+                        },
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 12,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? colors.accent.withOpacity(0.12)
+                                : colors.subtleBackground,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: isSelected
+                                  ? colors.accent.withOpacity(0.5)
+                                  : colors.subtleBorder,
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.directions_car,
+                                color: isSelected
+                                    ? colors.accent
+                                    : colors.textMuted,
+                                size: 18,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  v.displayName,
+                                  style: GoogleFonts.roboto(
+                                    color: isSelected
+                                        ? colors.textPrimary
+                                        : colors.textSecondary,
+                                    fontSize: 14,
+                                    fontWeight: isSelected
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
+                                  ),
+                                ),
+                              ),
+                              if (isSelected)
+                                Icon(
+                                  Icons.check_circle,
+                                  color: colors.accent,
+                                  size: 18,
+                                ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -1120,6 +1499,7 @@ class _ResultRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isFinished = time != null;
+    final colors = context.colors;
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -1129,7 +1509,7 @@ class _ResultRow extends StatelessWidget {
           width: 12,
           height: 12,
           decoration: BoxDecoration(
-            color: isFinished ? Colors.greenAccent : Colors.grey.shade800,
+            color: isFinished ? colors.accentSecondary : colors.instrumentRing,
             shape: BoxShape.circle,
           ),
         ),
@@ -1138,7 +1518,7 @@ class _ResultRow extends StatelessWidget {
         Text(
           label,
           style: GoogleFonts.roboto(
-            color: Colors.white,
+            color: colors.textPrimary,
             fontSize: 24,
             fontWeight: FontWeight.w500,
           ),
@@ -1152,7 +1532,7 @@ class _ResultRow extends StatelessWidget {
                     : '${time!.toStringAsFixed(2)}s')
               : '-.--s',
           style: GoogleFonts.robotoMono(
-            color: Colors.white,
+            color: colors.textPrimary,
             fontSize: 24,
             fontWeight: FontWeight.bold,
           ),
@@ -1163,44 +1543,10 @@ class _ResultRow extends StatelessWidget {
 }
 
 
-class _ModeButton extends StatelessWidget {
-  final String label;
-  final bool isActive;
-  final VoidCallback onTap;
-
-  const _ModeButton({
-    required this.label,
-    required this.isActive,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-        decoration: BoxDecoration(
-          color: isActive ? const Color(0xFF1565C0) : Colors.transparent,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Text(
-          label,
-          style: GoogleFonts.roboto(
-            color: isActive ? Colors.white : Colors.white54,
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1.0,
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 void _showCustomRangeDialog(BuildContext context, DragyProvider dragy) {
   final isMetric = dragy.isMetric;
+  final colors = context.colors;
   final startController = TextEditingController(
     text: dragy.customIntervalStartSpeedUserUnit.toStringAsFixed(0),
   );
@@ -1211,10 +1557,9 @@ void _showCustomRangeDialog(BuildContext context, DragyProvider dragy) {
   showDialog(
     context: context,
     builder: (context) => AlertDialog(
-      backgroundColor: Colors.grey.shade900,
       title: Text(
         'Custom Speed Range (${isMetric ? 'km/h' : 'mph'})',
-        style: const TextStyle(color: Colors.white),
+        style: TextStyle(color: colors.textPrimary),
       ),
       content: Column(
         mainAxisSize: MainAxisSize.min,
@@ -1226,14 +1571,14 @@ void _showCustomRangeDialog(BuildContext context, DragyProvider dragy) {
               signed: false,
             ),
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: 'Start Speed',
-              labelStyle: TextStyle(color: Colors.white54),
+              labelStyle: TextStyle(color: colors.textMuted),
               enabledBorder: UnderlineInputBorder(
-                borderSide: BorderSide(color: Colors.white24),
+                borderSide: BorderSide(color: colors.subtleBorder),
               ),
             ),
-            style: const TextStyle(color: Colors.white),
+            style: TextStyle(color: colors.textPrimary),
           ),
           const SizedBox(height: 12),
           TextField(
@@ -1243,21 +1588,21 @@ void _showCustomRangeDialog(BuildContext context, DragyProvider dragy) {
               signed: false,
             ),
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: 'End Speed',
-              labelStyle: TextStyle(color: Colors.white54),
+              labelStyle: TextStyle(color: colors.textMuted),
               enabledBorder: UnderlineInputBorder(
-                borderSide: BorderSide(color: Colors.white24),
+                borderSide: BorderSide(color: colors.subtleBorder),
               ),
             ),
-            style: const TextStyle(color: Colors.white),
+            style: TextStyle(color: colors.textPrimary),
           ),
         ],
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+          child: Text('Cancel', style: TextStyle(color: colors.textMuted)),
         ),
         TextButton(
           onPressed: () {
@@ -1266,9 +1611,9 @@ void _showCustomRangeDialog(BuildContext context, DragyProvider dragy) {
             dragy.setCustomIntervalRange(start, end);
             Navigator.pop(context);
           },
-          child: const Text(
+          child: Text(
             'Save',
-            style: TextStyle(color: Colors.greenAccent),
+            style: TextStyle(color: colors.accentSecondary),
           ),
         ),
       ],
@@ -1279,43 +1624,20 @@ void _showCustomRangeDialog(BuildContext context, DragyProvider dragy) {
 class _LiveWeatherWidget extends StatelessWidget {
   const _LiveWeatherWidget();
 
-  static IconData _weatherIcon(int? code) {
-    if (code == null) return Icons.thermostat;
-    if (code == 0) return Icons.wb_sunny;
-    if (code <= 3) return Icons.cloud_outlined;
-    if (code <= 49) return Icons.foggy;
-    if (code <= 59) return Icons.grain; // drizzle
-    if (code <= 69) return Icons.water_drop; // rain
-    if (code <= 79) return Icons.ac_unit; // snow
-    if (code <= 82) return Icons.water_drop; // rain showers
-    if (code <= 86) return Icons.ac_unit; // snow showers
-    return Icons.thunderstorm; // 95+
-  }
-
-  static Color _weatherColor(int? code) {
-    if (code == null) return Colors.white54;
-    if (code == 0) return Colors.amber;
-    if (code <= 3) return Colors.white;
-    if (code <= 49) return Colors.blueGrey;
-    if (code <= 69) return Colors.lightBlue;
-    if (code <= 79) return Colors.white70;
-    if (code <= 86) return Colors.white70;
-    return Colors.deepPurpleAccent;
-  }
-
   @override
   Widget build(BuildContext context) {
     final dragy = context.watch<DragyProvider>();
     final tempC = dragy.currentTemperature;
 
     if (tempC == null) {
-      return const SizedBox.shrink();
+      return const SizedBox(height: 28);
     }
+
+    final unit = dragy.tempInCelsius ? '°C' : '°F';
 
     final temp = dragy.tempInCelsius
         ? tempC
         : UnitConverter.celsiusToFahrenheit(tempC);
-    final unit = dragy.tempInCelsius ? '°C' : '°F';
     final tempStr = '${temp.toStringAsFixed(1)}$unit';
 
     final isaTemp = 15.0 - 0.0065 * dragy.altitude;
@@ -1328,34 +1650,23 @@ class _LiveWeatherWidget extends StatelessWidget {
         ? '${dragy.currentHumidity!.toStringAsFixed(0)}%'
         : '--%';
 
-    final weatherCode = dragy.currentWeatherCode;
+    final colors = context.colors;
 
-    return Padding(
-      padding: const EdgeInsets.only(top: 12),
+    return Center(
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.04),
+          color: colors.subtleBackground,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withOpacity(0.12)),
+          border: Border.all(color: colors.subtleBorder),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              _weatherIcon(weatherCode),
-              color: _weatherColor(weatherCode),
-              size: 14,
-            ),
-            const SizedBox(width: 6),
-            Text(
-              '$tempStr | $humidityStr | DA: $daStr',
-              style: GoogleFonts.robotoMono(
-                color: Colors.white70,
-                fontSize: 11,
-              ),
-            ),
-          ],
+        child: Text(
+          '$tempStr · $humidityStr · DA: $daStr',
+          style: GoogleFonts.robotoMono(
+            color: colors.textSecondary,
+            fontSize: 11,
+            fontWeight: FontWeight.w500,
+          ),
         ),
       ),
     );
@@ -1365,7 +1676,7 @@ class _LiveWeatherWidget extends StatelessWidget {
 class _BlinkingWidget extends StatefulWidget {
   final Widget child;
   final bool isBlinking;
-  const _BlinkingWidget({super.key, required this.child, required this.isBlinking});
+  const _BlinkingWidget({required this.child, required this.isBlinking});
 
   @override
   State<_BlinkingWidget> createState() => _BlinkingWidgetState();
@@ -1408,3 +1719,4 @@ class _BlinkingWidgetState extends State<_BlinkingWidget>
     return widget.child;
   }
 }
+

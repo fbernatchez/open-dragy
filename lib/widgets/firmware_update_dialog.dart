@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/dragy_provider.dart';
 import '../services/firmware_service.dart';
+import '../theme/app_theme.dart';
 
 class FirmwareUpdateDialog extends StatefulWidget {
   final bool autoStart;
@@ -65,29 +66,29 @@ class _FirmwareUpdateDialogState extends State<FirmwareUpdateDialog> {
     }
   }
 
-  Widget _buildWarningBanner() {
+  Widget _buildWarningBanner(AppColors colors) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFBF00).withValues(alpha: 0.12),
+        color: colors.statusWarning.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: const Color(0xFFFFBF00).withValues(alpha: 0.3),
+          color: colors.statusWarning.withValues(alpha: 0.3),
         ),
       ),
-      child: const Row(
+      child: Row(
         children: [
           Icon(
             Icons.warning_amber_rounded,
-            color: Color(0xFFFFBF00),
+            color: colors.statusWarning,
             size: 20,
           ),
-          SizedBox(width: 10),
+          const SizedBox(width: 10),
           Expanded(
             child: Text(
               'Do not unplug or disconnect the device during the update.',
               style: TextStyle(
-                color: Color(0xFFFFBF00),
+                color: colors.statusWarning,
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
               ),
@@ -100,34 +101,38 @@ class _FirmwareUpdateDialogState extends State<FirmwareUpdateDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
+
     return AlertDialog(
-      backgroundColor: const Color(0xFF222222),
       title: Text(
         _isFlashing ? 'Updating Firmware' : 'Firmware Update Available',
-        style: const TextStyle(color: Colors.white),
+        style: TextStyle(
+          color: colors.textPrimary,
+          fontWeight: FontWeight.bold,
+        ),
       ),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (!_isFlashing) ...[
-            const Text(
+            Text(
               'A newer firmware version is recommended for optimal performance with this app version. Would you like to update now?',
-              style: TextStyle(color: Colors.white70),
+              style: TextStyle(color: colors.textSecondary),
             ),
             const SizedBox(height: 16),
-            _buildWarningBanner(),
+            _buildWarningBanner(colors),
           ] else ...[
-            Text(_status, style: const TextStyle(color: Colors.white70)),
+            Text(_status, style: TextStyle(color: colors.textSecondary)),
             const SizedBox(height: 16),
             if (!_isError && !_isComplete) ...[
               LinearProgressIndicator(
                 value: _progress > 0 ? _progress : null,
-                backgroundColor: Colors.white12,
-                valueColor: const AlwaysStoppedAnimation<Color>(Colors.blue),
+                backgroundColor: colors.subtleBorder,
+                valueColor: AlwaysStoppedAnimation<Color>(colors.accent),
               ),
               const SizedBox(height: 16),
-              _buildWarningBanner(),
+              _buildWarningBanner(colors),
             ],
           ],
         ],
@@ -136,20 +141,21 @@ class _FirmwareUpdateDialogState extends State<FirmwareUpdateDialog> {
         if (!_isFlashing) ...[
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Later', style: TextStyle(color: Colors.white54)),
+            child: Text('Later', style: TextStyle(color: colors.textMuted)),
           ),
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF1565C0),
+              backgroundColor: colors.accent,
+              foregroundColor: colors.buttonForeground,
             ),
             onPressed: _startUpdate,
-            icon: const Icon(Icons.system_update, size: 18, color: Colors.white),
-            label: const Text('Update Now', style: TextStyle(color: Colors.white)),
+            icon: Icon(Icons.system_update, size: 18, color: colors.buttonForeground),
+            label: Text('Update Now', style: TextStyle(color: colors.buttonForeground)),
           ),
         ] else if (_isError || _isComplete) ...[
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
+            child: Text('Close', style: TextStyle(color: colors.accent)),
           ),
         ],
       ],

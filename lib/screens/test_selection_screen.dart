@@ -4,6 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../providers/dragy_provider.dart';
 import '../utils/unit_converter.dart';
+import '../widgets/app_segmented_switch.dart';
+import '../theme/app_theme.dart';
 
 class TestSelectionScreen extends StatelessWidget {
   const TestSelectionScreen({super.key});
@@ -12,6 +14,7 @@ class TestSelectionScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final dragy = Provider.of<DragyProvider>(context);
     final isMetric = dragy.isMetric;
+    final colors = context.colors;
 
     final visibleCustom = dragy.customTests
         .where((t) => t.matchesUnitSystem(isMetric))
@@ -22,78 +25,67 @@ class TestSelectionScreen extends StatelessWidget {
       child: Builder(
         builder: (context) {
           return Scaffold(
-            backgroundColor: Colors.black,
             appBar: AppBar(
-              backgroundColor: const Color(0xFF1565C0),
-              iconTheme: const IconThemeData(color: Colors.white),
-              title: Text(
-                'Active Tests',
-                style: GoogleFonts.roboto(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              title: const Text('Active Tests'),
               actions: [
                 IconButton(
                   icon: const Icon(Icons.add),
                   onPressed: () => _showAddCustomTestDialog(context, dragy),
                 ),
               ],
-              bottom: TabBar(
-                indicatorColor: Colors.white,
-                labelColor: Colors.white,
-                unselectedLabelColor: Colors.white60,
-                tabs: const [
+              bottom: const TabBar(
+                tabs: [
                   Tab(text: 'Default'),
                   Tab(text: 'Custom'),
                 ],
               ),
               elevation: 0,
             ),
-        body: TabBarView(
-          children: [
-            ListView(
-              padding: const EdgeInsets.only(bottom: 100, top: 8),
+            body: TabBarView(
               children: [
-                ...officialTests
-                    .where((t) {
-                      if (t.distance != null) return true;
-                      return t.speedUnit ==
-                          (isMetric ? SpeedUnit.kmh : SpeedUnit.mph);
-                    })
-                    .map((test) {
-                  return _TestTile(
-                    test: test,
-                    isEnabled: dragy.enabledTests.contains(test.id),
-                    onChanged: (val) => dragy.toggleTestEnabled(test.id, val),
-                  );
-                }),
+                ListView(
+                  padding: const EdgeInsets.only(bottom: 100, top: 8),
+                  children: [
+                    ...officialTests
+                        .where((t) {
+                          if (t.distance != null) return true;
+                          return t.speedUnit ==
+                              (isMetric ? SpeedUnit.kmh : SpeedUnit.mph);
+                        })
+                        .map((test) {
+                      return _TestTile(
+                        test: test,
+                        isEnabled: dragy.enabledTests.contains(test.id),
+                        onChanged: (val) =>
+                            dragy.toggleTestEnabled(test.id, val),
+                      );
+                    }),
+                  ],
+                ),
+                visibleCustom.isEmpty
+                    ? Center(
+                        child: Text(
+                          'No Custom Tests yet.',
+                          style: GoogleFonts.roboto(color: colors.textMuted),
+                        ),
+                      )
+                    : ListView(
+                        padding: const EdgeInsets.only(bottom: 100, top: 8),
+                        children: [
+                          ...visibleCustom.map(
+                            (test) => _TestTile(
+                              test: test,
+                              onDelete: () => dragy.removeCustomTest(test.id),
+                            ),
+                          ),
+                        ],
+                      ),
               ],
             ),
-            visibleCustom.isEmpty
-                ? Center(
-                    child: Text(
-                      'No Custom Tests yet.',
-                      style: GoogleFonts.roboto(color: Colors.white54),
-                    ),
-                  )
-                : ListView(
-                    padding: const EdgeInsets.only(bottom: 100, top: 8),
-                    children: [
-                      ...visibleCustom.map(
-                        (test) => _TestTile(
-                          test: test,
-                          onDelete: () => dragy.removeCustomTest(test.id),
-                        ),
-                      ),
-                    ],
-                  ),
-          ],
-        ),
-      );
-     },
-    ),
-   );
+          );
+        },
+      ),
+    );
   }
 
   void _showAddCustomTestDialog(BuildContext context, DragyProvider dragy) {
@@ -123,18 +115,19 @@ class _TestTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     final Widget iconContainer = Container(
       width: 40,
       height: 40,
       decoration: BoxDecoration(
         color: isEnabled
-            ? const Color(0xFF1565C0).withOpacity(0.2)
-            : Colors.white.withOpacity(0.05),
+            ? const Color(0xFF1565C0).withValues(alpha: 0.2)
+            : colors.subtleBackground,
         borderRadius: BorderRadius.circular(10),
       ),
       child: Icon(
         test.distance != null ? Icons.flag_outlined : Icons.speed,
-        color: isEnabled ? const Color(0xFF42A5F5) : Colors.white38,
+        color: isEnabled ? const Color(0xFF42A5F5) : colors.textMuted,
         size: 22,
       ),
     );
@@ -142,9 +135,9 @@ class _TestTile extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       decoration: BoxDecoration(
-        color: const Color(0xFF111111),
+        color: colors.cardBackground,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border: Border.all(color: colors.cardBorder),
       ),
       child: onDelete != null
           ? ListTile(
@@ -152,26 +145,27 @@ class _TestTile extends StatelessWidget {
               title: Text(
                 test.displayName,
                 style: GoogleFonts.roboto(
-                  color: Colors.white,
+                  color: colors.textPrimary,
                   fontSize: 15,
                   fontWeight: FontWeight.w500,
                 ),
               ),
               trailing: IconButton(
-                icon: const Icon(Icons.delete_outline, color: Colors.white38),
+                icon: Icon(Icons.delete_outline, color: colors.textMuted),
                 onPressed: onDelete,
               ),
               contentPadding:
                   const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14)),
+                borderRadius: BorderRadius.circular(14),
+              ),
             )
           : SwitchListTile(
               secondary: iconContainer,
               title: Text(
                 test.displayName,
                 style: GoogleFonts.roboto(
-                  color: Colors.white,
+                  color: colors.textPrimary,
                   fontSize: 15,
                   fontWeight: FontWeight.w500,
                 ),
@@ -180,12 +174,17 @@ class _TestTile extends StatelessWidget {
               onChanged: onChanged,
               activeThumbColor: const Color(0xFF42A5F5),
               activeTrackColor: const Color(0xFF1565C0),
-              inactiveThumbColor: Colors.white38,
-              inactiveTrackColor: Colors.white12,
+              inactiveThumbColor:
+                  context.isDark ? colors.textMuted : const Color(0xFF8E8E93),
+              inactiveTrackColor:
+                  context.isDark ? Colors.white12 : const Color(0xFFE5E5EA),
+              trackOutlineColor:
+                  const WidgetStatePropertyAll(Colors.transparent),
               contentPadding:
                   const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14)),
+                borderRadius: BorderRadius.circular(14),
+              ),
             ),
     );
   }
@@ -206,51 +205,37 @@ class _AddCustomTestDialogState extends State<_AddCustomTestDialog> {
   final TextEditingController _distanceController = TextEditingController();
 
   @override
-  void initState() {
-    super.initState();
-  }
-
-  @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     final isMetric = widget.dragy.isMetric;
     final speedUnit = isMetric ? 'km/h' : 'mph';
     final distUnit = isMetric ? 'm' : 'ft';
+
     return AlertDialog(
-      backgroundColor: const Color(0xFF1E1E1E),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       title: Text(
         'New Custom Test',
-        style: GoogleFonts.roboto(color: Colors.white),
+        style: GoogleFonts.roboto(color: colors.textPrimary),
       ),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.05),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.white12),
-            ),
-            padding: const EdgeInsets.all(4),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _DialogModeButton(
-                  label: 'Speed',
-                  isActive: !isDistanceMode,
-                  onTap: () {
-                    if (isDistanceMode) setState(() => isDistanceMode = false);
-                  },
-                ),
-                _DialogModeButton(
-                  label: 'Distance',
-                  isActive: isDistanceMode,
-                  onTap: () {
-                    if (!isDistanceMode) setState(() => isDistanceMode = true);
-                  },
-                ),
-              ],
-            ),
+          AppSegmentedSwitch<bool>(
+            selectedValue: isDistanceMode,
+            items: const [
+              SegmentedSwitchItem(
+                value: false,
+                label: 'Speed',
+              ),
+              SegmentedSwitchItem(
+                value: true,
+                label: 'Distance',
+              ),
+            ],
+            onChanged: (val) {
+              if (isDistanceMode != val) {
+                setState(() => isDistanceMode = val);
+              }
+            },
           ),
           const SizedBox(height: 16),
           if (!isDistanceMode)
@@ -261,12 +246,12 @@ class _AddCustomTestDialogState extends State<_AddCustomTestDialog> {
                     controller: _startController,
                     keyboardType: TextInputType.number,
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    style: const TextStyle(color: Colors.white),
+                    style: TextStyle(color: colors.textPrimary),
                     decoration: InputDecoration(
                       labelText: 'Start ($speedUnit)',
-                      labelStyle: const TextStyle(color: Colors.white54),
-                      enabledBorder: const UnderlineInputBorder(
-                        borderSide: BorderSide(color: Colors.white24),
+                      labelStyle: TextStyle(color: colors.textMuted),
+                      enabledBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(color: colors.subtleBorder),
                       ),
                     ),
                   ),
@@ -277,12 +262,12 @@ class _AddCustomTestDialogState extends State<_AddCustomTestDialog> {
                     controller: _endController,
                     keyboardType: TextInputType.number,
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    style: const TextStyle(color: Colors.white),
+                    style: TextStyle(color: colors.textPrimary),
                     decoration: InputDecoration(
                       labelText: 'End ($speedUnit)',
-                      labelStyle: const TextStyle(color: Colors.white54),
-                      enabledBorder: const UnderlineInputBorder(
-                        borderSide: BorderSide(color: Colors.white24),
+                      labelStyle: TextStyle(color: colors.textMuted),
+                      enabledBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(color: colors.subtleBorder),
                       ),
                     ),
                   ),
@@ -294,12 +279,12 @@ class _AddCustomTestDialogState extends State<_AddCustomTestDialog> {
               controller: _distanceController,
               keyboardType: TextInputType.number,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              style: const TextStyle(color: Colors.white),
+              style: TextStyle(color: colors.textPrimary),
               decoration: InputDecoration(
                 labelText: 'Distance ($distUnit)',
-                labelStyle: const TextStyle(color: Colors.white54),
-                enabledBorder: const UnderlineInputBorder(
-                  borderSide: BorderSide(color: Colors.white24),
+                labelStyle: TextStyle(color: colors.textMuted),
+                enabledBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: colors.subtleBorder),
                 ),
               ),
             ),
@@ -310,7 +295,7 @@ class _AddCustomTestDialogState extends State<_AddCustomTestDialog> {
           onPressed: () => Navigator.pop(context),
           child: Text(
             'Cancel',
-            style: GoogleFonts.roboto(color: Colors.white54),
+            style: GoogleFonts.roboto(color: colors.textMuted),
           ),
         ),
         TextButton(
@@ -362,41 +347,6 @@ class _AddCustomTestDialogState extends State<_AddCustomTestDialog> {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _DialogModeButton extends StatelessWidget {
-  final String label;
-  final bool isActive;
-  final VoidCallback onTap;
-
-  const _DialogModeButton({
-    required this.label,
-    required this.isActive,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-        decoration: BoxDecoration(
-          color: isActive ? const Color(0xFF1565C0) : Colors.transparent,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Text(
-          label,
-          style: GoogleFonts.robotoMono(
-            color: isActive ? Colors.white : Colors.white54,
-            fontSize: 14,
-            fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
-          ),
-        ),
-      ),
     );
   }
 }

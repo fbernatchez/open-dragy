@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'providers/dragy_provider.dart';
-import 'screens/dashboard_screen.dart';
+import 'screens/main_navigation_screen.dart';
+
+import 'theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,29 +23,18 @@ class OpenDragyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [ChangeNotifierProvider(create: (_) => DragyProvider())],
-      child: MaterialApp(
-        title: 'OpenDragy',
-        debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          brightness: Brightness.dark,
-          scaffoldBackgroundColor: Colors.black, // True OLED black
-          primaryColor: const Color(0xFFFFBF00), // Neon Amber
-          colorScheme: const ColorScheme.dark(
-            primary: Color(0xFFFFBF00),
-            secondary: Color(0xFF39FF14), // Neon Green
-            surface: Color(0xFF111111),
-          ),
-          textTheme: GoogleFonts.interTextTheme(
-            Theme.of(context).textTheme,
-          ).apply(bodyColor: Colors.white, displayColor: Colors.white),
-          appBarTheme: const AppBarTheme(
-            backgroundColor: Colors.black,
-            elevation: 0,
-            centerTitle: true,
-          ),
-          useMaterial3: true,
-        ),
-        home: const DashboardScreen(),
+      child: Selector<DragyProvider, ThemeMode>(
+        selector: (_, dragy) => dragy.themeMode,
+        builder: (context, themeMode, _) {
+          return MaterialApp(
+            title: 'OpenDragy',
+            debugShowCheckedModeBanner: false,
+            themeMode: themeMode,
+            theme: AppTheme.lightTheme,
+            darkTheme: AppTheme.darkTheme,
+            home: const MainNavigationScreen(),
+          );
+        },
       ),
     );
   }

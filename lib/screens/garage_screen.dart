@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../providers/dragy_provider.dart';
 import '../models/vehicle.dart';
+import '../theme/app_theme.dart';
 
 class GarageScreen extends StatelessWidget {
   const GarageScreen({super.key});
@@ -12,23 +13,15 @@ class GarageScreen extends StatelessWidget {
     final dragy = Provider.of<DragyProvider>(context);
     final vehicles = dragy.vehicles;
     final activeId = dragy.activeVehicleId;
+    final colors = context.colors;
 
     return Scaffold(
-      backgroundColor: Colors.black,
       resizeToAvoidBottomInset: false,
       appBar: AppBar(
-        backgroundColor: Colors.black,
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: Text(
-          'Garage',
-          style: GoogleFonts.comfortaa(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
+        title: const Text('Garage'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.add, color: Color(0xFFFFBF00)),
+            icon: Icon(Icons.add, color: colors.accent),
             onPressed: () => _showVehicleForm(context, null),
           ),
         ],
@@ -58,24 +51,24 @@ class GarageScreen extends StatelessWidget {
     DragyProvider dragy,
     Vehicle vehicle,
   ) {
+    final colors = context.colors;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: Colors.grey.shade900,
-        title: const Text(
+        title: Text(
           'Delete Vehicle',
-          style: TextStyle(color: Colors.white),
+          style: TextStyle(color: colors.textPrimary),
         ),
         content: Text(
           'Remove ${vehicle.displayName} from your garage?',
-          style: const TextStyle(color: Colors.white70),
+          style: TextStyle(color: colors.textSecondary),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text(
+            child: Text(
               'Cancel',
-              style: TextStyle(color: Colors.white54),
+              style: TextStyle(color: colors.textMuted),
             ),
           ),
           TextButton(
@@ -83,9 +76,9 @@ class GarageScreen extends StatelessWidget {
               dragy.deleteVehicle(vehicle.id);
               Navigator.pop(ctx);
             },
-            child: const Text(
+            child: Text(
               'Delete',
-              style: TextStyle(color: Colors.redAccent),
+              style: TextStyle(color: colors.statusDanger),
             ),
           ),
         ],
@@ -109,6 +102,7 @@ class _EmptyGarageView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -116,17 +110,17 @@ class _EmptyGarageView extends StatelessWidget {
           Icon(
             Icons.directions_car_outlined,
             size: 80,
-            color: Colors.grey.shade800,
+            color: colors.instrumentRing,
           ),
           const SizedBox(height: 16),
           Text(
             'Your garage is empty.',
-            style: const TextStyle(color: Colors.white54, fontSize: 18),
+            style: TextStyle(color: colors.textSecondary, fontSize: 18),
           ),
           const SizedBox(height: 8),
           Text(
             'Add a vehicle to link it to your runs.',
-            style: const TextStyle(color: Colors.white38, fontSize: 14),
+            style: TextStyle(color: colors.textMuted, fontSize: 14),
           ),
           const SizedBox(height: 24),
           ElevatedButton.icon(
@@ -134,8 +128,8 @@ class _EmptyGarageView extends StatelessWidget {
             icon: const Icon(Icons.add),
             label: const Text('Add Vehicle'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFFFBF00),
-              foregroundColor: Colors.black,
+              backgroundColor: colors.accent,
+              foregroundColor: colors.buttonForeground,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
               ),
@@ -164,25 +158,27 @@ class _VehicleCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
+
     return GestureDetector(
       onTap: onSelect,
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
           color: isActive
-              ? const Color(0xFFFFBF00).withOpacity(0.07)
-              : const Color(0xFF111111),
+              ? colors.accent.withOpacity(0.07)
+              : colors.cardBackground,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isActive
-                ? const Color(0xFFFFBF00).withOpacity(0.6)
-                : Colors.white.withOpacity(0.07),
+                ? colors.accent.withOpacity(0.6)
+                : colors.cardBorder,
             width: isActive ? 1.5 : 1.0,
           ),
           boxShadow: isActive
               ? [
                   BoxShadow(
-                    color: const Color(0xFFFFBF00).withOpacity(0.1),
+                    color: colors.accent.withOpacity(0.1),
                     blurRadius: 12,
                     spreadRadius: 1,
                   ),
@@ -199,13 +195,13 @@ class _VehicleCard extends StatelessWidget {
                 height: 52,
                 decoration: BoxDecoration(
                   color: isActive
-                      ? const Color(0xFFFFBF00).withOpacity(0.15)
-                      : Colors.white.withOpacity(0.05),
+                      ? colors.accent.withOpacity(0.15)
+                      : colors.subtleBackground,
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
                   Icons.directions_car,
-                  color: isActive ? const Color(0xFFFFBF00) : Colors.white54,
+                  color: isActive ? colors.accent : colors.textMuted,
                   size: 26,
                 ),
               ),
@@ -220,8 +216,8 @@ class _VehicleCard extends StatelessWidget {
                         Expanded(
                           child: Text(
                             vehicle.displayName,
-                            style: const TextStyle(
-                              color: Colors.white,
+                            style: TextStyle(
+                              color: colors.textPrimary,
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
                             ),
@@ -234,16 +230,16 @@ class _VehicleCard extends StatelessWidget {
                               vertical: 3,
                             ),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFFFBF00).withOpacity(0.2),
+                              color: colors.accent.withOpacity(0.2),
                               borderRadius: BorderRadius.circular(20),
                               border: Border.all(
-                                color: const Color(0xFFFFBF00).withOpacity(0.5),
+                                color: colors.accent.withOpacity(0.5),
                               ),
                             ),
-                            child: const Text(
+                            child: Text(
                               'ACTIVE',
                               style: TextStyle(
-                                color: Color(0xFFFFBF00),
+                                color: colors.accent,
                                 fontSize: 10,
                                 fontWeight: FontWeight.bold,
                                 letterSpacing: 1.0,
@@ -258,8 +254,8 @@ class _VehicleCard extends StatelessWidget {
               const SizedBox(width: 8),
               // Action buttons
               PopupMenuButton<String>(
-                icon: const Icon(Icons.more_vert, color: Colors.white38),
-                color: Colors.grey.shade900,
+                icon: Icon(Icons.more_vert, color: colors.textMuted),
+                color: colors.cardBackground,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -268,17 +264,17 @@ class _VehicleCard extends StatelessWidget {
                   if (value == 'delete') onDelete();
                 },
                 itemBuilder: (ctx) => [
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 'edit',
                     child: Row(
                       children: [
                         Icon(
                           Icons.edit_outlined,
-                          color: Colors.white54,
+                          color: colors.textMuted,
                           size: 18,
                         ),
-                        SizedBox(width: 10),
-                        Text('Edit', style: TextStyle(color: Colors.white)),
+                        const SizedBox(width: 10),
+                        Text('Edit', style: TextStyle(color: colors.textPrimary)),
                       ],
                     ),
                   ),
@@ -423,16 +419,18 @@ class _VehicleFormSheetState extends State<_VehicleFormSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     final isEdit = widget.existing != null;
+
     return Padding(
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
       ),
       child: Container(
         decoration: BoxDecoration(
-          color: const Color(0xFF111111),
+          color: colors.cardBackground,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          border: Border.all(color: Colors.white.withOpacity(0.08)),
+          border: Border.all(color: colors.cardBorder),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
         child: Form(
@@ -449,7 +447,7 @@ class _VehicleFormSheetState extends State<_VehicleFormSheet> {
                     height: 4,
                     margin: const EdgeInsets.only(bottom: 20),
                     decoration: BoxDecoration(
-                      color: Colors.white24,
+                      color: colors.modalHandle,
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -457,7 +455,7 @@ class _VehicleFormSheetState extends State<_VehicleFormSheet> {
                 Text(
                   isEdit ? 'Edit Vehicle' : 'Add Vehicle',
                   style: GoogleFonts.comfortaa(
-                    color: Colors.white,
+                    color: colors.textPrimary,
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                   ),
@@ -466,36 +464,36 @@ class _VehicleFormSheetState extends State<_VehicleFormSheet> {
                 // Brand Dropdown Selector
                 DropdownButtonFormField<String>(
                   initialValue: _selectedBrand,
-                  dropdownColor: const Color(0xFF1F1F1F),
-                  icon: const Icon(
+                  dropdownColor: colors.cardBackground,
+                  icon: Icon(
                     Icons.arrow_drop_down,
-                    color: Color(0xFFFFBF00),
+                    color: colors.accent,
                   ),
-                  style: const TextStyle(color: Colors.white, fontSize: 15),
+                  style: TextStyle(color: colors.textPrimary, fontSize: 15),
                   decoration: InputDecoration(
                     labelText: 'Brand',
-                    labelStyle: const TextStyle(
-                      color: Colors.white38,
+                    labelStyle: TextStyle(
+                      color: colors.textMuted,
                       fontSize: 13,
                     ),
                     filled: true,
-                    fillColor: Colors.white.withOpacity(0.05),
+                    fillColor: colors.subtleBackground,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide(
-                        color: Colors.white.withOpacity(0.1),
+                        color: colors.subtleBorder,
                       ),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide(
-                        color: Colors.white.withOpacity(0.1),
+                        color: colors.subtleBorder,
                       ),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(
-                        color: Color(0xFFFFBF00),
+                      borderSide: BorderSide(
+                        color: colors.accent,
                         width: 1.5,
                       ),
                     ),
@@ -523,7 +521,7 @@ class _VehicleFormSheetState extends State<_VehicleFormSheet> {
                       value: brand,
                       child: Text(
                         brand,
-                        style: const TextStyle(color: Colors.white),
+                        style: TextStyle(color: colors.textPrimary),
                       ),
                     );
                   }).toList(),
@@ -584,8 +582,8 @@ class _VehicleFormSheetState extends State<_VehicleFormSheet> {
                   child: ElevatedButton(
                     onPressed: _save,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFFFBF00),
-                      foregroundColor: Colors.black,
+                      backgroundColor: colors.accent,
+                      foregroundColor: colors.buttonForeground,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -593,7 +591,8 @@ class _VehicleFormSheetState extends State<_VehicleFormSheet> {
                     ),
                     child: Text(
                       isEdit ? 'Save Changes' : 'Add to Garage',
-                      style: const TextStyle(
+                      style: TextStyle(
+                        color: colors.buttonForeground,
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
                       ),
@@ -626,32 +625,34 @@ class _StyledField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
+
     return TextFormField(
       controller: controller,
       maxLines: 1,
       keyboardType: keyboardType,
       textCapitalization: TextCapitalization.words,
       validator: validator,
-      style: const TextStyle(color: Colors.white, fontSize: 15),
-      cursorColor: const Color(0xFFFFBF00),
+      style: TextStyle(color: colors.textPrimary, fontSize: 15),
+      cursorColor: colors.accent,
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
-        labelStyle: const TextStyle(color: Colors.white38, fontSize: 13),
-        hintStyle: const TextStyle(color: Colors.white24, fontSize: 13),
+        labelStyle: TextStyle(color: colors.textMuted, fontSize: 13),
+        hintStyle: TextStyle(color: colors.textMuted.withOpacity(0.6), fontSize: 13),
         filled: true,
-        fillColor: Colors.white.withOpacity(0.05),
+        fillColor: colors.subtleBackground,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+          borderSide: BorderSide(color: colors.subtleBorder),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+          borderSide: BorderSide(color: colors.subtleBorder),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFFFFBF00), width: 1.5),
+          borderSide: BorderSide(color: colors.accent, width: 1.5),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
