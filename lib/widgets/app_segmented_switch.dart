@@ -42,13 +42,13 @@ class AppSegmentedSwitch<T> extends StatelessWidget {
           alignment: Alignment.center,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: BoxDecoration(
-            color: isSelected ? const Color(0xFF1565C0) : Colors.transparent,
+            color: isSelected ? colors.accent : Colors.transparent,
             borderRadius: BorderRadius.circular(7),
           ),
           child: Text(
             item.label,
             style: AppTheme.font(
-              color: isSelected ? Colors.white : unselectedTextColor,
+              color: isSelected ? colors.buttonForeground : unselectedTextColor,
               fontSize: 13,
               fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
               letterSpacing: 0.8,

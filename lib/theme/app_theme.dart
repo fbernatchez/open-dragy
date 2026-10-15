@@ -168,10 +168,10 @@ class AppTheme {
       scaffoldBackgroundColor: AppColors.dark.background,
       cardColor: AppColors.dark.cardBackground,
       primaryColor: AppColors.dark.accent,
-      colorScheme: const ColorScheme.dark(
-        primary: Color(0xFFFFBF00),
-        secondary: Color(0xFF39FF14),
-        surface: Color(0xFF141414),
+      colorScheme: ColorScheme.dark(
+        primary: AppColors.dark.accent,
+        secondary: const Color(0xFF39FF14),
+        surface: const Color(0xFF141414),
         onSurface: Colors.white,
       ),
       textTheme: GoogleFonts.robotoTextTheme(
@@ -204,30 +204,30 @@ class AppTheme {
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
       ),
-      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-        backgroundColor: Color(0xFF111111),
-        selectedItemColor: Color(0xFFFFBF00),
+      bottomNavigationBarTheme: BottomNavigationBarThemeData(
+        backgroundColor: const Color(0xFF111111),
+        selectedItemColor: AppColors.dark.accent,
         unselectedItemColor: Colors.white38,
       ),
       dividerTheme: const DividerThemeData(
         color: Color(0x1FFFFFFF),
         thickness: 1,
       ),
-      tabBarTheme: const TabBarThemeData(
-        indicatorColor: Color(0xFFFFBF00),
-        labelColor: Color(0xFFFFBF00),
+      tabBarTheme: TabBarThemeData(
+        indicatorColor: AppColors.dark.accent,
+        labelColor: AppColors.dark.accent,
         unselectedLabelColor: Colors.white60,
       ),
       switchTheme: SwitchThemeData(
         thumbColor: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
-            return const Color(0xFF42A5F5);
+            return AppColors.dark.accent;
           }
           return Colors.white70;
         }),
         trackColor: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
-            return const Color(0xFF1565C0);
+            return AppColors.dark.accent.withValues(alpha: 0.38);
           }
           return Colors.white12;
         }),
@@ -237,7 +237,7 @@ class AppTheme {
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.dark.accent,
-          foregroundColor: Colors.black,
+          foregroundColor: AppColors.dark.buttonForeground,
         ),
       ),
       extensions: const [AppColors.dark],
@@ -307,13 +307,13 @@ class AppTheme {
       switchTheme: SwitchThemeData(
         thumbColor: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
-            return const Color(0xFF42A5F5);
+            return AppColors.light.accent;
           }
           return const Color(0xFF8E8E93);
         }),
         trackColor: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
-            return const Color(0xFF1565C0);
+            return AppColors.light.accent.withValues(alpha: 0.35);
           }
           return const Color(0xFFE5E5EA);
         }),

@@ -55,12 +55,12 @@ class SettingsScreen extends StatelessWidget {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF9C27B0).withValues(alpha: 0.18),
+                  color: colors.accent.withValues(alpha: 0.18),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.brightness_6_rounded,
-                  color: Color(0xFFBA68C8),
+                  color: colors.accent,
                   size: 22,
                 ),
               ),
@@ -144,12 +144,12 @@ class SettingsScreen extends StatelessWidget {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1565C0).withValues(alpha: 0.2),
+                  color: colors.accent.withValues(alpha: 0.18),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.directions_car_outlined,
-                  color: Color(0xFF42A5F5),
+                  color: colors.accent,
                   size: 22,
                 ),
               ),
@@ -190,12 +190,12 @@ class SettingsScreen extends StatelessWidget {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1565C0).withValues(alpha: 0.2),
+                  color: colors.accent.withValues(alpha: 0.18),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.checklist,
-                  color: Color(0xFF42A5F5),
+                  color: colors.accent,
                   size: 22,
                 ),
               ),
@@ -236,12 +236,12 @@ class SettingsScreen extends StatelessWidget {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1565C0).withValues(alpha: 0.2),
+                  color: colors.accent.withValues(alpha: 0.18),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.explore_outlined,
-                  color: Color(0xFF42A5F5),
+                  color: colors.accent,
                   size: 22,
                 ),
               ),
@@ -277,12 +277,12 @@ class SettingsScreen extends StatelessWidget {
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1565C0).withValues(alpha: 0.15),
+                    color: colors.accent.withValues(alpha: 0.18),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.info_outline,
-                    color: Color(0xFF42A5F5),
+                    color: colors.accent,
                     size: 22,
                   ),
                 ),
@@ -337,8 +337,8 @@ class SettingsScreen extends StatelessWidget {
                 icon: const Icon(Icons.system_update),
                 label: const Text('Update Firmware'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1565C0),
-                  foregroundColor: Colors.white,
+                  backgroundColor: colors.accent,
+                  foregroundColor: colors.buttonForeground,
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
@@ -536,13 +536,13 @@ class _SettingsToggle extends StatelessWidget {
           height: 40,
           decoration: BoxDecoration(
             color: value
-                ? const Color(0xFF1565C0).withValues(alpha: 0.2)
+                ? colors.accent.withValues(alpha: 0.18)
                 : colors.subtleBackground,
             borderRadius: BorderRadius.circular(10),
           ),
           child: Icon(
             icon,
-            color: value ? const Color(0xFF42A5F5) : subtitleColor,
+            color: value ? colors.accent : subtitleColor,
             size: 22,
           ),
         ),
@@ -560,8 +560,8 @@ class _SettingsToggle extends StatelessWidget {
         ),
         value: value,
         onChanged: onChanged,
-        activeThumbColor: const Color(0xFF42A5F5),
-        activeTrackColor: const Color(0xFF1565C0),
+        activeThumbColor: colors.accent,
+        activeTrackColor: colors.accent.withValues(alpha: 0.35),
         inactiveThumbColor: isDark ? subtitleColor : const Color(0xFF8E8E93),
         inactiveTrackColor: isDark ? Colors.white12 : const Color(0xFFE5E5EA),
         trackOutlineColor: const WidgetStatePropertyAll(Colors.transparent),

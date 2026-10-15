@@ -120,13 +120,13 @@ class _TestTile extends StatelessWidget {
       height: 40,
       decoration: BoxDecoration(
         color: isEnabled
-            ? const Color(0xFF1565C0).withValues(alpha: 0.2)
+            ? colors.accent.withValues(alpha: 0.18)
             : colors.subtleBackground,
         borderRadius: BorderRadius.circular(10),
       ),
       child: Icon(
         test.distance != null ? Icons.flag_outlined : Icons.speed,
-        color: isEnabled ? const Color(0xFF42A5F5) : colors.textMuted,
+        color: isEnabled ? colors.accent : colors.textMuted,
         size: 22,
       ),
     );
@@ -171,8 +171,8 @@ class _TestTile extends StatelessWidget {
               ),
               value: isEnabled,
               onChanged: onChanged,
-              activeThumbColor: const Color(0xFF42A5F5),
-              activeTrackColor: const Color(0xFF1565C0),
+              activeThumbColor: colors.accent,
+              activeTrackColor: colors.accent.withValues(alpha: 0.35),
               inactiveThumbColor:
                   context.isDark ? colors.textMuted : const Color(0xFF8E8E93),
               inactiveTrackColor:
@@ -342,7 +342,7 @@ class _AddCustomTestDialogState extends State<_AddCustomTestDialog> {
           },
           child: Text(
             'Add',
-            style: AppTheme.font(color: const Color(0xFF42A5F5)),
+            style: AppTheme.font(color: colors.accent),
           ),
         ),
       ],

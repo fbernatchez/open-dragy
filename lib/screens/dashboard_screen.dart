@@ -342,7 +342,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ? Icons.bluetooth_connected
                   : Icons.bluetooth_disabled,
               color: isConnected
-                  ? colors.accentSecondary
+                  ? const Color(0xFF2196F3)
                   : mutedTextColor,
             ),
           ),
@@ -556,9 +556,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   borderRadius: BorderRadius.circular(10),
                                   border: Border.all(color: surfaceBorderColor),
                                 ),
-                                child: const Icon(
+                                child: Icon(
                                   Icons.edit_road,
-                                  color: Color(0xFF42A5F5),
+                                  color: colors.accent,
                                   size: 18,
                                 ),
                               ),
@@ -703,8 +703,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: isArmed
                                         ? Colors.redAccent
-                                        : const Color(0xFF1565C0),
-                                    foregroundColor: Colors.white,
+                                        : colors.accent,
+                                    foregroundColor: isArmed
+                                        ? Colors.white
+                                        : colors.buttonForeground,
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 40,
                                       vertical: 14,
@@ -715,8 +717,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     elevation: 8,
                                     shadowColor: isArmed
                                         ? Colors.redAccent.withOpacity(0.5)
-                                        : const Color(0xFF1565C0)
-                                            .withOpacity(0.5),
+                                        : colors.accent.withOpacity(0.5),
                                   ),
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,

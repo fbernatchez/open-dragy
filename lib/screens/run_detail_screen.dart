@@ -1489,22 +1489,22 @@ class _TelemetryChartState extends State<TelemetryChart> {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
           color: _isPlayingAudio
-              ? const Color(0xFF1565C0).withOpacity(0.5)
-              : const Color(0xFF1565C0),
+              ? context.colors.accent.withOpacity(0.5)
+              : context.colors.accent,
           borderRadius: BorderRadius.circular(20),
         ),
         child: Row(
           children: [
             Icon(
               _isPlayingAudio ? Icons.pause : Icons.play_arrow,
-              color: Colors.white,
+              color: context.colors.buttonForeground,
               size: 16,
             ),
             const SizedBox(width: 4),
             Text(
               _isPlayingAudio ? 'PAUSE' : 'PLAY',
               style: AppTheme.font(
-                color: Colors.white,
+                color: context.colors.buttonForeground,
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
               ),

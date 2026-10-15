@@ -65,12 +65,12 @@ class BoxPivotPreviewWidget extends StatelessWidget {
                 width: 38,
                 height: 38,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1565C0).withValues(alpha: isDark ? 0.2 : 0.12),
+                  color: colors.accent.withValues(alpha: isDark ? 0.2 : 0.12),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.explore_outlined,
-                  color: Color(0xFF42A5F5),
+                  color: colors.accent,
                   size: 20,
                 ),
               ),
@@ -102,16 +102,16 @@ class BoxPivotPreviewWidget extends StatelessWidget {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1565C0).withValues(alpha: isDark ? 0.25 : 0.15),
+                  color: colors.accent.withValues(alpha: isDark ? 0.25 : 0.15),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: const Color(0xFF42A5F5).withValues(alpha: 0.5),
+                    color: colors.accent.withValues(alpha: 0.5),
                   ),
                 ),
                 child: Text(
                   '$angle°',
                   style: AppTheme.numericFont(
-                    color: isDark ? const Color(0xFF90CAF9) : const Color(0xFF1565C0),
+                    color: colors.accent,
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
                   ),
@@ -145,7 +145,7 @@ class BoxPivotPreviewWidget extends StatelessWidget {
                       shape: BoxShape.circle,
                       gradient: RadialGradient(
                         colors: [
-                          const Color(0xFF1565C0).withValues(alpha: isDark ? 0.08 : 0.04),
+                          colors.accent.withValues(alpha: isDark ? 0.08 : 0.04),
                           Colors.transparent,
                         ],
                       ),
@@ -220,7 +220,7 @@ class BoxPivotPreviewWidget extends StatelessWidget {
                       decoration: BoxDecoration(
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFF2196F3).withValues(alpha: isDark ? 0.2 : 0.15),
+                            color: colors.accent.withValues(alpha: isDark ? 0.2 : 0.15),
                             blurRadius: 16,
                             spreadRadius: 2,
                           ),
@@ -285,10 +285,10 @@ class BoxPivotPreviewWidget extends StatelessWidget {
                 child: SliderTheme(
                   data: SliderTheme.of(context).copyWith(
                     trackHeight: 3,
-                    activeTrackColor: const Color(0xFF1E88E5),
+                    activeTrackColor: colors.accent,
                     inactiveTrackColor: isDark ? Colors.white12 : Colors.black12,
-                    thumbColor: const Color(0xFF42A5F5),
-                    overlayColor: const Color(0xFF2196F3).withValues(alpha: 0.2),
+                    thumbColor: colors.accent,
+                    overlayColor: colors.accent.withValues(alpha: 0.2),
                     thumbShape:
                         const RoundSliderThumbShape(enabledThumbRadius: 7),
                   ),
@@ -316,8 +316,8 @@ class BoxPivotPreviewWidget extends StatelessWidget {
               child: ElevatedButton(
                 onPressed: () => Navigator.of(context).pop(),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1565C0),
-                  foregroundColor: Colors.white,
+                  backgroundColor: colors.accent,
+                  foregroundColor: colors.buttonForeground,
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
@@ -347,12 +347,12 @@ class BoxPivotPreviewWidget extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
           color: isSelected
-              ? const Color(0xFF1565C0)
+              ? colors.accent
               : colors.subtleBackground,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: isSelected
-                ? const Color(0xFF42A5F5)
+                ? colors.accent
                 : colors.cardBorder,
             width: 1,
           ),
@@ -360,7 +360,7 @@ class BoxPivotPreviewWidget extends StatelessWidget {
         child: Text(
           label,
           style: AppTheme.font(
-            color: isSelected ? Colors.white : colors.textSecondary,
+            color: isSelected ? colors.buttonForeground : colors.textSecondary,
             fontSize: 11,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.w400,
           ),
